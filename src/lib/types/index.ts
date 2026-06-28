@@ -36,6 +36,7 @@ export interface Member {
   photoURL: string;
   balance: number;
   role: string;
+  status: string;
 }
 
 export interface SplitEntry {

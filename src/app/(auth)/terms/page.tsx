@@ -27,7 +27,12 @@ export default function TermsPage() {
     setError(null);
     try {
       await userService.acceptTnC();
-      router.push("/dashboard");
+      const pendingInvite = sessionStorage.getItem("pendingInviteCode");
+      if (pendingInvite) {
+        router.push(`/join/${pendingInvite}`);
+      } else {
+        router.push("/dashboard");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to accept terms");
       setAccepting(false);

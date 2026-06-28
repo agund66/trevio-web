@@ -13,7 +13,10 @@ export default function LoginPage() {
   useEffect(() => {
     if (loading) return;
     if (user) {
-      if (!user.acceptedTnC) {
+      const pendingInvite = sessionStorage.getItem("pendingInviteCode");
+      if (pendingInvite) {
+        router.push(`/join/${pendingInvite}`);
+      } else if (!user.acceptedTnC) {
         router.push("/terms");
       } else {
         router.push("/dashboard");

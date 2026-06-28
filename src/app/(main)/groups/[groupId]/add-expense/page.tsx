@@ -11,7 +11,7 @@ export default function AddExpensePage() {
   const params = useParams();
   const router = useRouter();
   const groupId = params.groupId as string;
-  const { expense, settlement } = useServices();
+  const { expense, settlement, group } = useServices();
   const queryClient = useQueryClient();
 
   const [description, setDescription] = useState("");
@@ -27,13 +27,20 @@ export default function AddExpensePage() {
     queryFn: () => settlement.getGroupBalances(groupId),
   });
 
+  const { data: groupInfo } = useQuery({
+    queryKey: ["groupInfo", groupId],
+    queryFn: () => group.getGroupInfo(groupId),
+  });
+
+  const currency = groupInfo?.currency || "INR";
+
   const addMutation = useMutation({
     mutationFn: () =>
       expense.addExpense({
         groupId,
         description,
         amount: parseFloat(amount),
-        currency: "INR",
+        currency,
         paidBy: paidByUid || members?.[0]?.uid || "",
         splitType,
         splits: {},
@@ -63,13 +70,18 @@ export default function AddExpensePage() {
 
       <div className="space-y-5">
         <div>
-          <input
-            type="text"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-            placeholder="0.00"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-3xl font-bold text-slate-900 focus:border-trevio-500 focus:outline-none"
-          />
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
+              {currency === "INR" ? "₹" : currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency === "JPY" ? "¥" : currency}
+            </span>
+            <input
+              type="text"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              placeholder="0.00"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 focus:border-trevio-500 focus:outline-none"
+            />
+          </div>
         </div>
 
         <div>

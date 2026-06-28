@@ -1,6 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../firebase";
-import type { GroupService } from "../interfaces/group-service";
+import type { GroupService, GroupInfo } from "../interfaces/group-service";
 import type { Group, GroupTemplate } from "../../types";
 
 export class FirebaseGroupService implements GroupService {
@@ -42,5 +42,11 @@ export class FirebaseGroupService implements GroupService {
     const result = await fn();
     const data = result.data as { groups: Group[] };
     return data.groups || [];
+  }
+
+  async getGroupInfo(groupId: string): Promise<GroupInfo> {
+    const fn = httpsCallable(functions, "getGroupInfo");
+    const result = await fn({ groupId });
+    return result.data as GroupInfo;
   }
 }
