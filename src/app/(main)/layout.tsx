@@ -4,11 +4,14 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useServices } from "@/lib/services/service-provider";
+import { TrevioLogo } from "@/components/trevio-logo";
 import { Home, Bell, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, refreshUser } = useAuth();
+  const { user: userService } = useServices();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -16,10 +19,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (loading) return;
     if (!user) {
       router.push("/login");
-    } else if (!user.acceptedTnC) {
-      router.push("/terms");
+    } else if (!user.acceptedTnC || !user.phoneNumber) {
+      router.push("/login");
+    } else if (!user.username) {
+      // Auto-repair: generate missing username for existing users
+      // who accepted TnC under old rules but username creation failed
+      userService.acceptTnC().then(() => refreshUser()).catch(console.error);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, userService, refreshUser]);
 
   if (loading) {
     return (
@@ -42,7 +49,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* Sidebar - desktop */}
       <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 bg-white">
         <div className="flex h-16 items-center px-6">
-          <span className="text-xl font-bold text-trevio-600">Trevio</span>
+          <TrevioLogo size="md" />
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navItems.map((item) => {
@@ -87,26 +94,28 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {/* Mobile top bar */}
-        <div className="md:hidden flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
-          <span className="text-lg font-bold text-trevio-600">Trevio</span>
-          <div className="flex items-center gap-3">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn("p-1.5 rounded-lg", isActive ? "text-trevio-600" : "text-slate-400")}
-                >
-                  <item.icon className="h-5 w-5" />
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+      <main className="flex-1 overflow-auto pb-16 md:pb-0">
         {children}
+
+        {/* Bottom navigation - mobile */}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 rounded-lg px-4 py-1.5 transition",
+                  isActive ? "text-trevio-600" : "text-slate-400"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </main>
     </div>
   );

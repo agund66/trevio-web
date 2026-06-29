@@ -27,7 +27,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
         <Link
@@ -40,14 +40,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="rounded-2xl bg-trevio-50 p-5">
-          <p className="text-sm font-medium text-trevio-700">You&apos;ll get</p>
-          <p className="mt-1 text-2xl font-bold text-trevio-600">{formatCurrency(totalOwed)}</p>
+      <div className="grid grid-cols-2 gap-3 mb-6 md:gap-4 md:mb-8">
+        <div className="rounded-2xl bg-trevio-50 p-4 md:p-5">
+          <p className="text-xs md:text-sm font-medium text-trevio-700">You&apos;ll get</p>
+          <p className="mt-1 text-xl md:text-2xl font-bold text-trevio-600">{formatCurrency(totalOwed)}</p>
         </div>
-        <div className="rounded-2xl bg-red-50 p-5">
-          <p className="text-sm font-medium text-red-700">You&apos;ll pay</p>
-          <p className="mt-1 text-2xl font-bold text-red-500">{formatCurrency(totalOwing)}</p>
+        <div className="rounded-2xl bg-red-50 p-4 md:p-5">
+          <p className="text-xs md:text-sm font-medium text-red-700">You&apos;ll pay</p>
+          <p className="mt-1 text-xl md:text-2xl font-bold text-red-500">{formatCurrency(totalOwing)}</p>
         </div>
       </div>
 
@@ -68,28 +68,28 @@ export default function DashboardPage() {
               <Link
                 key={g.groupId}
                 href={`/groups/${g.groupId}`}
-                className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-trevio-300 hover:shadow-sm"
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 hover:shadow-sm"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-trevio-50">
-                  <Icon className="h-6 w-6 text-trevio-600" />
+                <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-trevio-50 shrink-0">
+                  <Icon className="h-5 w-5 md:h-6 md:w-6 text-trevio-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900 truncate">{g.name}</p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs md:text-sm text-slate-500">
                     {g.memberCount} members · {formatCurrency(g.totalExpenses, g.currency)} total
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   {balance > 0.01 ? (
-                    <span className="rounded-lg bg-green-50 px-3 py-1 text-sm font-semibold text-green-600">
+                    <span className="rounded-lg bg-green-50 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-green-600">
                       you&apos;ll get {formatCurrency(balance, g.currency)}
                     </span>
                   ) : balance < -0.01 ? (
-                    <span className="rounded-lg bg-red-50 px-3 py-1 text-sm font-semibold text-red-500">
+                    <span className="rounded-lg bg-red-50 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-red-500">
                       you&apos;ll pay {formatCurrency(Math.abs(balance), g.currency)}
                     </span>
                   ) : (
-                    <span className="rounded-lg bg-slate-50 px-3 py-1 text-sm font-medium text-slate-400">
+                    <span className="rounded-lg bg-slate-50 px-2 md:px-3 py-1 text-xs md:text-sm font-medium text-slate-400">
                       settled up
                     </span>
                   )}

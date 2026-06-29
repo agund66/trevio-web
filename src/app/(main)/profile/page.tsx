@@ -3,20 +3,26 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { useQueryClient } from "@tanstack/react-query";
-import { Edit3, Check, X } from "lucide-react";
+import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone } from "lucide-react";
+import { TermsDialog } from "@/components/terms-dialog";
+import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber, buildUpiVpa } from "@/lib/utils";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const { user: userService } = useServices();
-  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("INR");
   const [upiId, setUpiId] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [countryCode, setCountryCode] = useState("IN");
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [upiTouched, setUpiTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   if (!user) return null;
 
@@ -24,10 +30,29 @@ export default function ProfilePage() {
     setDisplayName(user.displayName);
     setDefaultCurrency(user.defaultCurrency);
     setUpiId(user.upiId || "");
+    setPhoneNumber(user.phoneNumber || "");
+    setCountryCode(user.countryCode || "IN");
+    setUpiTouched(false);
+    setPhoneTouched(false);
     setEditing(true);
   };
 
+  const upiValidation = upiId ? validateUpiId(upiId) : { valid: true };
+  const phoneValidation = validatePhoneNumber(phoneNumber, countryCode);
+  const country = getCountryByCode(countryCode);
+
   const handleSave = async () => {
+    setUpiTouched(true);
+    setPhoneTouched(true);
+    if (!phoneValidation.valid) {
+      setError(phoneValidation.error || "Invalid phone number");
+      return;
+    }
+    if (upiId && !upiValidation.valid) {
+      setError(upiValidation.error || "Invalid UPI ID");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -36,11 +61,12 @@ export default function ProfilePage() {
         displayName,
         defaultCurrency,
         upiId,
+        phoneNumber: phoneNumber.replace(/\D/g, ""),
+        countryCode,
       };
       await userService.updateUser(updated);
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      await refreshUser();
       setEditing(false);
-      window.location.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update profile");
       setSaving(false);
@@ -59,8 +85,10 @@ export default function ProfilePage() {
     { code: "JPY", symbol: "¥", name: "Japanese Yen" },
   ];
 
+  const paymentVpa = buildUpiVpa(user.upiId || "", user.phoneNumber || "", user.countryCode || "IN");
+
   return (
-    <div className="mx-auto max-w-md p-6 md:p-8">
+    <div className="mx-auto max-w-md p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Profile</h1>
         {!editing && (
@@ -115,14 +143,88 @@ export default function ProfilePage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Mobile Number <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-2">
+              <div className="relative">
+                <button
+                  onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                  className="flex h-[46px] items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="text-lg">{country.flag}</span>
+                  <span>{country.dialCode}</span>
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
+                {showCountryDropdown && (
+                  <div className="absolute top-full left-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+                    {COUNTRY_CODES.map((c) => (
+                      <button
+                        key={c.code}
+                        onClick={() => {
+                          setCountryCode(c.code);
+                          setShowCountryDropdown(false);
+                          setPhoneTouched(false);
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                          c.code === countryCode ? "bg-trevio-50 text-trevio-700" : "text-slate-700"
+                        }`}
+                      >
+                        <span className="text-lg">{c.flag}</span>
+                        <span className="flex-1">{c.name}</span>
+                        <span className="text-slate-400">{c.dialCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => {
+                  setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, country.phoneLength));
+                  setPhoneTouched(false);
+                }}
+                onBlur={() => setPhoneTouched(true)}
+                placeholder={`${country.phoneLength}-digit number`}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
+              />
+            </div>
+            {phoneTouched && !phoneValidation.valid && (
+              <p className="mt-1.5 text-sm text-red-500">{phoneValidation.error}</p>
+            )}
+            {phoneValidation.valid && phoneNumber && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
+                <Check className="h-4 w-4" />
+                Valid {country.phoneLength}-digit number
+              </p>
+            )}
+            <p className="mt-1.5 text-xs text-slate-400">Used for UPI payments. Friends can pay you using this number.</p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">UPI ID (optional)</label>
             <input
               type="text"
               value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              placeholder="yourname@upi"
+              onChange={(e) => {
+                setUpiId(e.target.value);
+                setUpiTouched(false);
+              }}
+              onBlur={() => setUpiTouched(true)}
+              placeholder="yourname@okhdfcbank"
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
             />
+            {upiTouched && upiId && !upiValidation.valid && (
+              <p className="mt-1.5 text-sm text-red-500">{upiValidation.error}</p>
+            )}
+            {upiTouched && upiId && upiValidation.valid && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
+                <Check className="h-4 w-4" />
+                Valid UPI ID format
+              </p>
+            )}
+            <p className="mt-1.5 text-xs text-slate-400">If set, payments will use UPI ID first. Otherwise, your mobile number is used.</p>
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -136,8 +238,8 @@ export default function ProfilePage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
+              disabled={saving || !phoneValidation.valid}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check className="h-4 w-4" />
               {saving ? "Saving..." : "Save"}
@@ -145,13 +247,47 @@ export default function ProfilePage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100">
-          <ProfileRow label="Username" value={`@${user.username}`} />
-          <ProfileRow label="Email" value={user.email} />
-          <ProfileRow label="Currency" value={user.defaultCurrency} />
-          {user.upiId && <ProfileRow label="UPI ID" value={user.upiId} />}
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100">
+            <ProfileRow label="Username" value={`@${user.username}`} />
+            <ProfileRow label="Email" value={user.email} />
+            <ProfileRow label="Currency" value={user.defaultCurrency} />
+            {user.phoneNumber && (
+              <ProfileRow
+                label="Mobile"
+                value={`${getCountryByCode(user.countryCode || "IN").dialCode} ${user.phoneNumber}`}
+              />
+            )}
+            {user.upiId && <ProfileRow label="UPI ID" value={user.upiId} />}
+          </div>
+
+          {paymentVpa && (
+            <div className="rounded-2xl border border-trevio-200 bg-trevio-50 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Smartphone className="h-4 w-4 text-trevio-600" />
+                <span className="text-sm font-semibold text-trevio-700">Payment Address</span>
+              </div>
+              <p className="text-sm text-trevio-600">{paymentVpa}</p>
+              <p className="mt-1 text-xs text-trevio-400">
+                {user.upiId ? "Using UPI ID" : "Using mobile number (UPI ID not set)"}
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowTerms(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          >
+            <FileText className="h-4 w-4" />
+            Terms & Conditions
+          </button>
         </div>
       )}
+
+      <TermsDialog
+        open={showTerms}
+        onClose={() => setShowTerms(false)}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Group, GroupTemplate } from "../../types";
+import type { Group, GroupTemplate, Activity } from "../../types";
 
 export interface GroupInfo {
   groupId: string;
@@ -21,4 +21,5 @@ export interface GroupService {
   leaveGroup(groupId: string): Promise<void>;
   getUserGroups(): Promise<Group[]>;
   getGroupInfo(groupId: string): Promise<GroupInfo>;
+  getGroupActivities(groupId: string, pageSize?: number): Promise<Activity[]>;
 }

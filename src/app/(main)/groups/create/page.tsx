@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { Plane, Dumbbell, Coffee, Search, UserPlus, X } from "lucide-react";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
@@ -9,6 +10,7 @@ import type { GroupTemplate, UserSearchResult } from "@/lib/types";
 export default function CreateGroupPage() {
   const { group, user } = useServices();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [template, setTemplate] = useState<GroupTemplate>("casual");
@@ -48,6 +50,7 @@ export default function CreateGroupPage() {
     setError(null);
     try {
       await group.createGroup(name, description, template, currency, selectedMembers.map((m) => m.uid));
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
       router.push("/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create group");
@@ -62,7 +65,7 @@ export default function CreateGroupPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-2xl p-6 md:p-8">
+    <div className="mx-auto max-w-2xl p-4 md:p-6">
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Create Group</h1>
 
       <div className="space-y-6">

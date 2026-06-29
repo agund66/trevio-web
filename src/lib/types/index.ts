@@ -13,6 +13,8 @@ export interface User {
   defaultCurrency: string;
   acceptedTnC: boolean;
   upiId?: string;
+  phoneNumber?: string;
+  countryCode?: string;
 }
 
 export interface Group {
@@ -76,7 +78,22 @@ export interface SimplifiedDebt {
   toName: string;
   fromPhotoURL: string;
   toPhotoURL: string;
+  toUpiId: string;
+  fromUpiId: string;
+  toPhoneNumber: string;
+  toCountryCode: string;
   amount: number;
+}
+
+export interface Activity {
+  activityId: string;
+  type: string;
+  description: string;
+  userId: string;
+  userName: string;
+  userPhotoURL: string;
+  data: Record<string, unknown>;
+  createdAt: { _seconds: number; _nanoseconds: number } | string;
 }
 
 export interface AppNotification {

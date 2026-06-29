@@ -9,6 +9,18 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Trevio - Split bills. Simplify life.",
   description: "Split expenses with friends, track who owes whom, and settle up easily.",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0d9488",
 };
 
 export default function RootLayout({

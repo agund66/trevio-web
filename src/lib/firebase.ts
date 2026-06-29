@@ -1,15 +1,14 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBKjbeAcIzhdahO8Jo1lHydO9VORxz3vn4",
-  authDomain: "trevio-split.firebaseapp.com",
-  projectId: "trevio-split",
-  storageBucket: "trevio-split.firebasestorage.app",
-  messagingSenderId: "17273127103",
-  appId: "1:17273127103:web:e02c470aaa0dee5159060a",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBKjbeAcIzhdahO8Jo1lHydO9VORxz3vn4",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "trevio-split.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "trevio-split",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "trevio-split.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "17273127103",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:17273127103:web:e02c470aaa0dee5159060a",
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -18,13 +17,3 @@ export const firebaseApp = app;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
-export const functions = getFunctions(app, "us-central1");
-
-const useEmulator = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
-
-if (useEmulator) {
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-  console.log("[Trevio] Connected to Firebase Emulator Suite");
-}

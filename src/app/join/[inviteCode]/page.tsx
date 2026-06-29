@@ -26,7 +26,7 @@ export default function JoinGroupPage() {
 
     if (!user.acceptedTnC) {
       sessionStorage.setItem("pendingInviteCode", inviteCode);
-      router.push("/terms");
+      router.push("/login");
       return;
     }
 

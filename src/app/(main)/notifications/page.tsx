@@ -22,7 +22,7 @@ export default function NotificationsPage() {
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
         {hasUnread && (

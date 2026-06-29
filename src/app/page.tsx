@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { TrevioIcon } from "@/components/trevio-logo";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -13,7 +14,7 @@ export default function Home() {
     if (!user) {
       router.push("/login");
     } else if (!user.acceptedTnC) {
-      router.push("/terms");
+      router.push("/login");
     } else {
       router.push("/dashboard");
     }
@@ -21,9 +22,10 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-trevio-600">Trevio</h1>
-        <p className="mt-2 text-slate-500">Split bills. Simplify life.</p>
+      <div className="flex flex-col items-center">
+        <TrevioIcon size={72} />
+        <h1 className="mt-4 text-3xl font-bold text-trevio-600">Trevio</h1>
+        <p className="mt-1 text-slate-500">Split bills. Simplify life.</p>
         {loading && (
           <div className="mt-6">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 border-t-trevio-600 mx-auto" />

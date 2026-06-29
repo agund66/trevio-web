@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="trevioGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#trevioGrad)"/>
+  <!-- T crossbar left -->
+  <rect x="96" y="128" width="128" height="56" rx="28" fill="#ffffff"/>
+  <!-- T crossbar right -->
+  <rect x="288" y="128" width="128" height="56" rx="28" fill="#ffffff"/>
+  <!-- T stem -->
+  <rect x="232" y="128" width="48" height="260" rx="24" fill="#ffffff"/>
+  <!-- Diamond in gap (represents expense being split) -->
+  <path d="M256 128 L288 156 L256 184 L224 156 Z" fill="#ffffff"/>
+</svg>
