@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { formatCurrency, buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone } from "lucide-react";
+import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { buildUpiVpa } from "@/lib/utils";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore } from "lucide-react";
 import type { UserSearchResult, Activity } from "@/lib/types";
 
 export default function GroupDetailPage() {
@@ -15,6 +17,7 @@ export default function GroupDetailPage() {
   const groupId = params.groupId as string;
   const { expense, settlement, group, user: userService } = useServices();
   const { user: currentUser } = useAuth();
+  const { formatBase, formatOriginal } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity">("expenses");
   const [showInvite, setShowInvite] = useState(false);
@@ -51,7 +54,7 @@ export default function GroupDetailPage() {
         fromUid: debt.fromUid,
         toUid: debt.toUid,
         amount: debt.amount,
-        currency: groupInfo?.currency || "INR",
+        currency: "INR",
         method: debt.method,
       }),
     onSuccess: () => {
@@ -79,6 +82,15 @@ export default function GroupDetailPage() {
       setInviteError(null);
     },
     onError: (e: Error) => setInviteError(e.message),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (shouldArchive: boolean) =>
+      shouldArchive ? group.archiveGroup(groupId) : group.unarchiveGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+    },
   });
 
   const handleSearch = async (query: string) => {
@@ -120,8 +132,6 @@ export default function GroupDetailPage() {
       setTimeout(() => setShared(false), 2000);
     }
   };
-
-  const currency = groupInfo?.currency || "INR";
 
   const buildUpiLink = (upiId: string, phoneNumber: string, countryCode: string, amount: number, note: string) => {
     const vpa = buildUpiVpa(upiId, phoneNumber, countryCode);
@@ -174,14 +184,29 @@ export default function GroupDetailPage() {
       </button>
 
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">{groupInfo?.name || "Group"}</h1>
-        <button
-          onClick={() => router.push(`/groups/${groupId}/add-expense`)}
-          className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add Expense
-        </button>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">{groupInfo?.name || "Group"}</h1>
+          {groupInfo?.archived && (
+            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600">Archived</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => archiveMutation.mutate(!groupInfo?.archived)}
+            disabled={archiveMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            {groupInfo?.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            {groupInfo?.archived ? "Unarchive" : "Archive"}
+          </button>
+          <button
+            onClick={() => router.push(`/groups/${groupId}/add-expense`)}
+            className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add Expense
+          </button>
+        </div>
       </div>
 
       {groupInfo?.description && (
@@ -193,7 +218,7 @@ export default function GroupDetailPage() {
           {groupInfo?.memberCount || 0} members
         </span>
         <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-          {formatCurrency(groupInfo?.totalExpenses || 0, currency)} total
+          {formatBase(groupInfo?.totalExpenses || 0)} total
         </span>
         {groupInfo?.inviteCode && (
           <>
@@ -253,11 +278,11 @@ export default function GroupDetailPage() {
                     <p className="text-xs md:text-sm text-slate-500 capitalize">
                       {payerName} paid · {e.category}
                       {myShare !== undefined && Math.abs(myShare) > 0.01 && (
-                        <span className="text-slate-400"> · your share: {formatCurrency(myShare, e.currency)}</span>
+                        <span className="text-slate-400"> · your share: {formatOriginal(myShare, e.currency)}</span>
                       )}
                     </p>
                   </div>
-                  <p className="text-base md:text-lg font-bold text-trevio-600 shrink-0">{formatCurrency(e.amount, e.currency)}</p>
+                  <p className="text-base md:text-lg font-bold text-trevio-600 shrink-0">{formatOriginal(e.amount, e.currency)}</p>
                 </div>
               );
             })
@@ -280,17 +305,17 @@ export default function GroupDetailPage() {
               <div className={`rounded-2xl p-4 md:p-5 ${myBalance > 0.01 ? "bg-green-50 border border-green-200" : myBalance < -0.01 ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}>
                 <p className="text-sm font-medium text-slate-600">Your balance</p>
                 <p className={`mt-1 text-2xl md:text-3xl font-bold ${myBalance > 0.01 ? "text-green-600" : myBalance < -0.01 ? "text-red-600" : "text-slate-500"}`}>
-                  {myBalance > 0.01 ? "+" : ""}{formatCurrency(myBalance, currency)}
+                  {myBalance > 0.01 ? "+" : ""}{formatBase(myBalance)}
                 </p>
                 <div className="mt-3 space-y-1.5">
                   {myDebts.length > 0 && (
                     <p className="text-sm text-red-600">
-                      You owe {myDebts.length} {myDebts.length === 1 ? "person" : "people"} {formatCurrency(myDebts.reduce((s, d) => s + d.amount, 0), currency)}
+                      You owe {myDebts.length} {myDebts.length === 1 ? "person" : "people"} {formatBase(myDebts.reduce((s, d) => s + d.amount, 0))}
                     </p>
                   )}
                   {myCredits.length > 0 && (
                     <p className="text-sm text-green-600">
-                      {myCredits.length} {myCredits.length === 1 ? "person owes" : "people owe"} you {formatCurrency(myCredits.reduce((s, d) => s + d.amount, 0), currency)}
+                      {myCredits.length} {myCredits.length === 1 ? "person owes" : "people owe"} you {formatBase(myCredits.reduce((s, d) => s + d.amount, 0))}
                     </p>
                   )}
                   {myDebts.length === 0 && myCredits.length === 0 && (
@@ -322,7 +347,7 @@ export default function GroupDetailPage() {
                           <><span className="font-medium">{fromFirstName}</span> owes <span className="font-medium">{toFirstName}</span></>
                         )}
                       </p>
-                      <p className={`text-lg font-bold ${isCurrentUserDebtor ? "text-red-600" : isCurrentUserCreditor ? "text-green-600" : "text-trevio-600"}`}>{formatCurrency(d.amount, currency)}</p>
+                      <p className={`text-lg font-bold ${isCurrentUserDebtor ? "text-red-600" : isCurrentUserCreditor ? "text-green-600" : "text-trevio-600"}`}>{formatBase(d.amount)}</p>
                       {paymentVpa && isCurrentUserDebtor && (
                         <p className="text-xs text-slate-400 mt-0.5">Pay to: {paymentVpa}</p>
                       )}
@@ -364,7 +389,7 @@ export default function GroupDetailPage() {
               {members.map((m) => {
                 const isMe = currentUser?.uid === m.uid;
                 return (
-                <div key={m.uid} className={`flex items-center gap-3 rounded-2xl border p-3 md:p-4 md:gap-4 ${isMe ? "border-trevio-300 bg-trevio-50" : "border-slate-200 bg-white"}`}>
+                <Link key={m.uid} href={`/users/${m.uid}`} className={`flex items-center gap-3 rounded-2xl border p-3 md:p-4 md:gap-4 transition hover:shadow-sm ${isMe ? "border-trevio-300 bg-trevio-50" : "border-slate-200 bg-white hover:border-trevio-300"}`}>
                   {m.photoURL ? (
                     <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
                   ) : (
@@ -386,16 +411,16 @@ export default function GroupDetailPage() {
                     </span>
                   ) : m.balance > 0.01 ? (
                     <span className="rounded-lg bg-green-50 px-3 py-1 text-sm font-semibold text-green-600">
-                      {isMe ? "you'll get" : "gets"} {formatCurrency(m.balance, currency)}
+                      {isMe ? "you'll get" : "gets"} {formatBase(m.balance)}
                     </span>
                   ) : m.balance < -0.01 ? (
                     <span className="rounded-lg bg-red-50 px-3 py-1 text-sm font-semibold text-red-500">
-                      {isMe ? "you'll pay" : "owes"} {formatCurrency(Math.abs(m.balance), currency)}
+                      {isMe ? "you'll pay" : "owes"} {formatBase(Math.abs(m.balance))}
                     </span>
                   ) : (
                     <span className="rounded-lg bg-slate-50 px-3 py-1 text-sm font-medium text-slate-400">settled</span>
                   )}
-                </div>
+                </Link>
                 );
               })}
             </div>
@@ -503,7 +528,7 @@ export default function GroupDetailPage() {
           {members && members.length > 0 && (
             <div className="space-y-2">
               {members.map((m) => (
-                <div key={m.uid} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 md:gap-4">
+                <Link key={m.uid} href={`/users/${m.uid}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 hover:shadow-sm">
                   {m.photoURL ? (
                     <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
                   ) : (
@@ -524,7 +549,7 @@ export default function GroupDetailPage() {
                   {m.role === "admin" && (
                     <span className="rounded-lg bg-trevio-50 px-2.5 py-1 text-xs font-medium text-trevio-700">admin</span>
                   )}
-                </div>
+                </Link>
               ))}
             </div>
           )}

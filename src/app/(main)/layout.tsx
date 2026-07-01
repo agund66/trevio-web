@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import { TrevioLogo } from "@/components/trevio-logo";
-import { Home, Bell, User, LogOut } from "lucide-react";
+import { Home, Bell, User, LogOut, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +40,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const navItems = [
     { href: "/dashboard", label: "Home", icon: Home },
+    { href: "/groups", label: "Groups", icon: Users },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/profile", label: "Profile", icon: User },
   ];

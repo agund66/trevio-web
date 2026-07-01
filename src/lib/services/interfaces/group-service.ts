@@ -10,15 +10,18 @@ export interface GroupInfo {
   createdBy: string;
   memberCount: number;
   totalExpenses: number;
+  archived: boolean;
 }
 
 export interface GroupService {
-  createGroup(name: string, description: string, template: GroupTemplate, currency: string, memberUids: string[]): Promise<{ groupId: string; inviteCode: string }>;
+  createGroup(name: string, description: string, template: GroupTemplate, memberUids: string[]): Promise<{ groupId: string; inviteCode: string }>;
   joinGroupViaCode(inviteCode: string): Promise<{ groupId: string; groupName: string }>;
   sendGroupInvitation(groupId: string, username: string): Promise<void>;
   acceptInvitation(invitationId: string): Promise<{ groupId: string; groupName: string }>;
   declineInvitation(invitationId: string): Promise<void>;
   leaveGroup(groupId: string): Promise<void>;
+  archiveGroup(groupId: string): Promise<void>;
+  unarchiveGroup(groupId: string): Promise<void>;
   getUserGroups(): Promise<Group[]>;
   getGroupInfo(groupId: string): Promise<GroupInfo>;
   getGroupActivities(groupId: string, pageSize?: number): Promise<Activity[]>;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone } from "lucide-react";
+import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle } from "lucide-react";
 import { TermsDialog } from "@/components/terms-dialog";
 import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber, buildUpiVpa } from "@/lib/utils";
 import type { User } from "@/lib/types";
@@ -23,6 +23,10 @@ export default function ProfilePage() {
   const [upiTouched, setUpiTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const [currencySearch, setCurrencySearch] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (!user) return null;
 
@@ -129,17 +133,65 @@ export default function ProfilePage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Default Currency</label>
-            <select
-              value={defaultCurrency}
-              onChange={(e) => setDefaultCurrency(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
-            >
-              {currencies.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.symbol} {c.code} - {c.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-lg font-semibold text-trevio-600">
+                    {currencies.find((c) => c.code === defaultCurrency)?.symbol}
+                  </span>
+                  <span className="font-medium text-slate-900">{defaultCurrency}</span>
+                  <span className="text-slate-500">
+                    {currencies.find((c) => c.code === defaultCurrency)?.name}
+                  </span>
+                </span>
+                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showCurrencyDropdown ? "rotate-180" : ""}`} />
+              </button>
+              {showCurrencyDropdown && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-64 overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                      <Search className="h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={currencySearch}
+                        onChange={(e) => setCurrencySearch(e.target.value)}
+                        placeholder="Search currency..."
+                        className="flex-1 bg-transparent text-sm focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto">
+                    {currencies
+                      .filter((c) =>
+                        c.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
+                        c.name.toLowerCase().includes(currencySearch.toLowerCase())
+                      )
+                      .map((c) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => {
+                            setDefaultCurrency(c.code);
+                            setShowCurrencyDropdown(false);
+                            setCurrencySearch("");
+                          }}
+                          className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition hover:bg-slate-50 ${
+                            defaultCurrency === c.code ? "bg-trevio-50 text-trevio-700" : "text-slate-700"
+                          }`}
+                        >
+                          <span className="text-lg font-semibold w-6 text-center">{c.symbol}</span>
+                          <span className="font-medium w-12">{c.code}</span>
+                          <span className="text-slate-500">{c.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
@@ -251,7 +303,7 @@ export default function ProfilePage() {
           <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100">
             <ProfileRow label="Username" value={`@${user.username}`} />
             <ProfileRow label="Email" value={user.email} />
-            <ProfileRow label="Currency" value={user.defaultCurrency} />
+            <ProfileRow label="Currency" value={`${currencies.find((c) => c.code === user.defaultCurrency)?.symbol || ""} ${user.defaultCurrency}`} />
             {user.phoneNumber && (
               <ProfileRow
                 label="Mobile"
@@ -281,6 +333,14 @@ export default function ProfilePage() {
             <FileText className="h-4 w-4" />
             Terms & Conditions
           </button>
+
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Account
+          </button>
         </div>
       )}
 
@@ -288,6 +348,48 @@ export default function ProfilePage() {
         open={showTerms}
         onClose={() => setShowTerms(false)}
       />
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-900">Delete Account?</h2>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              This will permanently delete your account, remove you from all groups, and erase your data. This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await userService.deleteAccount();
+                    await signOut();
+                  } catch (e) {
+                    setError((e as Error).message);
+                    setDeleting(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                disabled={deleting}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

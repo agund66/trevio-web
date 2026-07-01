@@ -2,13 +2,13 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
-import { Bell, Check } from "lucide-react";
+import { Bell, AlertCircle } from "lucide-react";
 
 export default function NotificationsPage() {
   const { notification } = useServices();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["notifications"],
     queryFn: () => notification.getNotifications(50),
   });
@@ -35,7 +35,15 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {isLoading ? (
+      {error ? (
+        <div className="flex min-h-[50vh] items-center justify-center text-center">
+          <div className="max-w-md">
+            <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
+            <h2 className="mt-3 text-lg font-semibold text-slate-900">Failed to load notifications</h2>
+            <p className="mt-1 text-sm text-slate-500">{(error as Error).message}</p>
+          </div>
+        </div>
+      ) : isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />)}
         </div>

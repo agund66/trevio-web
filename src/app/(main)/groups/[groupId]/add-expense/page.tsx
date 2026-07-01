@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
+import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { ArrowLeft, Repeat } from "lucide-react";
 import type { SplitType, SplitEntry } from "@/lib/types";
 
@@ -12,10 +13,12 @@ export default function AddExpensePage() {
   const router = useRouter();
   const groupId = params.groupId as string;
   const { expense, settlement, group } = useServices();
+  const { userCurrency } = useCurrencyDisplay();
   const queryClient = useQueryClient();
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState(userCurrency);
   const [category, setCategory] = useState("other");
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [isRecurring, setIsRecurring] = useState(false);
@@ -33,7 +36,6 @@ export default function AddExpensePage() {
     queryFn: () => group.getGroupInfo(groupId),
   });
 
-  const currency = groupInfo?.currency || "INR";
   const activeMembers = useMemo(
     () => members?.filter((m) => m.status === "active") ?? [],
     [members]
@@ -58,6 +60,11 @@ export default function AddExpensePage() {
     }
     return null;
   }, [splitType, splitValues, activeMembers, numericAmount, currency]);
+
+  const currencySymbol = (curr: string) => {
+    const symbols: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£", JPY: "¥", AUD: "A$", CAD: "C$", SGD: "S$", AED: "د.إ" };
+    return symbols[curr] || curr;
+  };
 
   const isSplitValid = useMemo(() => {
     if (splitType === "equal") return true;
@@ -146,7 +153,7 @@ export default function AddExpensePage() {
         <div>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
-              {currency === "INR" ? "₹" : currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency === "JPY" ? "¥" : currency}
+              {currencySymbol(currency)}
             </span>
             <input
               type="text"
@@ -243,11 +250,11 @@ export default function AddExpensePage() {
                 const val = splitValues[m.uid] || "";
                 let displayAmount = "";
                 if (splitType === "percent" && val && numericAmount) {
-                  displayAmount = `= ${(currency === "INR" ? "₹" : "")}${((parseFloat(val) / 100) * numericAmount).toFixed(2)}`;
+                  displayAmount = `= ${currencySymbol(currency)}${((parseFloat(val) / 100) * numericAmount).toFixed(2)}`;
                 } else if (splitType === "shares" && val) {
                   const totalShares = Object.values(splitValues).reduce((s, v) => s + (parseFloat(v) || 0), 0);
                   if (totalShares > 0 && numericAmount) {
-                    displayAmount = `= ${(currency === "INR" ? "₹" : "")}${((parseFloat(val) / totalShares) * numericAmount).toFixed(2)}`;
+                    displayAmount = `= ${currencySymbol(currency)}${((parseFloat(val) / totalShares) * numericAmount).toFixed(2)}`;
                   }
                 }
                 return (

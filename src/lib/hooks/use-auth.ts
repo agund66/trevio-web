@@ -14,12 +14,9 @@ export function useAuth() {
   const signInInProgress = useRef(false);
 
   useEffect(() => {
-    console.log("[Trevio] useAuth mount — checking redirect result...");
     auth.handleRedirectResult().then(async (uid) => {
-      console.log("[Trevio] handleRedirectResult uid:", uid);
       if (uid) {
         const currentUser = await auth.getCurrentUser();
-        console.log("[Trevio] handleRedirectResult user:", currentUser?.uid);
         if (currentUser) {
           setUser(currentUser);
         }
@@ -30,16 +27,12 @@ export function useAuth() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (newUid) => {
-      console.log("[Trevio] onAuthStateChanged uid:", newUid, "signInInProgress:", signInInProgress.current);
       setUid(newUid);
       if (newUid) {
         if (signInInProgress.current) {
-          console.log("[Trevio] Sign in already in progress, skipping onAuthStateChanged");
           return;
         }
-        // getCurrentUser will create the user doc if it doesn't exist yet
         const currentUser = await auth.getCurrentUser();
-        console.log("[Trevio] onAuthStateChanged user:", currentUser?.uid);
         if (currentUser) {
           setUser(currentUser);
         }
@@ -53,16 +46,11 @@ export function useAuth() {
   }, [auth]);
 
   const signIn = useCallback(async () => {
-    console.log("[Trevio] signIn started");
     signInInProgress.current = true;
     try {
       const newUid = await auth.signInWithGoogle();
-      console.log("[Trevio] signIn got uid:", newUid);
-      // If redirect was used, newUid is "" and page will navigate away.
-      // Only set user if we got a real uid back (popup path).
       if (newUid) {
         const currentUser = await auth.getCurrentUser();
-        console.log("[Trevio] signIn got user:", currentUser?.uid);
         setUser(currentUser);
         setUid(newUid);
         setLoading(false);
@@ -75,7 +63,6 @@ export function useAuth() {
       throw error;
     } finally {
       signInInProgress.current = false;
-      console.log("[Trevio] signIn finished");
     }
   }, [auth]);
 

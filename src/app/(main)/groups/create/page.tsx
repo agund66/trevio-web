@@ -14,7 +14,6 @@ export default function CreateGroupPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [template, setTemplate] = useState<GroupTemplate>("casual");
-  const [currency, setCurrency] = useState("INR");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<UserSearchResult[]>([]);
@@ -49,7 +48,7 @@ export default function CreateGroupPage() {
     setCreating(true);
     setError(null);
     try {
-      await group.createGroup(name, description, template, currency, selectedMembers.map((m) => m.uid));
+      await group.createGroup(name, description, template, selectedMembers.map((m) => m.uid));
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       router.push("/dashboard");
     } catch (e) {
@@ -107,25 +106,6 @@ export default function CreateGroupPage() {
             placeholder="Add a description..."
             className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Currency</label>
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
-          >
-            <option value="INR">₹ INR - Indian Rupee</option>
-            <option value="USD">$ USD - US Dollar</option>
-            <option value="EUR">€ EUR - Euro</option>
-            <option value="GBP">£ GBP - British Pound</option>
-            <option value="AED">د.إ AED - UAE Dirham</option>
-            <option value="SGD">S$ SGD - Singapore Dollar</option>
-            <option value="AUD">A$ AUD - Australian Dollar</option>
-            <option value="CAD">C$ CAD - Canadian Dollar</option>
-            <option value="JPY">¥ JPY - Japanese Yen</option>
-          </select>
         </div>
 
         <div>

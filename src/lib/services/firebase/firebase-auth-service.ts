@@ -13,17 +13,12 @@ import type { User } from "../../types";
 export class FirebaseAuthService implements AuthService {
   async signInWithGoogle(): Promise<string> {
     try {
-      // Try popup first — opens in a new screen and is preferred on desktop browsers
-      console.log("[Trevio] Opening Google sign-in popup...");
       const result = await signInWithPopup(auth, googleProvider);
-      console.log("[Trevio] Popup result:", result.user.uid);
       return await this.handleSignInResult(result.user);
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      console.error("[Trevio] signInWithPopup error:", errMsg);
       // If popup was blocked or failed, fall back to redirect
       if (errMsg.includes("popup") || errMsg.includes("blocked") || errMsg.includes("closed")) {
-        console.log("[Trevio] Falling back to signInWithRedirect...");
         await signInWithRedirect(auth, googleProvider);
         return "";
       }

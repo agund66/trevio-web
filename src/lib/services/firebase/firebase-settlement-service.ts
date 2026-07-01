@@ -14,10 +14,13 @@ import { db, auth } from "../../firebase";
 import type { SettlementService } from "../interfaces/settlement-service";
 import type { Member, Settlement, SimplifiedDebt, SettlementMethod, SplitEntry } from "../../types";
 import { calculateBalances, simplifyDebts } from "../../utils/calculations";
+import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 
 type SplitMap = Record<string, SplitEntry>;
 
 export class FirebaseSettlementService implements SettlementService {
+  private exchangeRateService = new FirebaseExchangeRateService();
+
   async addSettlement(params: {
     groupId: string;
     fromUid: string;
@@ -41,14 +44,19 @@ export class FirebaseSettlementService implements SettlementService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
+    const rateToBase = await this.exchangeRateService.getRateToBase(params.currency);
+    const amountInBase = Math.round((params.amount * rateToBase) * 100) / 100;
+
     const now = new Date();
     const settlementRef = doc(collection(groupRef, "settlements"));
 
     const settlementData: Record<string, unknown> = {
       fromUid: params.fromUid,
       toUid: params.toUid,
-      amount: params.amount,
-      currency: params.currency,
+      amount: amountInBase,
+      currency: "INR",
+      originalAmount: params.amount,
+      originalCurrency: params.currency,
       method: params.method || "cash",
       date: now,
       createdBy: uid,
@@ -68,13 +76,13 @@ export class FirebaseSettlementService implements SettlementService {
     batch.set(settlementRef, settlementData);
     batch.set(doc(collection(groupRef, "activities")), {
       type: "settlement_added",
-      description: `${fromUserName} settled ${params.currency} ${params.amount} with ${toUserName}`,
+      description: `${fromUserName} settled ₹${amountInBase} with ${toUserName}`,
       userId: uid,
       data: {
         settlementId: settlementRef.id,
         fromUid: params.fromUid,
         toUid: params.toUid,
-        amount: params.amount,
+        amount: amountInBase,
       },
       createdAt: now,
     });
@@ -85,7 +93,7 @@ export class FirebaseSettlementService implements SettlementService {
     await setDoc(doc(collection(db, "users", params.toUid, "notifications")), {
       type: "settlement",
       title: "Payment Received",
-      body: `${fromUserName} recorded a payment of ${params.currency} ${params.amount} to you`,
+      body: `${fromUserName} recorded a payment of ₹${amountInBase} to you`,
       data: {
         groupId: params.groupId,
         groupName: (groupDoc.data()?.name as string) ?? "",
@@ -229,6 +237,7 @@ export class FirebaseSettlementService implements SettlementService {
         paidBy: data.paidBy as string,
         splits: data.splits as SplitMap,
         amount: data.amount as number,
+        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
       };
     });
 
@@ -262,6 +271,7 @@ export class FirebaseSettlementService implements SettlementService {
         paidBy: data.paidBy as string,
         splits: data.splits as SplitMap,
         amount: data.amount as number,
+        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
       };
     });
 

@@ -3,14 +3,18 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
+  collectionGroup,
   query as firestoreQuery,
   where,
   getDocs,
   runTransaction,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { auth } from "../../firebase";
+import { deleteUser as firebaseDeleteUser } from "firebase/auth";
 import type { UserService } from "../interfaces/user-service";
 import type { User, UserSearchResult } from "../../types";
 import { generateBaseUsername } from "../../utils/calculations";
@@ -195,5 +199,53 @@ export class FirebaseUserService implements UserService {
       fcmToken: token,
       updatedAt: new Date(),
     });
+  }
+
+  async deleteAccount(): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("User not authenticated");
+
+    // 1. Get user doc to find username
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const userData = userDoc.data();
+    const username = userData?.username as string | undefined;
+
+    // 2. Find all group memberships and set status to "left"
+    const membersSnapshot = await getDocs(
+      firestoreQuery(
+        collectionGroup(db, "members"),
+        where("uid", "==", uid),
+        where("status", "==", "active")
+      )
+    );
+
+    for (const memberDoc of membersSnapshot.docs) {
+      const pathSegments = memberDoc.ref.path.split("/");
+      const groupId = pathSegments[1];
+      await updateDoc(memberDoc.ref, {
+        status: "left",
+        leftAt: new Date(),
+      });
+      // Decrement group memberCount
+      const groupRef = doc(db, "groups", groupId);
+      const groupDoc = await getDoc(groupRef);
+      if (groupDoc.exists()) {
+        const count = (groupDoc.data().memberCount as number) ?? 0;
+        await updateDoc(groupRef, { memberCount: Math.max(0, count - 1) });
+      }
+    }
+
+    // 3. Delete username doc if exists
+    if (username) {
+      await deleteDoc(doc(db, "usernames", username));
+    }
+
+    // 4. Delete user doc
+    await deleteDoc(doc(db, "users", uid));
+
+    // 5. Delete Firebase Auth account
+    await firebaseDeleteUser(currentUser);
   }
 }

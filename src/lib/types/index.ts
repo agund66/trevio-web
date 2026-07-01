@@ -29,6 +29,7 @@ export interface Group {
   totalExpenses: number;
   yourBalance: number;
   yourRole: string;
+  archived: boolean;
 }
 
 export interface Member {
@@ -57,6 +58,7 @@ export interface Expense {
   category: string;
   isRecurring: boolean;
   createdBy: string;
+  exchangeRateToBase?: number;
 }
 
 export interface Settlement {

@@ -8,4 +8,5 @@ export interface UserService {
   updateUsername(username: string): Promise<string>;
   searchUsers(query: string): Promise<UserSearchResult[]>;
   updateFcmToken(token: string): Promise<void>;
+  deleteAccount(): Promise<void>;
 }

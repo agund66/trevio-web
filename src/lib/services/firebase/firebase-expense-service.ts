@@ -14,10 +14,13 @@ import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
 import type { Expense, SplitEntry, SplitType } from "../../types";
 import { calculateSplits, calculateBalances } from "../../utils/calculations";
+import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 
 type SplitMap = Record<string, SplitEntry>;
 
 export class FirebaseExpenseService implements ExpenseService {
+  private exchangeRateService = new FirebaseExchangeRateService();
+
   async addExpense(params: {
     groupId: string;
     description: string;
@@ -51,6 +54,8 @@ export class FirebaseExpenseService implements ExpenseService {
       params.splits as SplitMap
     );
 
+    const exchangeRateToBase = await this.exchangeRateService.getRateToBase(params.currency);
+
     const now = new Date();
     const expenseRef = doc(collection(groupRef, "expenses"));
 
@@ -67,6 +72,7 @@ export class FirebaseExpenseService implements ExpenseService {
       isRecurring: params.isRecurring ?? false,
       createdBy: uid,
       createdAt: now,
+      exchangeRateToBase,
     });
 
     if (params.isRecurring && params.recurringFrequency) {
@@ -80,6 +86,8 @@ export class FirebaseExpenseService implements ExpenseService {
       });
     }
 
+    const amountInBase = params.amount * exchangeRateToBase;
+
     batch.set(doc(collection(groupRef, "activities")), {
       type: "expense_added",
       description: `Added expense: ${params.description} (${params.currency} ${params.amount})`,
@@ -89,7 +97,7 @@ export class FirebaseExpenseService implements ExpenseService {
     });
 
     batch.update(groupRef, {
-      totalExpenses: (groupDoc.data()?.totalExpenses ?? 0) + params.amount,
+      totalExpenses: (groupDoc.data()?.totalExpenses ?? 0) + amountInBase,
       updatedAt: now,
     });
 
@@ -133,6 +141,12 @@ export class FirebaseExpenseService implements ExpenseService {
     if (params.paidBy) updateData.paidBy = params.paidBy;
     if (params.category) updateData.category = params.category;
 
+    const oldCurrency = oldExpense.currency as string;
+    const newCurrency = params.currency || oldCurrency;
+    if (newCurrency !== oldCurrency) {
+      updateData.exchangeRateToBase = await this.exchangeRateService.getRateToBase(newCurrency);
+    }
+
     if (params.splitType && params.memberUids) {
       updateData.splitType = params.splitType;
       updateData.splits = calculateSplits(
@@ -145,15 +159,19 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const oldAmount = oldExpense.amount as number;
     const newAmount = (params.amount ?? oldAmount) as number;
-    const amountDiff = newAmount - oldAmount;
+    const oldRate = (oldExpense.exchangeRateToBase as number) ?? 1;
+    const newRate = (updateData.exchangeRateToBase as number) ?? oldRate;
+    const oldAmountInBase = oldAmount * oldRate;
+    const newAmountInBase = newAmount * newRate;
+    const amountDiffInBase = newAmountInBase - oldAmountInBase;
 
     const batch = writeBatch(db);
     batch.update(expenseRef, updateData);
 
-    if (amountDiff !== 0) {
+    if (amountDiffInBase !== 0) {
       const groupDoc = await getDoc(groupRef);
       batch.update(groupRef, {
-        totalExpenses: (groupDoc.data()?.totalExpenses ?? 0) + amountDiff,
+        totalExpenses: (groupDoc.data()?.totalExpenses ?? 0) + amountDiffInBase,
         updatedAt: now,
       });
     }
@@ -188,9 +206,13 @@ export class FirebaseExpenseService implements ExpenseService {
     const batch = writeBatch(db);
     batch.delete(expenseRef);
 
+    const expenseAmount = expenseData.amount as number;
+    const expenseRate = (expenseData.exchangeRateToBase as number) ?? 1;
+    const amountInBase = expenseAmount * expenseRate;
+
     const groupDoc = await getDoc(groupRef);
     batch.update(groupRef, {
-      totalExpenses: Math.max(0, (groupDoc.data()?.totalExpenses ?? 0) - (expenseData.amount as number)),
+      totalExpenses: Math.max(0, (groupDoc.data()?.totalExpenses ?? 0) - amountInBase),
       updatedAt: now,
     });
 
@@ -247,6 +269,7 @@ export class FirebaseExpenseService implements ExpenseService {
         category: (data.category as string) ?? "other",
         isRecurring: (data.isRecurring as boolean) ?? false,
         createdBy: (data.createdBy as string) ?? "",
+        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
       };
     });
 
@@ -274,6 +297,7 @@ export class FirebaseExpenseService implements ExpenseService {
         paidBy: data.paidBy as string,
         splits: data.splits as SplitMap,
         amount: data.amount as number,
+        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
       };
     });
 

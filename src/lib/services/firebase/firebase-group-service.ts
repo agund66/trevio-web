@@ -18,10 +18,13 @@ import type { Group, GroupTemplate, Activity } from "../../types";
 import { generateInviteCode } from "../../utils/calculations";
 
 export class FirebaseGroupService implements GroupService {
-  async createGroup(name: string, description: string, template: GroupTemplate, currency: string, memberUids: string[]): Promise<{ groupId: string; inviteCode: string }> {
+  async createGroup(name: string, description: string, template: GroupTemplate, memberUids: string[]): Promise<{ groupId: string; inviteCode: string }> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
     if (!name || name.trim().length === 0) throw new Error("Group name is required");
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const userCurrency = userDoc.data()?.defaultCurrency || "INR";
 
     const now = new Date();
     const inviteCode = generateInviteCode();
@@ -33,7 +36,7 @@ export class FirebaseGroupService implements GroupService {
       name: name.trim(),
       description: description?.trim() ?? "",
       template,
-      currency: currency || "INR",
+      currency: userCurrency,
       createdBy: uid,
       inviteCode,
       memberCount: 1,
@@ -316,6 +319,7 @@ export class FirebaseGroupService implements GroupService {
           totalExpenses: data.totalExpenses as number,
           yourBalance: memberData.balance as number ?? 0,
           yourRole: memberData.role as string ?? "member",
+          archived: (data.archived as boolean) ?? false,
         });
       }
     });
@@ -344,6 +348,7 @@ export class FirebaseGroupService implements GroupService {
       createdBy: data.createdBy as string,
       memberCount: data.memberCount as number,
       totalExpenses: data.totalExpenses as number,
+      archived: (data.archived as boolean) ?? false,
     };
   }
 
@@ -381,5 +386,29 @@ export class FirebaseGroupService implements GroupService {
       });
     }
     return activities;
+  }
+
+  async archiveGroup(groupId: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId) throw new Error("Group ID is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
+    await updateDoc(groupRef, { archived: true, updatedAt: new Date() });
+  }
+
+  async unarchiveGroup(groupId: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId) throw new Error("Group ID is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
+    await updateDoc(groupRef, { archived: false, updatedAt: new Date() });
   }
 }

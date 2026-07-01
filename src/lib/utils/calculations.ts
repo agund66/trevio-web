@@ -78,7 +78,7 @@ export function calculateSplits(
 }
 
 export function calculateBalances(
-  expenses: Array<{ paidBy: string; splits: SplitMap; amount: number }>,
+  expenses: Array<{ paidBy: string; splits: SplitMap; amount: number; exchangeRateToBase?: number }>,
   settlements: Array<{ fromUid: string; toUid: string; amount: number }>,
   memberUids: string[]
 ): Map<string, number> {
@@ -86,11 +86,14 @@ export function calculateBalances(
   memberUids.forEach((uid) => balances.set(uid, 0));
 
   for (const expense of expenses) {
+    const rate = expense.exchangeRateToBase ?? 1;
     const payer = expense.paidBy;
-    balances.set(payer, (balances.get(payer) ?? 0) + expense.amount);
+    const amountInBase = expense.amount * rate;
+    balances.set(payer, (balances.get(payer) ?? 0) + amountInBase);
 
     for (const [uid, split] of Object.entries(expense.splits)) {
-      balances.set(uid, (balances.get(uid) ?? 0) - split.amount);
+      const splitInBase = split.amount * rate;
+      balances.set(uid, (balances.get(uid) ?? 0) - splitInBase);
     }
   }
 
