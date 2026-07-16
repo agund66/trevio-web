@@ -16,7 +16,7 @@ import { db } from "../../firebase";
 import { auth } from "../../firebase";
 import { deleteUser as firebaseDeleteUser } from "firebase/auth";
 import type { UserService } from "../interfaces/user-service";
-import type { User, UserSearchResult } from "../../types";
+import type { User, UserSearchResult, UserRole } from "../../types";
 import { generateBaseUsername } from "../../utils/calculations";
 
 export class FirebaseUserService implements UserService {
@@ -34,6 +34,8 @@ export class FirebaseUserService implements UserService {
       photoURL: data.photoURL || "",
       defaultCurrency: data.defaultCurrency || "INR",
       acceptedTnC: data.acceptedTnC || false,
+      role: (data.role as UserRole) || "user",
+      blocked: data.blocked || false,
       upiId: data.upiId || "",
       phoneNumber: data.phoneNumber || "",
       countryCode: data.countryCode || "",

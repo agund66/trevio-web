@@ -8,7 +8,7 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle } from "lucide-react";
 import type { UserSearchResult, Activity } from "@/lib/types";
 
 export default function GroupDetailPage() {
@@ -149,8 +149,9 @@ export default function GroupDetailPage() {
     if (link) window.location.href = link;
   };
 
-  const formatActivityTime = (createdAt: Activity["createdAt"]) => {
-    const date = typeof createdAt === "string" ? new Date(createdAt) : new Date(createdAt._seconds * 1000);
+  const formatActivityTime = (createdAt: number) => {
+    if (!createdAt) return "";
+    const date = new Date(createdAt);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -266,7 +267,7 @@ export default function GroupDetailPage() {
             <div className="space-y-3">
               {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />)}
             </div>
-          ) : expensesData && expensesData.expenses.length > 0 ? (
+          ) : expensesData?.expenses && expensesData.expenses.length > 0 ? (
             expensesData.expenses.map((e) => {
               const payer = members?.find((m) => m.uid === e.paidBy);
               const payerName = payer?.displayName?.split(" ")[0] || "Someone";
@@ -286,10 +287,21 @@ export default function GroupDetailPage() {
                 </div>
               );
             })
-          ) : (
+          ) : expensesData ? (
             <div className="flex flex-col items-center py-16 text-center">
               <Receipt className="h-12 w-12 text-slate-300" />
               <p className="mt-3 text-sm text-slate-500">No expenses yet. Tap &quot;Add Expense&quot; to get started.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-16 text-center">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+              <p className="mt-3 text-sm text-slate-500">Failed to load expenses</p>
+              <button
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["expenses", groupId] })}
+                className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+              >
+                Try Again
+              </button>
             </div>
           )}
         </div>
@@ -456,10 +468,21 @@ export default function GroupDetailPage() {
                 </div>
               );
             })
-          ) : (
+          ) : activities ? (
             <div className="flex flex-col items-center py-16 text-center">
               <ActivityIcon className="h-12 w-12 text-slate-300" />
               <p className="mt-3 text-sm text-slate-500">No activity yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-16 text-center">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+              <p className="mt-3 text-sm text-slate-500">Failed to load activity</p>
+              <button
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["activities", groupId] })}
+                className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+              >
+                Try Again
+              </button>
             </div>
           )}
         </div>

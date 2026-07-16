@@ -104,6 +104,45 @@ export class FirebaseExpenseService implements ExpenseService {
     await batch.commit();
     await this.recalculateBalances(params.groupId);
 
+    // Notify all active group members except the creator (non-blocking — don't fail expense creation if notifications fail)
+    try {
+      const groupName = (groupDoc.data()?.name as string) ?? "";
+      const creatorDoc = await getDoc(doc(db, "users", uid));
+      const creatorName = (creatorDoc.data()?.displayName as string) ?? "Someone";
+      const membersSnapshot = await getDocs(
+        firestoreQuery(collection(groupRef, "members"), where("status", "==", "active"))
+      );
+      const notifyBatch = writeBatch(db);
+      let count = 0;
+      for (const memberDoc of membersSnapshot.docs) {
+        const memberUid = memberDoc.id;
+        if (memberUid === uid) continue;
+        notifyBatch.set(doc(collection(db, "users", memberUid, "notifications")), {
+          type: "expense_added",
+          title: "New Expense Added",
+          body: `${creatorName} added "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`,
+          data: {
+            groupId: params.groupId,
+            groupName,
+            expenseId: expenseRef.id,
+            type: "expense_added",
+          },
+          read: false,
+          createdAt: now,
+        });
+        count++;
+        if (count >= 450) {
+          await notifyBatch.commit();
+          break;
+        }
+      }
+      if (count > 0 && count < 450) {
+        await notifyBatch.commit();
+      }
+    } catch (notifError) {
+      console.warn("Failed to send expense notifications:", notifError);
+    }
+
     return expenseRef.id;
   }
 

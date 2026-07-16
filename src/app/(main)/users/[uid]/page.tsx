@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
-import { ArrowLeft, Mail, AtSign } from "lucide-react";
+import { ArrowLeft, Mail, AtSign, Wallet, Phone } from "lucide-react";
+import { getCountryByCode } from "@/lib/utils";
 
 export default function PublicProfilePage() {
   const params = useParams();
@@ -83,6 +84,31 @@ export default function PublicProfilePage() {
               <p className="text-sm font-medium text-slate-900">{profileUser.email}</p>
             </div>
           </div>
+
+          {/* Payment info */}
+          {profileUser.upiId ? (
+            <div className="flex items-center gap-3 rounded-xl bg-trevio-50 p-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-trevio-100">
+                <Wallet className="h-4 w-4 text-trevio-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Pay via UPI ID</p>
+                <p className="text-sm font-medium text-trevio-700">{profileUser.upiId}</p>
+              </div>
+            </div>
+          ) : profileUser.phoneNumber ? (
+            <div className="flex items-center gap-3 rounded-xl bg-trevio-50 p-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-trevio-100">
+                <Phone className="h-4 w-4 text-trevio-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Pay via Mobile Number</p>
+                <p className="text-sm font-medium text-trevio-700">
+                  {getCountryByCode(profileUser.countryCode || "IN").dialCode} {profileUser.phoneNumber}
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

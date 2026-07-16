@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle } from "lucide-react";
+import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet } from "lucide-react";
 import { TermsDialog } from "@/components/terms-dialog";
-import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber, buildUpiVpa } from "@/lib/utils";
+import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber } from "@/lib/utils";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -43,7 +43,7 @@ export default function ProfilePage() {
 
   const upiValidation = upiId ? validateUpiId(upiId) : { valid: true };
   const phoneValidation = validatePhoneNumber(phoneNumber, countryCode);
-  const country = getCountryByCode(countryCode);
+  const editCountry = getCountryByCode(countryCode);
 
   const handleSave = async () => {
     setUpiTouched(true);
@@ -89,7 +89,9 @@ export default function ProfilePage() {
     { code: "JPY", symbol: "¥", name: "Japanese Yen" },
   ];
 
-  const paymentVpa = buildUpiVpa(user.upiId || "", user.phoneNumber || "", user.countryCode || "IN");
+  const country = getCountryByCode(user.countryCode || "IN");
+  const hasUpiId = !!(user.upiId && user.upiId.trim());
+  const hasPhone = !!(user.phoneNumber && user.phoneNumber.trim());
 
   return (
     <div className="mx-auto max-w-md p-4 md:p-6">
@@ -204,8 +206,8 @@ export default function ProfilePage() {
                   onClick={() => setShowCountryDropdown(!showCountryDropdown)}
                   className="flex h-[46px] items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
-                  <span className="text-lg">{country.flag}</span>
-                  <span>{country.dialCode}</span>
+                  <span className="text-lg">{editCountry.flag}</span>
+                  <span>{editCountry.dialCode}</span>
                   <ChevronDown className="h-4 w-4 text-slate-400" />
                 </button>
                 {showCountryDropdown && (
@@ -234,11 +236,11 @@ export default function ProfilePage() {
                 type="tel"
                 value={phoneNumber}
                 onChange={(e) => {
-                  setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, country.phoneLength));
+                  setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, editCountry.phoneLength));
                   setPhoneTouched(false);
                 }}
                 onBlur={() => setPhoneTouched(true)}
-                placeholder={`${country.phoneLength}-digit number`}
+                placeholder={`${editCountry.phoneLength}-digit number`}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
               />
             </div>
@@ -248,7 +250,7 @@ export default function ProfilePage() {
             {phoneValidation.valid && phoneNumber && (
               <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
                 <Check className="h-4 w-4" />
-                Valid {country.phoneLength}-digit number
+                Valid {editCountry.phoneLength}-digit number
               </p>
             )}
             <p className="mt-1.5 text-xs text-slate-400">Used for UPI payments. Friends can pay you using this number.</p>
@@ -304,27 +306,47 @@ export default function ProfilePage() {
             <ProfileRow label="Username" value={`@${user.username}`} />
             <ProfileRow label="Email" value={user.email} />
             <ProfileRow label="Currency" value={`${currencies.find((c) => c.code === user.defaultCurrency)?.symbol || ""} ${user.defaultCurrency}`} />
-            {user.phoneNumber && (
-              <ProfileRow
-                label="Mobile"
-                value={`${getCountryByCode(user.countryCode || "IN").dialCode} ${user.phoneNumber}`}
-              />
-            )}
-            {user.upiId && <ProfileRow label="UPI ID" value={user.upiId} />}
+            <ProfileRow
+              label="Mobile"
+              value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : "Not set"}
+              action={!hasPhone ? { label: "Add", onClick: startEdit } : undefined}
+            />
+            <ProfileRow
+              label="UPI ID"
+              value={hasUpiId ? user.upiId! : "Not set"}
+              action={!hasUpiId ? { label: "Add", onClick: startEdit } : undefined}
+            />
           </div>
 
-          {paymentVpa && (
-            <div className="rounded-2xl border border-trevio-200 bg-trevio-50 p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Smartphone className="h-4 w-4 text-trevio-600" />
-                <span className="text-sm font-semibold text-trevio-700">Payment Address</span>
-              </div>
-              <p className="text-sm text-trevio-600">{paymentVpa}</p>
-              <p className="mt-1 text-xs text-trevio-400">
-                {user.upiId ? "Using UPI ID" : "Using mobile number (UPI ID not set)"}
-              </p>
+          {/* Payment info card */}
+          <div className="rounded-2xl border border-trevio-200 bg-trevio-50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Wallet className="h-4 w-4 text-trevio-600" />
+              <span className="text-sm font-semibold text-trevio-700">Payment Info</span>
             </div>
-          )}
+            {hasUpiId ? (
+              <>
+                <p className="text-sm text-trevio-600">{user.upiId}</p>
+                <p className="mt-1 text-xs text-trevio-400">Friends can pay you via UPI ID</p>
+              </>
+            ) : hasPhone ? (
+              <>
+                <p className="text-sm text-trevio-600">{country.dialCode} {user.phoneNumber}</p>
+                <p className="mt-1 text-xs text-trevio-400">Friends can pay you via mobile number</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-trevio-600">No payment info set</p>
+                <button
+                  onClick={startEdit}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
+                >
+                  <Plus className="h-3 w-3" />
+                  Set up payment info
+                </button>
+              </>
+            )}
+          </div>
 
           <button
             onClick={() => setShowTerms(true)}
@@ -394,11 +416,21 @@ export default function ProfilePage() {
   );
 }
 
-function ProfileRow({ label, value }: { label: string; value: string }) {
+function ProfileRow({ label, value, action }: { label: string; value: string; action?: { label: string; onClick: () => void } }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5">
       <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm font-medium text-slate-900">{value}</span>
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-medium ${value === "Not set" ? "text-slate-400" : "text-slate-900"}`}>{value}</span>
+        {action && (
+          <button
+            onClick={action.onClick}
+            className="inline-flex items-center gap-1 rounded-lg bg-trevio-50 px-2 py-1 text-xs font-semibold text-trevio-700 transition hover:bg-trevio-100"
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

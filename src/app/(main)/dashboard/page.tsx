@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
@@ -10,6 +10,7 @@ import type { GroupTemplate } from "@/lib/types";
 export default function DashboardPage() {
   const { group } = useServices();
   const { formatBase } = useCurrencyDisplay();
+  const queryClient = useQueryClient();
 
   const { data: groups, isLoading, error } = useQuery({
     queryKey: ["groups"],
@@ -105,6 +106,12 @@ export default function DashboardPage() {
           <AlertCircle className="h-10 w-10 text-red-400" />
           <h3 className="mt-3 text-lg font-semibold text-slate-900">Failed to load groups</h3>
           <p className="mt-1 text-sm text-slate-500">{(error as Error).message}</p>
+          <button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["groups"] })}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+          >
+            Try Again
+          </button>
         </div>
       ) : groups && groups.length > 0 ? (
         <div className="space-y-3">

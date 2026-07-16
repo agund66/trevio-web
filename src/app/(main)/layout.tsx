@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import { TrevioLogo } from "@/components/trevio-logo";
-import { Home, Bell, User, LogOut, Users } from "lucide-react";
+import { BroadcastPopup } from "@/components/broadcast-popup";
+import { Home, Bell, User, LogOut, Users, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (loading) return;
     if (!user) {
       router.push("/login");
+    } else if (user.blocked) {
+      signOut();
     } else if (!user.acceptedTnC || !user.phoneNumber) {
       router.push("/login");
     } else if (!user.username) {
@@ -43,10 +46,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { href: "/groups", label: "Groups", icon: Users },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/profile", label: "Profile", icon: User },
+    ...(user.role === "superadmin" ? [{ href: "/admin", label: "Dashboard", icon: Shield }] : []),
   ];
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <BroadcastPopup />
       {/* Sidebar - desktop */}
       <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 bg-white">
         <div className="flex h-16 items-center px-6">

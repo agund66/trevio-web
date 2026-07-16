@@ -8,7 +8,7 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "../../firebase";
 import type { AuthService } from "../interfaces/auth-service";
-import type { User } from "../../types";
+import type { User, UserRole } from "../../types";
 
 export class FirebaseAuthService implements AuthService {
   async signInWithGoogle(): Promise<string> {
@@ -56,6 +56,8 @@ export class FirebaseAuthService implements AuthService {
         defaultCurrency: "INR",
         fcmToken: "",
         acceptedTnC: false,
+        role: "user",
+        blocked: false,
         phoneNumber: phone,
         countryCode,
         createdAt: new Date(),
@@ -103,6 +105,8 @@ export class FirebaseAuthService implements AuthService {
         defaultCurrency: "INR",
         fcmToken: "",
         acceptedTnC: false,
+        role: "user",
+        blocked: false,
         phoneNumber: phone,
         countryCode,
         createdAt: new Date(),
@@ -120,6 +124,8 @@ export class FirebaseAuthService implements AuthService {
         photoURL: firebaseUser.photoURL || "",
         defaultCurrency: "INR",
         acceptedTnC: false,
+        role: "user",
+        blocked: false,
         upiId: "",
         phoneNumber: phone,
         countryCode,
@@ -137,6 +143,8 @@ export class FirebaseAuthService implements AuthService {
       photoURL: data.photoURL || "",
       defaultCurrency: data.defaultCurrency || "INR",
       acceptedTnC: data.acceptedTnC || false,
+      role: (data.role as UserRole) || "user",
+      blocked: data.blocked || false,
       upiId: data.upiId || "",
       phoneNumber: data.phoneNumber || "",
       countryCode: data.countryCode || "",

@@ -2,6 +2,8 @@ export type SplitType = "equal" | "exact" | "percent" | "shares";
 export type GroupTemplate = "trip" | "turf" | "casual";
 export type SettlementMethod = "upi" | "cash" | "other";
 
+export type UserRole = "user" | "superadmin";
+
 export interface User {
   uid: string;
   email: string;
@@ -12,6 +14,8 @@ export interface User {
   photoURL: string;
   defaultCurrency: string;
   acceptedTnC: boolean;
+  role: UserRole;
+  blocked: boolean;
   upiId?: string;
   phoneNumber?: string;
   countryCode?: string;
@@ -95,7 +99,7 @@ export interface Activity {
   userName: string;
   userPhotoURL: string;
   data: Record<string, unknown>;
-  createdAt: { _seconds: number; _nanoseconds: number } | string;
+  createdAt: number;
 }
 
 export interface AppNotification {
@@ -104,6 +108,7 @@ export interface AppNotification {
   title: string;
   body: string;
   read: boolean;
+  createdAt: number;
   data: Record<string, string>;
 }
 
@@ -112,4 +117,28 @@ export interface UserSearchResult {
   username: string;
   displayName: string;
   photoURL: string;
+}
+
+export type BroadcastPriority = "critical" | "maintenance" | "info";
+export type BroadcastTargetType = "all" | "all_except_blocked" | "specific";
+
+export interface BroadcastMessage {
+  id: string;
+  title: string;
+  htmlContent: string;
+  priority: BroadcastPriority;
+  targetType: BroadcastTargetType;
+  targetUids: string[];
+  startAt: number;
+  endAt: number | null;
+  active: boolean;
+  createdBy: string;
+  createdByName: string;
+  createdAt: number;
+  stoppedAt: number | null;
+}
+
+export interface BroadcastRead {
+  uid: string;
+  readAt: number;
 }

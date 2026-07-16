@@ -90,19 +90,24 @@ export class FirebaseSettlementService implements SettlementService {
     await batch.commit();
     await this.recalculateBalances(params.groupId);
 
-    await setDoc(doc(collection(db, "users", params.toUid, "notifications")), {
-      type: "settlement",
-      title: "Payment Received",
-      body: `${fromUserName} recorded a payment of ₹${amountInBase} to you`,
-      data: {
-        groupId: params.groupId,
-        groupName: (groupDoc.data()?.name as string) ?? "",
-        settlementId: settlementRef.id,
+    // Notify the receiver (non-blocking — don't fail settlement creation if notification fails)
+    try {
+      await setDoc(doc(collection(db, "users", params.toUid, "notifications")), {
         type: "settlement",
-      },
-      read: false,
-      createdAt: now,
-    });
+        title: "Payment Received",
+        body: `${fromUserName} recorded a payment of ₹${amountInBase} to you`,
+        data: {
+          groupId: params.groupId,
+          groupName: (groupDoc.data()?.name as string) ?? "",
+          settlementId: settlementRef.id,
+          type: "settlement",
+        },
+        read: false,
+        createdAt: now,
+      });
+    } catch (notifError) {
+      console.warn("Failed to send settlement notification:", notifError);
+    }
 
     return settlementRef.id;
   }
