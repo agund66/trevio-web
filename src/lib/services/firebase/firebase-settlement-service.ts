@@ -229,6 +229,8 @@ export class FirebaseSettlementService implements SettlementService {
           currency: (data.currency as string) ?? "",
           method: (data.method as SettlementMethod) ?? "cash",
           upiRefId: (data.upiRefId as string) ?? "",
+          date: (data.date as number) ?? 0,
+          createdBy: (data.createdBy as string) ?? "",
         } as Settlement;
       })
     );

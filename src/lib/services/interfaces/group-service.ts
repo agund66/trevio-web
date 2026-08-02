@@ -22,6 +22,9 @@ export interface GroupService {
   leaveGroup(groupId: string): Promise<void>;
   archiveGroup(groupId: string): Promise<void>;
   unarchiveGroup(groupId: string): Promise<void>;
+  deleteGroup(groupId: string): Promise<void>;
+  updateGroup(groupId: string, name: string, description: string): Promise<void>;
+  transferAdminRole(groupId: string, newAdminUid: string): Promise<void>;
   getUserGroups(): Promise<Group[]>;
   getGroupInfo(groupId: string): Promise<GroupInfo>;
   getGroupActivities(groupId: string, pageSize?: number): Promise<Activity[]>;

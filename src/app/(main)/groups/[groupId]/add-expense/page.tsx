@@ -6,8 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Calendar, Plus, Loader2 } from "lucide-react";
-import type { SplitType, SplitEntry, Member } from "@/lib/types";
+import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat } from "lucide-react";
+import type { SplitType, SplitEntry, Member, RecurringFrequency } from "@/lib/types";
 
 export default function AddExpensePage() {
   const params = useParams();
@@ -27,6 +27,9 @@ export default function AddExpensePage() {
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [excludedMembers, setExcludedMembers] = useState<Set<string>>(new Set());
   const [saveAndAddAnother, setSaveAndAddAnother] = useState(false);
+  const [note, setNote] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringFreq, setRecurringFreq] = useState<RecurringFrequency>("monthly");
   const { user } = useAuth();
 
   const { data: members } = useQuery({
@@ -121,6 +124,8 @@ export default function AddExpensePage() {
     setSplitValues({});
     setExcludedMembers(new Set());
     setExpenseDate(new Date().toISOString().split("T")[0]);
+    setNote("");
+    setIsRecurring(false);
   };
 
   const addMutation = useMutation({
@@ -136,6 +141,8 @@ export default function AddExpensePage() {
         memberUids: includedMembers.map((m) => m.uid),
         category,
         date: new Date(expenseDate).getTime(),
+        note: note.trim() || undefined,
+        recurring: isRecurring ? { frequency: recurringFreq } : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
@@ -427,6 +434,53 @@ export default function AddExpensePage() {
             )}
           </div>
         )}
+
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <StickyNote className="h-4 w-4 text-slate-400" />
+            Note (optional)
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a note about this expense..."
+            rows={2}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none resize-none"
+          />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-trevio-600 focus:ring-trevio-500"
+            />
+            <Repeat className="h-4 w-4 text-slate-400" />
+            <span className="text-sm font-medium text-slate-700">Make this a recurring expense</span>
+          </label>
+          {isRecurring && (
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setRecurringFreq("weekly")}
+                className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                  recurringFreq === "weekly" ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => setRecurringFreq("monthly")}
+                className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                  recurringFreq === "monthly" ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Monthly
+              </button>
+            </div>
+          )}
+        </div>
 
         {addMutation.isError && (
           <p className="text-sm text-red-500">{addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense"}</p>

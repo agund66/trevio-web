@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,8 +8,8 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode } from "lucide-react";
-import type { UserSearchResult, Activity } from "@/lib/types";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat } from "lucide-react";
+import type { UserSearchResult, Activity, Settlement } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
 
 export default function GroupDetailPage() {
@@ -20,7 +20,7 @@ export default function GroupDetailPage() {
   const { user: currentUser } = useAuth();
   const { formatBase, formatOriginal, formatDate: formatDateFn } = useCurrencyDisplay();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity">("expenses");
+  const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity" | "history">("expenses");
   const [showInvite, setShowInvite] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
@@ -29,6 +29,9 @@ export default function GroupDetailPage() {
   const [shared, setShared] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>("all");
+  const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
 
   const { data: groupInfo, isLoading: groupInfoLoading, error: groupInfoError } = useQuery({
     queryKey: ["groupInfo", groupId],
@@ -78,6 +81,12 @@ export default function GroupDetailPage() {
     enabled: tab === "activity",
   });
 
+  const { data: settlementHistory, isLoading: historyLoading } = useQuery({
+    queryKey: ["settlementHistory", groupId],
+    queryFn: () => settlement.getSettlementHistory(groupId),
+    enabled: tab === "history",
+  });
+
   const inviteMutation = useMutation({
     mutationFn: (username: string) => group.sendGroupInvitation(groupId, username),
     onSuccess: () => {
@@ -96,6 +105,21 @@ export default function GroupDetailPage() {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
+    },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: (expenseId: string) => expense.deleteExpense(groupId, expenseId),
+    onSuccess: () => {
+      setActionError(null);
+      setDeleteExpenseId(null);
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["debts", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
     },
     onError: (e: Error) => setActionError(e.message),
   });
@@ -171,6 +195,35 @@ export default function GroupDetailPage() {
     return formatDateFn(createdAt);
   };
 
+  const filteredExpenses = useMemo(() => {
+    if (!expensesData?.expenses) return [];
+    return expensesData.expenses.filter((e) => {
+      const matchesSearch = !expenseSearch || e.description.toLowerCase().includes(expenseSearch.toLowerCase());
+      const matchesCategory = expenseCategoryFilter === "all" || e.category === expenseCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [expensesData, expenseSearch, expenseCategoryFilter]);
+
+  const exportCsv = () => {
+    if (!expensesData?.expenses) return;
+    const header = "Date,Description,Amount,Currency,Category,Paid By,Split Type,Note\n";
+    const rows = expensesData.expenses.map((e) => {
+      const payer = members?.find((m) => m.uid === e.paidBy)?.displayName || "Unknown";
+      const date = e.date ? new Date(e.date).toLocaleDateString() : "";
+      const desc = `"${e.description.replace(/"/g, '\\"')}"`;
+      const note = e.note ? `"${e.note.replace(/"/g, '\\"')}"` : "";
+      return `${date},${desc},${e.amount},${e.currency},${e.category},${payer},${e.splitType},${note}`;
+    });
+    const csv = header + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${groupInfo?.name || "group"}-expenses.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const activityIcon = (type: string) => {
     switch (type) {
       case "expense_added": return Receipt;
@@ -227,6 +280,13 @@ export default function GroupDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/groups/${groupId}/settings`)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
           <button
             onClick={() => archiveMutation.mutate(!groupInfo?.archived)}
             disabled={archiveMutation.isPending}
@@ -285,10 +345,11 @@ export default function GroupDetailPage() {
         )}
       </div>
 
-      <div className="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-2 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
         {([
           { key: "expenses", label: "Expenses", icon: Receipt },
           { key: "balances", label: "Balances", icon: Wallet },
+          { key: "history", label: "History", icon: Clock },
           { key: "members", label: "Members", icon: Users },
           { key: "activity", label: "Activity", icon: ActivityIcon },
         ] as const).map((t) => (
@@ -296,7 +357,7 @@ export default function GroupDetailPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
-              tab === t.key ? "border-trevio-600 text-trevio-600" : "border-transparent text-slate-500 hover:text-slate-700"
+              tab === t.key ? "border-trevio-600 text-trevio-600 dark:text-trevio-400" : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
             <t.icon className="h-4 w-4" />
@@ -307,46 +368,147 @@ export default function GroupDetailPage() {
 
       {tab === "expenses" && (
         <div className="space-y-3">
+          {expensesData?.expenses && expensesData.expenses.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2 mb-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={expenseSearch}
+                  onChange={(e) => setExpenseSearch(e.target.value)}
+                  placeholder="Search expenses..."
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+                />
+              </div>
+              <select
+                value={expenseCategoryFilter}
+                onChange={(e) => setExpenseCategoryFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+              >
+                <option value="all">All categories</option>
+                <option value="food">Food</option>
+                <option value="transport">Transport</option>
+                <option value="shopping">Shopping</option>
+                <option value="turf">Turf</option>
+                <option value="accommodation">Accommodation</option>
+                <option value="other">Other</option>
+              </select>
+              <button
+                onClick={exportCsv}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                title="Export as CSV"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            </div>
+          )}
           {expensesLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
             </div>
-          ) : expensesData?.expenses && expensesData.expenses.length > 0 ? (
-            expensesData.expenses.map((e) => {
+          ) : filteredExpenses.length > 0 ? (
+            filteredExpenses.map((e) => {
               const payer = members?.find((m) => m.uid === e.paidBy);
               const payerName = payer?.displayName?.split(" ")[0] || "Someone";
               const isPayerMe = currentUser?.uid === e.paidBy;
               const myShare = currentUser ? e.splits?.[currentUser.uid]?.amount : undefined;
+              const canEdit = e.createdBy === currentUser?.uid || members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
               return (
-                <div key={e.expenseId} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 md:gap-4">
+                <div key={e.expenseId} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 group">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-900 truncate">{e.description}</p>
-                    <p className="text-xs md:text-sm text-slate-500 capitalize">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{e.description}</p>
+                      {e.recurring && (
+                        <Repeat className="h-3 w-3 text-trevio-500 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 capitalize">
                       {isPayerMe ? "You" : payerName} paid · {e.category}
                       {myShare !== undefined && Math.abs(myShare) > 0.01 && (
                         <span className="text-slate-400"> · your share: {formatOriginal(myShare, e.currency)}</span>
                       )}
                     </p>
+                    {e.note && (
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
+                        <StickyNote className="h-3 w-3" />
+                        {e.note}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-base md:text-lg font-bold text-trevio-600 shrink-0">{formatOriginal(e.amount, e.currency)}</p>
+                  <p className="text-base md:text-lg font-bold text-trevio-600 dark:text-trevio-400 shrink-0">{formatOriginal(e.amount, e.currency)}</p>
+                  {canEdit && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <button
+                        onClick={() => router.push(`/groups/${groupId}/edit-expense/${e.expenseId}`)}
+                        className="rounded-lg p-2 text-slate-400 hover:text-trevio-600 hover:bg-trevio-50 dark:hover:bg-trevio-900/30 transition"
+                        title="Edit expense"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteExpenseId(e.expenseId)}
+                        className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
+                        title="Delete expense"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })
           ) : expensesData ? (
-            <div className="flex flex-col items-center py-16 text-center">
-              <Receipt className="h-12 w-12 text-slate-300" />
-              <p className="mt-3 text-sm text-slate-500">No expenses yet. Tap &quot;Add Expense&quot; to get started.</p>
-            </div>
+            expenseSearch || expenseCategoryFilter !== "all" ? (
+              <div className="flex flex-col items-center py-16 text-center">
+                <Search className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No expenses match your filters.</p>
+                <button
+                  onClick={() => { setExpenseSearch(""); setExpenseCategoryFilter("all"); }}
+                  className="mt-3 text-sm text-trevio-600 dark:text-trevio-400 hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-16 text-center">
+                <Receipt className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No expenses yet. Tap &quot;Add Expense&quot; to get started.</p>
+              </div>
+            )
           ) : (
             <div className="flex flex-col items-center py-16 text-center">
               <AlertCircle className="h-10 w-10 text-red-400" />
-              <p className="mt-3 text-sm text-slate-500">Failed to load expenses</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load expenses</p>
               <button
                 onClick={() => queryClient.invalidateQueries({ queryKey: ["expenses", groupId] })}
                 className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
               >
                 Try Again
               </button>
+            </div>
+          )}
+          {deleteExpenseId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 max-w-sm w-full">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Delete Expense?</h3>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">This action cannot be undone. Balances will be recalculated.</p>
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => deleteExpenseMutation.mutate(deleteExpenseId)}
+                    disabled={deleteExpenseMutation.isPending}
+                    className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
+                  </button>
+                  <button
+                    onClick={() => setDeleteExpenseId(null)}
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -480,6 +642,50 @@ export default function GroupDetailPage() {
                 </Link>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div className="space-y-3">
+          {historyLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
+            </div>
+          ) : settlementHistory && settlementHistory.length > 0 ? (
+            settlementHistory.map((s) => {
+              const isFromMe = currentUser?.uid === s.fromUid;
+              const isToMe = currentUser?.uid === s.toUid;
+              const fromFirstName = s.fromName.split(" ")[0] || s.fromName;
+              const toFirstName = s.toName.split(" ")[0] || s.toName;
+              return (
+                <div key={s.settlementId} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 dark:bg-green-900/30">
+                    <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {isFromMe ? "You" : fromFirstName} paid {isToMe ? "you" : toFirstName}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {s.date ? formatDateFn(s.date) : ""} · {s.method}
+                      {s.upiRefId && ` · Ref: ${s.upiRefId}`}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">{formatBase(s.amount)}</p>
+                </div>
+              );
+            })
+          ) : settlementHistory ? (
+            <div className="flex flex-col items-center py-16 text-center">
+              <Wallet className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No settlements yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-16 text-center">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load settlement history</p>
             </div>
           )}
         </div>

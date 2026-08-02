@@ -5,6 +5,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   query as firestoreQuery,
   where,
   orderBy,
@@ -430,5 +431,98 @@ export class FirebaseGroupService implements GroupService {
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
     await updateDoc(groupRef, { archived: false, updatedAt: Date.now() });
+  }
+
+  async deleteGroup(groupId: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId) throw new Error("Group ID is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+    if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can delete the group");
+
+    const membersSnapshot = await getDocs(collection(groupRef, "members"));
+    const activeMembers = membersSnapshot.docs.filter((d) => d.data()?.status === "active");
+    if (activeMembers.length > 1) {
+      throw new Error("Cannot delete group with other active members. Remove all members first.");
+    }
+
+    const batch = writeBatch(db);
+    for (const memberDoc of membersSnapshot.docs) {
+      batch.delete(memberDoc.ref);
+    }
+
+    const expensesSnapshot = await getDocs(collection(groupRef, "expenses"));
+    for (const expDoc of expensesSnapshot.docs) {
+      batch.delete(expDoc.ref);
+    }
+
+    const settlementsSnapshot = await getDocs(collection(groupRef, "settlements"));
+    for (const setDoc of settlementsSnapshot.docs) {
+      batch.delete(setDoc.ref);
+    }
+
+    const activitiesSnapshot = await getDocs(collection(groupRef, "activities"));
+    for (const actDoc of activitiesSnapshot.docs) {
+      batch.delete(actDoc.ref);
+    }
+
+    batch.delete(groupRef);
+    await batch.commit();
+  }
+
+  async updateGroup(groupId: string, name: string, description: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId) throw new Error("Group ID is required");
+    if (!name || name.trim().length === 0) throw new Error("Group name is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+    if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can update group settings");
+
+    await updateDoc(groupRef, {
+      name: name.trim(),
+      description: description?.trim() ?? "",
+      updatedAt: Date.now(),
+    });
+  }
+
+  async transferAdminRole(groupId: string, newAdminUid: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId || !newAdminUid) throw new Error("Group ID and new admin UID are required");
+    if (newAdminUid === uid) throw new Error("You are already the admin");
+
+    const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    const currentMemberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!currentMemberDoc.exists()) throw new Error("You are not a member of this group");
+    if (currentMemberDoc.data()?.role !== "admin") throw new Error("Only group admin can transfer admin role");
+
+    const targetMemberDoc = await getDoc(doc(groupRef, "members", newAdminUid));
+    if (!targetMemberDoc.exists()) throw new Error("Target user is not a member of this group");
+    if (targetMemberDoc.data()?.status !== "active") throw new Error("Target user is not an active member");
+
+    const now = Date.now();
+    const batch = writeBatch(db);
+    batch.update(doc(groupRef, "members", uid), { role: "member", updatedAt: now });
+    batch.update(doc(groupRef, "members", newAdminUid), { role: "admin", updatedAt: now });
+    batch.set(doc(collection(groupRef, "activities")), {
+      type: "admin_transferred",
+      description: "Admin role transferred",
+      userId: uid,
+      data: { newAdminUid },
+      createdAt: now,
+    });
+    await batch.commit();
   }
 }

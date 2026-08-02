@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
-import type { Expense, SplitEntry, SplitType } from "../../types";
+import type { Expense, SplitEntry, SplitType, RecurringConfig } from "../../types";
 import { calculateSplits, calculateBalances } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 
@@ -32,6 +32,8 @@ export class FirebaseExpenseService implements ExpenseService {
     memberUids: string[];
     category: string;
     date?: number;
+    note?: string;
+    recurring?: RecurringConfig;
   }): Promise<string> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -71,6 +73,8 @@ export class FirebaseExpenseService implements ExpenseService {
       createdBy: uid,
       createdAt: now,
       exchangeRateToBase,
+      ...(params.note ? { note: params.note } : {}),
+      ...(params.recurring ? { recurring: params.recurring } : {}),
     });
 
     const amountInBase = params.amount * exchangeRateToBase;
@@ -144,6 +148,7 @@ export class FirebaseExpenseService implements ExpenseService {
     splits: Record<string, SplitEntry>;
     memberUids: string[];
     category: string;
+    note?: string;
   }): Promise<void> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -158,6 +163,11 @@ export class FirebaseExpenseService implements ExpenseService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
+    // Only creator or group admin can edit
+    const isCreator = oldExpense.createdBy === uid;
+    const isAdmin = memberDoc.data()?.role === "admin";
+    if (!isCreator && !isAdmin) throw new Error("Only the expense creator or group admin can edit this expense");
+
     const now = Date.now();
     const updateData: Record<string, unknown> = { updatedAt: now };
 
@@ -166,6 +176,7 @@ export class FirebaseExpenseService implements ExpenseService {
     if (params.currency) updateData.currency = params.currency;
     if (params.paidBy) updateData.paidBy = params.paidBy;
     if (params.category) updateData.category = params.category;
+    if (params.note !== undefined) updateData.note = params.note;
 
     const oldCurrency = oldExpense.currency as string;
     const newCurrency = params.currency || oldCurrency;
@@ -227,6 +238,11 @@ export class FirebaseExpenseService implements ExpenseService {
     const expenseData = expenseDoc.data() as Record<string, unknown>;
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
+    // Only creator or group admin can delete
+    const isCreator = expenseData.createdBy === uid;
+    const isAdmin = memberDoc.data()?.role === "admin";
+    if (!isCreator && !isAdmin) throw new Error("Only the expense creator or group admin can delete this expense");
 
     const now = Date.now();
     const batch = writeBatch(db);
@@ -295,6 +311,9 @@ export class FirebaseExpenseService implements ExpenseService {
         category: (data.category as string) ?? "other",
         createdBy: (data.createdBy as string) ?? "",
         exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+        date: (data.date as number) ?? 0,
+        note: (data.note as string) ?? "",
+        recurring: (data.recurring as RecurringConfig) ?? undefined,
       };
     });
 

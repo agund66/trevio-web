@@ -62,6 +62,18 @@ export interface Expense {
   category: string;
   createdBy: string;
   exchangeRateToBase?: number;
+  date?: number;
+  note?: string;
+  recurring?: RecurringConfig;
+}
+
+export type RecurringFrequency = "weekly" | "monthly";
+
+export interface RecurringConfig {
+  frequency: RecurringFrequency;
+  endDate?: number;
+  nextDueDate?: number;
+  parentExpenseId?: string;
 }
 
 export interface Settlement {
@@ -74,6 +86,8 @@ export interface Settlement {
   currency: string;
   method: SettlementMethod;
   upiRefId: string;
+  date?: number;
+  createdBy?: string;
 }
 
 export interface SimplifiedDebt {

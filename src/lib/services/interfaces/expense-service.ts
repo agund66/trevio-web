@@ -1,4 +1,4 @@
-import type { Expense, SplitEntry, SplitType } from "../../types";
+import type { Expense, SplitEntry, SplitType, RecurringConfig } from "../../types";
 
 export interface ExpenseService {
   addExpense(params: {
@@ -12,6 +12,8 @@ export interface ExpenseService {
     memberUids: string[];
     category: string;
     date?: number;
+    note?: string;
+    recurring?: RecurringConfig;
   }): Promise<string>;
 
   updateExpense(params: {
@@ -25,6 +27,7 @@ export interface ExpenseService {
     splits: Record<string, SplitEntry>;
     memberUids: string[];
     category: string;
+    note?: string;
   }): Promise<void>;
 
   deleteExpense(groupId: string, expenseId: string): Promise<void>;
