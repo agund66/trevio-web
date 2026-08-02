@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import { TrevioLogo } from "@/components/trevio-logo";
 import { BroadcastPopup } from "@/components/broadcast-popup";
-import { Home, Bell, User, LogOut, Users, Shield, Moon, Sun, Settings } from "lucide-react";
+import { Home, Bell, User, LogOut, Users, Shield, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { useFcmNotifications } from "@/lib/hooks/use-fcm-notifications";
