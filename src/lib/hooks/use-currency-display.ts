@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { convertFromBase, formatCurrencySymbol } from "@/lib/utils/currency";
+import { convertFromBase, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
 
 export function useCurrencyDisplay() {
   const { exchangeRate, user: userService } = useServices();
@@ -39,6 +39,8 @@ export function useCurrencyDisplay() {
     formatBase,
     formatOriginal,
     convertBase,
+    formatDate: (timestamp: number, includeTime: boolean = false) =>
+      formatDate(timestamp, userCurrency, includeTime),
     isLoading: !rates,
   };
 }

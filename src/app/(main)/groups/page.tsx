@@ -1,16 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
-import { Plus, Users, Plane, Dumbbell, Coffee, AlertCircle } from "lucide-react";
+import { Plus, Users, Plane, Dumbbell, Coffee, AlertCircle, LogIn } from "lucide-react";
 import type { GroupTemplate } from "@/lib/types";
+import { JoinGroupDialog } from "@/components/join-group-dialog";
 
 export default function GroupsPage() {
   const { group } = useServices();
   const { formatBase } = useCurrencyDisplay();
   const queryClient = useQueryClient();
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   const { data: groups, isLoading, error } = useQuery({
     queryKey: ["groups"],
@@ -29,13 +32,22 @@ export default function GroupsPage() {
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Groups</h1>
-        <Link
-          href="/groups/create"
-          className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
-        >
-          <Plus className="h-4 w-4" />
-          New Group
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowJoinDialog(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          >
+            <LogIn className="h-4 w-4" />
+            Join Group
+          </button>
+          <Link
+            href="/groups/create"
+            className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+          >
+            <Plus className="h-4 w-4" />
+            New Group
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
@@ -125,6 +137,7 @@ export default function GroupsPage() {
           </Link>
         </div>
       )}
+      <JoinGroupDialog open={showJoinDialog} onClose={() => setShowJoinDialog(false)} />
     </div>
   );
 }

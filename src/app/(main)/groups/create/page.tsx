@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
+import { useAuth } from "@/lib/hooks/use-auth";
 import { Plane, Dumbbell, Coffee, Search, UserPlus, X } from "lucide-react";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
 
 export default function CreateGroupPage() {
   const { group, user } = useServices();
+  const { user: currentUser } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -137,7 +139,7 @@ export default function CreateGroupPage() {
                     </div>
                   )}
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-900">{u.displayName}</p>
+                    <p className="text-sm font-medium text-slate-900">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600">(You)</span>}</p>
                     <p className="text-xs text-slate-500">@{u.username}</p>
                   </div>
                   <UserPlus className="h-5 w-5 text-trevio-500" />
@@ -158,7 +160,7 @@ export default function CreateGroupPage() {
                       {u.displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="flex-1 text-sm font-medium text-slate-900">{u.displayName}</span>
+                  <span className="flex-1 text-sm font-medium text-slate-900">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600">(You)</span>}</span>
                   <button onClick={() => removeMember(u)} className="text-slate-400 hover:text-red-500">
                     <X className="h-4 w-4" />
                   </button>

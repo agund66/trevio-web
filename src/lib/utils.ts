@@ -5,17 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency: string = "INR"): string {
-  const symbols: Record<string, string> = {
-    INR: "₹",
-    USD: "$",
-    EUR: "€",
-    GBP: "£",
-  };
-  const symbol = symbols[currency] || currency;
-  return `${symbol}${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9]{2,64}$/;
 
 export function validateUpiId(upiId: string): { valid: boolean; error?: string } {

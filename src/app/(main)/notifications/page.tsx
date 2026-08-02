@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus } from "lucide-react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ const broadcastColors: Record<BroadcastPriority, { border: string; bg: string; i
   info: { border: "border-blue-200", bg: "bg-blue-50", iconBg: "bg-blue-100", icon: "text-blue-600" },
 };
 
-const formatNotificationTime = (createdAt: number) => {
+const formatNotificationTime = (createdAt: number, formatDate: (ts: number) => string) => {
   if (!createdAt) return "";
   const date = new Date(createdAt);
   const now = new Date();
@@ -34,12 +35,13 @@ const formatNotificationTime = (createdAt: number) => {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatDate(createdAt);
 };
 
 export default function NotificationsPage() {
   const { notification, broadcast, group } = useServices();
   const { user } = useAuth();
+  const { formatDate: formatDateFn } = useCurrencyDisplay();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [activeBroadcasts, setActiveBroadcasts] = useState<BroadcastMessage[]>([]);
@@ -62,6 +64,11 @@ export default function NotificationsPage() {
 
   const markAllMutation = useMutation({
     mutationFn: () => notification.markAllNotificationsRead(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: (notificationId: string) => notification.markNotificationRead(notificationId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
@@ -211,8 +218,9 @@ export default function NotificationsPage() {
             return (
               <div
                 key={n.notificationId}
-                className={`flex flex-col rounded-2xl border p-4 ${
-                  n.read ? "border-slate-200 bg-white" : "border-trevio-200 bg-trevio-50"
+                onClick={() => { if (!n.read) markReadMutation.mutate(n.notificationId); }}
+                className={`flex flex-col rounded-2xl border p-4 cursor-pointer transition ${
+                  n.read ? "border-slate-200 bg-white" : "border-trevio-200 bg-trevio-50 hover:border-trevio-300"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -227,7 +235,7 @@ export default function NotificationsPage() {
                     <p className="text-sm font-semibold text-slate-900">{n.title}</p>
                     <p className="text-sm text-slate-500">{n.body}</p>
                     {n.createdAt > 0 && (
-                      <p className="mt-1 text-xs text-slate-400">{formatNotificationTime(n.createdAt)}</p>
+                      <p className="mt-1 text-xs text-slate-400">{formatNotificationTime(n.createdAt, formatDateFn)}</p>
                     )}
                   </div>
                   {!n.read && <div className="mt-1 h-2 w-2 rounded-full bg-trevio-500" />}

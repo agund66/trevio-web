@@ -47,7 +47,7 @@ export class FirebaseSettlementService implements SettlementService {
     const rateToBase = await this.exchangeRateService.getRateToBase(params.currency);
     const amountInBase = Math.round((params.amount * rateToBase) * 100) / 100;
 
-    const now = new Date();
+    const now = Date.now();
     const settlementRef = doc(collection(groupRef, "settlements"));
 
     const settlementData: Record<string, unknown> = {
@@ -76,7 +76,7 @@ export class FirebaseSettlementService implements SettlementService {
     batch.set(settlementRef, settlementData);
     batch.set(doc(collection(groupRef, "activities")), {
       type: "settlement_added",
-      description: `${fromUserName} settled ₹${amountInBase} with ${toUserName}`,
+      description: `${fromUserName} settled ${params.currency} ${amountInBase} with ${toUserName}`,
       userId: uid,
       data: {
         settlementId: settlementRef.id,
@@ -90,21 +90,32 @@ export class FirebaseSettlementService implements SettlementService {
     await batch.commit();
     await this.recalculateBalances(params.groupId);
 
-    // Notify the receiver (non-blocking — don't fail settlement creation if notification fails)
+    // Notify the receiver and/or payer (non-blocking — don't fail settlement creation if notification fails)
+    // Skip self-notification: don't notify the user who is recording the settlement
     try {
-      await setDoc(doc(collection(db, "users", params.toUid, "notifications")), {
-        type: "settlement",
-        title: "Payment Received",
-        body: `${fromUserName} recorded a payment of ₹${amountInBase} to you`,
-        data: {
-          groupId: params.groupId,
-          groupName: (groupDoc.data()?.name as string) ?? "",
-          settlementId: settlementRef.id,
+      const groupName = (groupDoc.data()?.name as string) ?? "";
+      const notifyUids: string[] = [];
+      if (params.toUid !== uid) notifyUids.push(params.toUid);
+      if (params.fromUid !== uid && !notifyUids.includes(params.fromUid)) notifyUids.push(params.fromUid);
+
+      for (const notifyUid of notifyUids) {
+        const isReceiver = notifyUid === params.toUid;
+        await setDoc(doc(collection(db, "users", notifyUid, "notifications")), {
           type: "settlement",
-        },
-        read: false,
-        createdAt: now,
-      });
+          title: isReceiver ? "Payment Received" : "Payment Recorded",
+          body: isReceiver
+            ? `${fromUserName} recorded a payment of ${params.currency} ${amountInBase} to you`
+            : `You paid ${toUserName} ${params.currency} ${amountInBase} (recorded by ${fromUserName === toUserName ? "them" : fromUserName})`,
+          data: {
+            groupId: params.groupId,
+            groupName,
+            settlementId: settlementRef.id,
+            type: "settlement",
+          },
+          read: false,
+          createdAt: now,
+        });
+      }
     } catch (notifError) {
       console.warn("Failed to send settlement notification:", notifError);
     }

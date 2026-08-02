@@ -31,8 +31,7 @@ export class FirebaseExpenseService implements ExpenseService {
     splits: Record<string, SplitEntry>;
     memberUids: string[];
     category: string;
-    isRecurring: boolean;
-    recurringFrequency?: string;
+    date?: number;
   }): Promise<string> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -56,7 +55,7 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const exchangeRateToBase = await this.exchangeRateService.getRateToBase(params.currency);
 
-    const now = new Date();
+    const now = params.date ?? Date.now();
     const expenseRef = doc(collection(groupRef, "expenses"));
 
     const batch = writeBatch(db);
@@ -69,22 +68,10 @@ export class FirebaseExpenseService implements ExpenseService {
       splits: calculatedSplits,
       category: params.category || "other",
       date: now,
-      isRecurring: params.isRecurring ?? false,
       createdBy: uid,
       createdAt: now,
       exchangeRateToBase,
     });
-
-    if (params.isRecurring && params.recurringFrequency) {
-      batch.update(expenseRef, {
-        recurringConfig: {
-          frequency: params.recurringFrequency,
-          startDate: now,
-          endDate: null,
-          lastTriggered: now,
-        },
-      });
-    }
 
     const amountInBase = params.amount * exchangeRateToBase;
 
@@ -171,7 +158,7 @@ export class FirebaseExpenseService implements ExpenseService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    const now = new Date();
+    const now = Date.now();
     const updateData: Record<string, unknown> = { updatedAt: now };
 
     if (params.description) updateData.description = params.description;
@@ -241,7 +228,7 @@ export class FirebaseExpenseService implements ExpenseService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    const now = new Date();
+    const now = Date.now();
     const batch = writeBatch(db);
     batch.delete(expenseRef);
 
@@ -306,7 +293,6 @@ export class FirebaseExpenseService implements ExpenseService {
         splitType: (data.splitType as SplitType) ?? "equal",
         splits: (data.splits as Record<string, SplitEntry>) ?? {},
         category: (data.category as string) ?? "other",
-        isRecurring: (data.isRecurring as boolean) ?? false,
         createdBy: (data.createdBy as string) ?? "",
         exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
       };

@@ -60,7 +60,6 @@ export interface Expense {
   splitType: SplitType;
   splits: Record<string, SplitEntry>;
   category: string;
-  isRecurring: boolean;
   createdBy: string;
   exchangeRateToBase?: number;
 }

@@ -2,7 +2,7 @@ export interface ExchangeRates {
   base: string;
   date: string;
   rates: Record<string, number>;
-  updatedAt: Date;
+  updatedAt: number;
 }
 
 export interface ExchangeRateService {

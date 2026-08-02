@@ -43,7 +43,7 @@ export class FirebaseGroupService implements GroupService {
     const userDoc = await getDoc(doc(db, "users", uid));
     const userCurrency = userDoc.data()?.defaultCurrency || "INR";
 
-    const now = new Date();
+    const now = Date.now();
     const inviteCode = generateInviteCode();
     const groupRef = doc(collection(db, "groups"));
     const groupId = groupRef.id;
@@ -105,7 +105,7 @@ export class FirebaseGroupService implements GroupService {
     const memberDoc = await getDoc(doc(groupDoc.ref, "members", uid));
     if (memberDoc.exists()) throw new Error("You are already a member of this group");
 
-    const now = new Date();
+    const now = Date.now();
     const batch = writeBatch(db);
     batch.set(doc(groupDoc.ref, "members", uid), {
       uid,
@@ -140,6 +140,7 @@ export class FirebaseGroupService implements GroupService {
     if (!usernameDoc.exists()) throw new Error("User not found");
 
     const toUid = usernameDoc.data()?.uid as string;
+    if (toUid === uid) throw new Error("You cannot invite yourself");
     const groupDoc = await getDoc(doc(db, "groups", groupId));
     if (!groupDoc.exists()) throw new Error("Group not found");
 
@@ -160,7 +161,7 @@ export class FirebaseGroupService implements GroupService {
     const inviterDoc = await getDoc(doc(db, "users", invitedByUid));
     const invitedByName = (inviterDoc.data()?.displayName as string) ?? "Someone";
 
-    const now = new Date();
+    const now = Date.now();
     const inviteRef = doc(collection(db, "invitations"));
     await setDoc(inviteRef, {
       groupId,
@@ -217,7 +218,7 @@ export class FirebaseGroupService implements GroupService {
     if (!groupDoc.exists()) throw new Error("Group not found");
 
     const groupData = groupDoc.data() as Record<string, unknown>;
-    const now = new Date();
+    const now = Date.now();
 
     const batch = writeBatch(db);
     batch.update(doc(db, "invitations", invitationId), { status: "accepted" });
@@ -281,7 +282,7 @@ export class FirebaseGroupService implements GroupService {
       }
     }
 
-    const now = new Date();
+    const now = Date.now();
     const batch = writeBatch(db);
     batch.update(memberDoc.ref, { status: "left" });
     batch.update(groupDoc.ref, {
@@ -416,7 +417,7 @@ export class FirebaseGroupService implements GroupService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    await updateDoc(groupRef, { archived: true, updatedAt: new Date() });
+    await updateDoc(groupRef, { archived: true, updatedAt: Date.now() });
   }
 
   async unarchiveGroup(groupId: string): Promise<void> {
@@ -428,6 +429,6 @@ export class FirebaseGroupService implements GroupService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    await updateDoc(groupRef, { archived: false, updatedAt: new Date() });
+    await updateDoc(groupRef, { archived: false, updatedAt: Date.now() });
   }
 }

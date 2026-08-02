@@ -11,8 +11,7 @@ export interface ExpenseService {
     splits: Record<string, SplitEntry>;
     memberUids: string[];
     category: string;
-    isRecurring: boolean;
-    recurringFrequency?: string;
+    date?: number;
   }): Promise<string>;
 
   updateExpense(params: {

@@ -8,8 +8,9 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle } from "lucide-react";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode } from "lucide-react";
 import type { UserSearchResult, Activity } from "@/lib/types";
+import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
 
 export default function GroupDetailPage() {
   const params = useParams();
@@ -17,7 +18,7 @@ export default function GroupDetailPage() {
   const groupId = params.groupId as string;
   const { expense, settlement, group, user: userService } = useServices();
   const { user: currentUser } = useAuth();
-  const { formatBase, formatOriginal } = useCurrencyDisplay();
+  const { formatBase, formatOriginal, formatDate: formatDateFn } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity">("expenses");
   const [showInvite, setShowInvite] = useState(false);
@@ -26,8 +27,10 @@ export default function GroupDetailPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showQrDialog, setShowQrDialog] = useState(false);
 
-  const { data: groupInfo } = useQuery({
+  const { data: groupInfo, isLoading: groupInfoLoading, error: groupInfoError } = useQuery({
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
   });
@@ -58,6 +61,7 @@ export default function GroupDetailPage() {
         method: debt.method,
       }),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: ["debts", groupId] });
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
@@ -65,6 +69,7 @@ export default function GroupDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
+    onError: (e: Error) => setActionError(e.message),
   });
 
   const { data: activities, isLoading: activitiesLoading } = useQuery({
@@ -88,9 +93,11 @@ export default function GroupDetailPage() {
     mutationFn: (shouldArchive: boolean) =>
       shouldArchive ? group.archiveGroup(groupId) : group.unarchiveGroup(groupId),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
+    onError: (e: Error) => setActionError(e.message),
   });
 
   const handleSearch = async (query: string) => {
@@ -161,7 +168,7 @@ export default function GroupDetailPage() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    return formatDateFn(createdAt);
   };
 
   const activityIcon = (type: string) => {
@@ -184,7 +191,35 @@ export default function GroupDetailPage() {
         Back
       </button>
 
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+      {groupInfoLoading ? (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 border-t-trevio-600" />
+        </div>
+      ) : groupInfoError ? (
+        <div className="flex min-h-[50vh] items-center justify-center text-center">
+          <div className="max-w-md">
+            <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
+            <h2 className="mt-3 text-lg font-semibold text-slate-900">Failed to load group</h2>
+            <p className="mt-1 text-sm text-slate-500">{groupInfoError.message}</p>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] })}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+        {actionError && (
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            <span>{actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-600">
+              <AlertCircle className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">{groupInfo?.name || "Group"}</h1>
           {groupInfo?.archived && (
@@ -202,7 +237,9 @@ export default function GroupDetailPage() {
           </button>
           <button
             onClick={() => router.push(`/groups/${groupId}/add-expense`)}
-            className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+            disabled={groupInfo?.archived}
+            className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={groupInfo?.archived ? "Unarchive group to add expenses" : ""}
           >
             <Plus className="h-4 w-4" />
             Add Expense
@@ -223,6 +260,13 @@ export default function GroupDetailPage() {
         </span>
         {groupInfo?.inviteCode && (
           <>
+            <button
+              onClick={() => setShowQrDialog(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
+            >
+              <QrCode className="h-3 w-3" />
+              QR Code
+            </button>
             <button
               onClick={copyInviteCode}
               className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 px-2.5 py-1 text-xs font-medium text-trevio-700 transition hover:bg-trevio-100"
@@ -271,13 +315,14 @@ export default function GroupDetailPage() {
             expensesData.expenses.map((e) => {
               const payer = members?.find((m) => m.uid === e.paidBy);
               const payerName = payer?.displayName?.split(" ")[0] || "Someone";
+              const isPayerMe = currentUser?.uid === e.paidBy;
               const myShare = currentUser ? e.splits?.[currentUser.uid]?.amount : undefined;
               return (
                 <div key={e.expenseId} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 md:gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 truncate">{e.description}</p>
                     <p className="text-xs md:text-sm text-slate-500 capitalize">
-                      {payerName} paid · {e.category}
+                      {isPayerMe ? "You" : payerName} paid · {e.category}
                       {myShare !== undefined && Math.abs(myShare) > 0.01 && (
                         <span className="text-slate-400"> · your share: {formatOriginal(myShare, e.currency)}</span>
                       )}
@@ -412,7 +457,7 @@ export default function GroupDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900 truncate">
                       {m.displayName}
-                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600">(you)</span>}
+                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600">(You)</span>}
                     </p>
                     <p className="text-xs text-slate-500">@{m.username}</p>
                   </div>
@@ -460,7 +505,7 @@ export default function GroupDetailPage() {
                       {a.userPhotoURL ? (
                         <img src={a.userPhotoURL} alt={a.userName} className="h-4 w-4 rounded-full" />
                       ) : null}
-                      <span className="text-xs text-slate-400">{a.userName}</span>
+                      <span className="text-xs text-slate-400">{a.userName}{a.userId === currentUser?.uid && " (You)"}</span>
                       <span className="text-xs text-slate-300">&middot;</span>
                       <span className="text-xs text-slate-400">{formatActivityTime(a.createdAt)}</span>
                     </div>
@@ -531,7 +576,7 @@ export default function GroupDetailPage() {
                         </div>
                       )}
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900">{u.displayName}</p>
+                        <p className="text-sm font-medium text-slate-900">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600">(You)</span>}</p>
                         <p className="text-xs text-slate-500">@{u.username}</p>
                       </div>
                       <UserPlus className="h-4 w-4 text-trevio-500" />
@@ -560,7 +605,7 @@ export default function GroupDetailPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">{m.displayName}</p>
+                    <p className="font-medium text-slate-900 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600">(You)</span>}</p>
                     <p className="text-xs text-slate-500">@{m.username}</p>
                   </div>
                   {m.status === "pending" && (
@@ -577,6 +622,17 @@ export default function GroupDetailPage() {
             </div>
           )}
         </div>
+      )}
+        </>
+      )}
+
+      {groupInfo?.inviteCode && (
+        <GroupQrCodeDialog
+          open={showQrDialog}
+          onClose={() => setShowQrDialog(false)}
+          groupName={groupInfo.name}
+          inviteCode={groupInfo.inviteCode}
+        />
       )}
     </div>
   );

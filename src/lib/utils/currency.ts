@@ -1,5 +1,53 @@
 import type { ExchangeRates } from "../services/interfaces/exchange-rate-service";
 
+const CURRENCY_LOCALE_MAP: Record<string, string> = {
+  INR: "en-IN",
+  USD: "en-US",
+  EUR: "en-IE",
+  GBP: "en-GB",
+  JPY: "ja-JP",
+  AUD: "en-AU",
+  CAD: "en-CA",
+  SGD: "en-SG",
+  AED: "ar-AE",
+  SAR: "ar-SA",
+  PKR: "ur-PK",
+  BDT: "bn-BD",
+  LKR: "en-LK",
+  NPR: "ne-NP",
+  ZAR: "en-ZA",
+  NGN: "en-NG",
+  KES: "sw-KE",
+};
+
+export function getLocaleForCurrency(currency: string): string {
+  return CURRENCY_LOCALE_MAP[currency] || "en-US";
+}
+
+export function formatDate(
+  timestamp: number,
+  currency: string,
+  includeTime: boolean = false
+): string {
+  if (!timestamp) return "";
+  const locale = getLocaleForCurrency(currency);
+  const date = new Date(timestamp);
+  if (includeTime) {
+    return date.toLocaleString(locale, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return date.toLocaleDateString(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function convertFromBase(
   amountInBase: number,
   toCurrency: string,
@@ -11,17 +59,6 @@ export function convertFromBase(
   return Math.round((amountInBase * rate) * 100) / 100;
 }
 
-export function convertToBase(
-  amount: number,
-  fromCurrency: string,
-  rates: Record<string, number>
-): number {
-  if (fromCurrency === "INR") return amount;
-  const rate = rates[fromCurrency];
-  if (!rate) return amount;
-  return Math.round((amount / rate) * 100) / 100;
-}
-
 export function getRateToBase(
   currency: string,
   rates: Record<string, number>
@@ -30,20 +67,6 @@ export function getRateToBase(
   const rate = rates[currency];
   if (!rate) return 1;
   return 1 / rate;
-}
-
-export function formatConvertedAmount(
-  amount: number,
-  currency: string,
-  rates: Record<string, number> | undefined,
-  userCurrency: string
-): string {
-  if (!rates || currency === userCurrency) {
-    return formatCurrencySymbol(amount, userCurrency);
-  }
-  const baseAmount = convertToBase(amount, currency, rates);
-  const converted = convertFromBase(baseAmount, userCurrency, rates);
-  return formatCurrencySymbol(converted, userCurrency);
 }
 
 export function formatCurrencySymbol(amount: number, currency: string): string {

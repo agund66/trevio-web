@@ -60,8 +60,8 @@ export class FirebaseAuthService implements AuthService {
         blocked: false,
         phoneNumber: phone,
         countryCode,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       await setDoc(doc(db, "users", firebaseUser.uid), newUser);
@@ -109,8 +109,8 @@ export class FirebaseAuthService implements AuthService {
         blocked: false,
         phoneNumber: phone,
         countryCode,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       await setDoc(doc(db, "users", firebaseUser.uid), newUser);

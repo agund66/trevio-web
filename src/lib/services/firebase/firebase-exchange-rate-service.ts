@@ -17,7 +17,7 @@ export class FirebaseExchangeRateService implements ExchangeRateService {
           base: (data.base as string) || BASE_CURRENCY,
           date: data.date as string,
           rates: data.rates as Record<string, number>,
-          updatedAt: data.updatedAt as Date,
+          updatedAt: (data.updatedAt as number) || 0,
         };
       }
     }
@@ -39,7 +39,7 @@ export class FirebaseExchangeRateService implements ExchangeRateService {
     const data = await response.json();
 
     const rates = data.rates as Record<string, number>;
-    const now = new Date();
+    const now = Date.now();
 
     await setDoc(doc(db, CACHE_DOC_PATH), {
       base: BASE_CURRENCY,

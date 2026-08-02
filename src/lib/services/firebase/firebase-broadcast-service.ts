@@ -145,6 +145,7 @@ export class FirebaseBroadcastService implements BroadcastService {
       .filter((b) => b.endAt === null || b.endAt >= now);
 
     return broadcasts.filter((b) => {
+      if (b.createdBy === uid) return false;
       switch (b.targetType) {
         case "all":
           return true;

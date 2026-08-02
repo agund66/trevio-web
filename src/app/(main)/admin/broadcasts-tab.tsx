@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import type { BroadcastMessage, BroadcastPriority, BroadcastTargetType, User } from "@/lib/types";
 import {
   Megaphone,
@@ -65,6 +66,7 @@ const targetTypeConfig: Record<BroadcastTargetType, string> = {
 export function BroadcastsTab() {
   const { broadcast, admin } = useServices();
   const { user: currentUser } = useAuth();
+  const { formatDate: formatDateFn } = useCurrencyDisplay();
   const [showForm, setShowForm] = useState(false);
   const [selectedBroadcastId, setSelectedBroadcastId] = useState<string | null>(null);
   const [broadcasts, setBroadcasts] = useState<BroadcastMessage[]>([]);
@@ -220,11 +222,11 @@ export function BroadcastsTab() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {new Date(b.startAt).toLocaleDateString()}
+                      {formatDateFn(b.startAt)}
                     </span>
                     {b.endAt && (
                       <span className="flex items-center gap-1">
-                        → {new Date(b.endAt).toLocaleDateString()}
+                        → {formatDateFn(b.endAt)}
                       </span>
                     )}
                     <span>by {b.createdByName || "Unknown"}</span>
@@ -264,6 +266,7 @@ function BroadcastForm({
   onCreated: () => void;
 }) {
   const { broadcast, admin } = useServices();
+  const { user: currentUser } = useAuth();
   const [title, setTitle] = useState("");
   const [htmlContent, setHtmlContent] = useState("");
   const [priority, setPriority] = useState<BroadcastPriority>("info");
@@ -309,6 +312,7 @@ function BroadcastForm({
   };
 
   const filteredUsers = allUsers.filter((u) => {
+    if (u.uid === currentUser?.uid) return false;
     const q = userSearch.toLowerCase();
     return (
       u.displayName.toLowerCase().includes(q) ||
@@ -674,6 +678,7 @@ function BroadcastDetail({
   onClose: () => void;
 }) {
   const { broadcast: broadcastService, admin } = useServices();
+  const { formatDate: formatDateFn } = useCurrencyDisplay();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [reads, setReads] = useState<{ uid: string; readAt: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -693,6 +698,7 @@ function BroadcastDetail({
   const readMap = new Map(reads.map((r) => [r.uid, r.readAt]));
 
   const targetUsers = allUsers.filter((u) => {
+    if (u.uid === broadcast.createdBy) return false;
     switch (broadcast.targetType) {
       case "all":
         return true;
@@ -753,11 +759,11 @@ function BroadcastDetail({
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            {new Date(broadcast.startAt).toLocaleString()}
+            {formatDateFn(broadcast.startAt, true)}
           </span>
           {broadcast.endAt && (
             <span className="flex items-center gap-1">
-              → {new Date(broadcast.endAt).toLocaleString()}
+              → {formatDateFn(broadcast.endAt, true)}
             </span>
           )}
           <span>by {broadcast.createdByName || "Unknown"}</span>
@@ -807,7 +813,7 @@ function BroadcastDetail({
                   {hasRead ? (
                     <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
                       <CheckCircle2 className="h-4 w-4" />
-                      {readAt ? new Date(readAt).toLocaleDateString() : "Read"}
+                      {readAt ? formatDateFn(readAt) : "Read"}
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">

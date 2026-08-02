@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -14,6 +14,7 @@ export default function JoinGroupPage() {
   const { user, loading } = useAuth();
   const [status, setStatus] = useState<"checking" | "joining" | "joined" | "error">("checking");
   const [errorMsg, setErrorMsg] = useState("");
+  const hasAttemptedJoin = useRef(false);
 
   useEffect(() => {
     if (loading) return;
@@ -29,6 +30,9 @@ export default function JoinGroupPage() {
       router.push("/login");
       return;
     }
+
+    if (hasAttemptedJoin.current) return;
+    hasAttemptedJoin.current = true;
 
     const join = async () => {
       setStatus("joining");

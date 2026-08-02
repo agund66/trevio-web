@@ -52,7 +52,7 @@ export class FirebaseUserService implements UserService {
       upiId: user.upiId || "",
       phoneNumber: user.phoneNumber || "",
       countryCode: user.countryCode || "",
-      updatedAt: new Date(),
+      updatedAt: Date.now(),
     });
   }
 
@@ -69,7 +69,7 @@ export class FirebaseUserService implements UserService {
       return existingData.username;
     }
 
-    const now = new Date();
+    const now = Date.now();
 
     // Set acceptedTnC if not already set
     if (!existingData?.acceptedTnC) {
@@ -160,7 +160,7 @@ export class FirebaseUserService implements UserService {
       transaction.set(doc(db, "usernames", normalized), { uid });
       transaction.update(userDocRef, {
         username: normalized,
-        updatedAt: new Date(),
+        updatedAt: Date.now(),
       });
     });
 
@@ -199,7 +199,7 @@ export class FirebaseUserService implements UserService {
     if (!uid) throw new Error("User not authenticated");
     await updateDoc(doc(db, "users", uid), {
       fcmToken: token,
-      updatedAt: new Date(),
+      updatedAt: Date.now(),
     });
   }
 
@@ -228,7 +228,7 @@ export class FirebaseUserService implements UserService {
       const groupId = pathSegments[1];
       await updateDoc(memberDoc.ref, {
         status: "left",
-        leftAt: new Date(),
+        leftAt: Date.now(),
       });
       // Decrement group memberCount
       const groupRef = doc(db, "groups", groupId);

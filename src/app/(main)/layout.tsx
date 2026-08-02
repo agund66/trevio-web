@@ -50,14 +50,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       <BroadcastPopup />
       {/* Sidebar - desktop */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 bg-white">
-        <div className="flex h-16 items-center px-6">
+      <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 bg-white h-screen sticky top-0 shrink-0">
+        <div className="flex h-16 items-center px-6 shrink-0">
           <TrevioLogo size="md" />
         </div>
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -75,7 +75,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             );
           })}
         </nav>
-        <div className="border-t border-slate-200 p-3">
+        <div className="border-t border-slate-200 p-3 shrink-0">
           <div className="flex items-center gap-3 px-3 py-2">
             {user.photoURL ? (
               <img src={user.photoURL} alt={user.displayName} className="h-9 w-9 rounded-full" />
@@ -100,7 +100,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto pb-16 md:pb-0">
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
         {children}
 
         {/* Bottom navigation - mobile */}
