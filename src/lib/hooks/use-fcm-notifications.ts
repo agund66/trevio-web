@@ -15,12 +15,16 @@ export function useFcmNotifications() {
 
     const requestPermissionAndToken = async () => {
       try {
+        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+        if (!vapidKey) {
+          console.warn("[Trevio] FCM VAPID key not configured. Set NEXT_PUBLIC_FIREBASE_VAPID_KEY in env.");
+          return;
+        }
+
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
-        const token = await getToken(messaging!, {
-          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BJzK8LqN7pXqZ3vQ8wR5mY2sH4nJ6fT1cE9bU0aD3gI7oK2sL5",
-        });
+        const token = await getToken(messaging!, { vapidKey });
 
         if (token) {
           await userService.updateFcmToken(token);

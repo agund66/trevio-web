@@ -92,12 +92,12 @@ export default function GroupSettingsPage() {
   if (!isAdmin) {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
-        <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700">
+        <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="flex flex-col items-center py-12 text-center">
-          <Settings className="h-12 w-12 text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">Only group admins can access group settings.</p>
+          <Settings className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Only group admins can access group settings.</p>
         </div>
       </div>
     );
@@ -105,47 +105,47 @@ export default function GroupSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">
-      <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700">
+      <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Group Settings</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Group Settings</h1>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-600">
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 dark:bg-green-900/20 px-4 py-3 text-sm text-green-600 dark:text-green-400">
           <Check className="h-4 w-4 shrink-0" />
           {success}
         </div>
       )}
 
       <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Group Details</h2>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Group Details</h2>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Group Name</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Group Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="What is this group for?"
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none resize-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
             />
           </div>
 
@@ -158,10 +158,10 @@ export default function GroupSettingsPage() {
           </button>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Transfer Admin Role</h2>
-            <p className="text-sm text-slate-500 mt-1">Transfer admin rights to another member. You will become a regular member.</p>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Transfer Admin Role</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Transfer admin rights to another member. You will become a regular member.</p>
           </div>
 
           {activeMembers.length > 0 ? (
@@ -174,7 +174,7 @@ export default function GroupSettingsPage() {
                     className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
                       transferTarget === m.uid
                         ? "bg-trevio-600 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                     }`}
                   >
                     {m.displayName.split(" ")[0]}
@@ -189,7 +189,7 @@ export default function GroupSettingsPage() {
                     }
                   }}
                   disabled={transferMutation.isPending}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-trevio-600 px-4 py-2.5 text-sm font-semibold text-trevio-600 transition hover:bg-trevio-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl border-2 border-trevio-600 px-4 py-2.5 text-sm font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50"
                 >
                   <Crown className="h-4 w-4" />
                   {transferMutation.isPending ? "Transferring..." : "Transfer Admin Role"}
@@ -197,28 +197,28 @@ export default function GroupSettingsPage() {
               )}
             </>
           ) : (
-            <p className="text-sm text-slate-400">No other active members to transfer admin role to.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">No other active members to transfer admin role to.</p>
           )}
         </div>
 
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-4">
+        <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-5 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-red-900">Danger Zone</h2>
-            <p className="text-sm text-red-600 mt-1">Delete this group permanently. All expenses, settlements, and activity will be removed.</p>
-            <p className="text-xs text-red-500 mt-1">Only works if you are the sole active member. Remove other members first.</p>
+            <h2 className="text-lg font-semibold text-red-900 dark:text-red-300">Danger Zone</h2>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">Delete this group permanently. All expenses, settlements, and activity will be removed.</p>
+            <p className="text-xs text-red-500 dark:text-red-400 mt-1">Only works if you are the sole active member. Remove other members first.</p>
           </div>
 
           {!showDeleteConfirm ? (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center gap-2 rounded-xl border-2 border-red-300 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-red-300 dark:border-red-700 px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30"
             >
               <Trash2 className="h-4 w-4" />
               Delete Group
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-red-700">Are you absolutely sure? This cannot be undone.</p>
+              <p className="text-sm font-medium text-red-700 dark:text-red-300">Are you absolutely sure? This cannot be undone.</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => deleteMutation.mutate()}
@@ -230,7 +230,7 @@ export default function GroupSettingsPage() {
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>

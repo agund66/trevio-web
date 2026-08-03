@@ -104,21 +104,28 @@ export class FirebaseGroupService implements GroupService {
     const groupData = groupDoc.data() as Record<string, unknown>;
 
     const memberDoc = await getDoc(doc(groupDoc.ref, "members", uid));
-    if (memberDoc.exists()) throw new Error("You are already a member of this group");
+    if (memberDoc.exists() && memberDoc.data()?.status === "active" && memberDoc.data()?.isOffline !== true) {
+      throw new Error("You are already a member of this group");
+    }
 
     const now = Date.now();
     const batch = writeBatch(db);
-    batch.set(doc(groupDoc.ref, "members", uid), {
-      uid,
-      role: "member",
-      joinedAt: now,
-      balance: 0,
-      status: "active",
-    });
-    batch.update(groupDoc.ref, {
-      memberCount: (groupData.memberCount as number ?? 0) + 1,
-      updatedAt: now,
-    });
+
+    if (memberDoc.exists() && memberDoc.data()?.status === "pending") {
+      batch.update(doc(groupDoc.ref, "members", uid), { status: "active", joinedAt: now });
+    } else {
+      batch.set(doc(groupDoc.ref, "members", uid), {
+        uid,
+        role: "member",
+        joinedAt: now,
+        balance: 0,
+        status: "active",
+      });
+      batch.update(groupDoc.ref, {
+        memberCount: (groupData.memberCount as number ?? 0) + 1,
+        updatedAt: now,
+      });
+    }
     batch.set(doc(collection(groupDoc.ref, "activities")), {
       type: "member_joined",
       description: "Member joined via invite code",
@@ -258,8 +265,23 @@ export class FirebaseGroupService implements GroupService {
 
     const inviteData = inviteDoc.data()!;
     if (inviteData.toUid !== uid) throw new Error("This invitation is not for you");
+    if (inviteData.status !== "pending") throw new Error("Invitation is no longer pending");
 
-    await updateDoc(doc(db, "invitations", invitationId), { status: "declined" });
+    const groupId = inviteData.groupId as string;
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, "invitations", invitationId), { status: "declined" });
+
+    if (memberDoc.exists() && memberDoc.data()?.status === "pending") {
+      batch.delete(memberDoc.ref);
+      const groupDoc = await getDoc(groupRef);
+      const currentCount = (groupDoc.data()?.memberCount as number) ?? 1;
+      batch.update(groupRef, { memberCount: Math.max(0, currentCount - 1), updatedAt: Date.now() });
+    }
+
+    await batch.commit();
   }
 
   async leaveGroup(groupId: string): Promise<void> {
@@ -417,6 +439,7 @@ export class FirebaseGroupService implements GroupService {
     const groupRef = doc(db, "groups", groupId);
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+    if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can archive the group");
 
     await updateDoc(groupRef, { archived: true, updatedAt: Date.now() });
   }
@@ -429,6 +452,7 @@ export class FirebaseGroupService implements GroupService {
     const groupRef = doc(db, "groups", groupId);
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+    if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can unarchive the group");
 
     await updateDoc(groupRef, { archived: false, updatedAt: Date.now() });
   }
@@ -524,5 +548,165 @@ export class FirebaseGroupService implements GroupService {
       createdAt: now,
     });
     await batch.commit();
+  }
+
+  async addOfflineMember(groupId: string, displayName: string): Promise<string> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!displayName || !displayName.trim()) throw new Error("Name is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    const now = Date.now();
+    const memberRef = doc(collection(groupRef, "members"));
+    const batch = writeBatch(db);
+    batch.set(memberRef, {
+      uid: "",
+      displayName: displayName.trim(),
+      role: "member",
+      joinedAt: now,
+      balance: 0,
+      status: "active",
+      isOffline: true,
+      addedBy: uid,
+    });
+    batch.update(groupRef, {
+      memberCount: (groupDoc.data()?.memberCount as number ?? 0) + 1,
+      updatedAt: now,
+    });
+    batch.set(doc(collection(groupRef, "activities")), {
+      type: "member_added",
+      description: `Added offline member "${displayName.trim()}"`,
+      userId: uid,
+      data: { groupId, memberName: displayName.trim() },
+      createdAt: now,
+    });
+    await batch.commit();
+
+    return memberRef.id;
+  }
+
+  async claimOfflineMember(groupId: string, memberDocId: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", memberDocId));
+    if (!memberDoc.exists()) throw new Error("Member not found");
+    if (memberDoc.data()?.isOffline !== true) throw new Error("This member is not an offline profile");
+
+    const existingMemberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (existingMemberDoc.exists() && existingMemberDoc.data()?.status === "active") {
+      throw new Error("You are already a member of this group");
+    }
+
+    const now = Date.now();
+    const batch = writeBatch(db);
+    batch.update(doc(groupRef, "members", memberDocId), {
+      uid,
+      isOffline: false,
+      claimedAt: now,
+      claimedBy: uid,
+    });
+    if (existingMemberDoc.exists()) {
+      batch.delete(doc(groupRef, "members", uid));
+    }
+    batch.set(doc(collection(groupRef, "activities")), {
+      type: "member_claimed",
+      description: "Member claimed offline profile",
+      userId: uid,
+      data: { groupId, memberDocId },
+      createdAt: now,
+    });
+    await batch.commit();
+
+    await this.migrateMemberReferences(groupId, memberDocId, uid);
+  }
+
+  async linkOfflineMember(groupId: string, memberDocId: string, realUid: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+
+    const groupRef = doc(db, "groups", groupId);
+    const adminDoc = await getDoc(doc(groupRef, "members", uid));
+    if (adminDoc.data()?.role !== "admin") throw new Error("Only admins can link members");
+
+    const memberDoc = await getDoc(doc(groupRef, "members", memberDocId));
+    if (!memberDoc.exists()) throw new Error("Member not found");
+    if (memberDoc.data()?.isOffline !== true) throw new Error("This member is not an offline profile");
+
+    const existingMemberDoc = await getDoc(doc(groupRef, "members", realUid));
+    if (existingMemberDoc.exists() && existingMemberDoc.data()?.status === "active") {
+      throw new Error("That user is already an active member of this group");
+    }
+
+    const now = Date.now();
+    const batch = writeBatch(db);
+    batch.update(doc(groupRef, "members", memberDocId), {
+      uid: realUid,
+      isOffline: false,
+      claimedAt: now,
+      claimedBy: uid,
+    });
+    if (existingMemberDoc.exists()) {
+      batch.delete(doc(groupRef, "members", realUid));
+    }
+    batch.set(doc(collection(groupRef, "activities")), {
+      type: "member_linked",
+      description: "Admin linked offline profile to user",
+      userId: uid,
+      data: { groupId, memberDocId, linkedUid: realUid },
+      createdAt: now,
+    });
+    await batch.commit();
+
+    await this.migrateMemberReferences(groupId, memberDocId, realUid);
+  }
+
+  private async migrateMemberReferences(groupId: string, oldId: string, newId: string): Promise<void> {
+    const groupRef = doc(db, "groups", groupId);
+
+    const expensesSnap = await getDocs(collection(groupRef, "expenses"));
+    for (const expenseDoc of expensesSnap.docs) {
+      const data = expenseDoc.data() as Record<string, unknown>;
+      const updates: Record<string, unknown> = {};
+      let changed = false;
+
+      if (data.paidBy === oldId) {
+        updates.paidBy = newId;
+        changed = true;
+      }
+
+      const splits = data.splits as Record<string, unknown> | undefined;
+      if (splits && splits[oldId]) {
+        const newSplits = { ...splits };
+        newSplits[newId] = newSplits[oldId];
+        delete newSplits[oldId];
+        updates.splits = newSplits;
+        changed = true;
+      }
+
+      if (changed) await updateDoc(expenseDoc.ref, updates);
+    }
+
+    const settlementsSnap = await getDocs(collection(groupRef, "settlements"));
+    for (const settlementDoc of settlementsSnap.docs) {
+      const data = settlementDoc.data() as Record<string, unknown>;
+      const updates: Record<string, unknown> = {};
+      let changed = false;
+
+      if (data.fromUid === oldId) {
+        updates.fromUid = newId;
+        changed = true;
+      }
+      if (data.toUid === oldId) {
+        updates.toUid = newId;
+        changed = true;
+      }
+
+      if (changed) await updateDoc(settlementDoc.ref, updates);
+    }
   }
 }

@@ -13,28 +13,28 @@ const priorityStyles: Record<
   { bg: string; border: string; headerBg: string; text: string; icon: React.ComponentType<{ className?: string }>; iconColor: string; btn: string }
 > = {
   critical: {
-    bg: "bg-red-50",
-    border: "border-red-300",
+    bg: "bg-red-50 dark:bg-red-900/20",
+    border: "border-red-300 dark:border-red-800",
     headerBg: "bg-red-600",
-    text: "text-red-900",
+    text: "text-red-900 dark:text-red-200",
     icon: AlertTriangle,
     iconColor: "text-white",
     btn: "bg-red-600 hover:bg-red-700 text-white",
   },
   maintenance: {
-    bg: "bg-amber-50",
-    border: "border-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-300 dark:border-amber-800",
     headerBg: "bg-amber-500",
-    text: "text-amber-900",
+    text: "text-amber-900 dark:text-amber-200",
     icon: Wrench,
     iconColor: "text-white",
     btn: "bg-amber-500 hover:bg-amber-600 text-white",
   },
   info: {
-    bg: "bg-blue-50",
-    border: "border-blue-300",
+    bg: "bg-blue-50 dark:bg-blue-900/20",
+    border: "border-blue-300 dark:border-blue-800",
     headerBg: "bg-blue-500",
-    text: "text-blue-900",
+    text: "text-blue-900 dark:text-blue-200",
     icon: Info,
     iconColor: "text-white",
     btn: "bg-blue-500 hover:bg-blue-600 text-white",
@@ -132,13 +132,13 @@ export function BroadcastPopup() {
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           <h2 className={cn("text-lg font-bold mb-3", style.text)}>{visibleBroadcast.title}</h2>
           <div
-            className={cn("prose prose-sm max-w-none", style.text)}
+            className={cn("prose prose-sm dark:prose-invert max-w-none", style.text)}
             dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200/50 dark:border-slate-700/50 px-5 py-3">
           <button
             onClick={handleAcknowledge}
             disabled={acknowledging}

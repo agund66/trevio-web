@@ -202,8 +202,8 @@ export default function EditExpensePage() {
   if (!existingExpense && loaded) {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
-        <p className="text-sm text-slate-500">Expense not found.</p>
-        <button onClick={() => router.push(`/groups/${groupId}`)} className="mt-4 text-sm text-trevio-600 hover:underline">
+        <p className="text-sm text-slate-500 dark:text-slate-400">Expense not found.</p>
+        <button onClick={() => router.push(`/groups/${groupId}`)} className="mt-4 text-sm text-trevio-600 dark:text-trevio-400 hover:underline">
           Back to group
         </button>
       </div>
@@ -213,8 +213,8 @@ export default function EditExpensePage() {
   if (loaded && !canEdit) {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
-        <p className="text-sm text-slate-500">You can only edit expenses you created. Group admins can also edit any expense.</p>
-        <button onClick={() => router.push(`/groups/${groupId}`)} className="mt-4 text-sm text-trevio-600 hover:underline">
+        <p className="text-sm text-slate-500 dark:text-slate-400">You can only edit expenses you created. Group admins can also edit any expense.</p>
+        <button onClick={() => router.push(`/groups/${groupId}`)} className="mt-4 text-sm text-trevio-600 dark:text-trevio-400 hover:underline">
           Back to group
         </button>
       </div>
@@ -223,12 +223,12 @@ export default function EditExpensePage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">
-      <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700">
+      <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
         Back
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Edit Expense</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Edit Expense</h1>
 
       {!loaded ? (
         <div className="flex items-center justify-center py-12">
@@ -246,31 +246,31 @@ export default function EditExpensePage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value.replace(/[^0-9.+\-*/]/g, ""))}
                 placeholder="0.00"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 focus:border-trevio-500 focus:outline-none"
+                className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g., Dinner at restaurant"
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Category</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Category</label>
             <div className="flex flex-wrap gap-2">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
                   className={`rounded-xl px-3 py-1.5 text-sm font-medium capitalize transition ${
-                    category === cat ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    category === cat ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                   }`}
                 >
                   {cat}
@@ -280,7 +280,7 @@ export default function EditExpensePage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               <StickyNote className="h-4 w-4 text-slate-400" />
               Note (optional)
             </label>
@@ -289,13 +289,13 @@ export default function EditExpensePage() {
               onChange={(e) => setNote(e.target.value)}
               placeholder="Add a note about this expense..."
               rows={2}
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none resize-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
             />
           </div>
 
           {activeMembers.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Paid by</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Paid by</label>
               <div className="flex flex-wrap gap-2">
                 {activeMembers.map((m) => (
                   <button
@@ -304,7 +304,7 @@ export default function EditExpensePage() {
                     className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
                       (paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid) === m.uid
                         ? "bg-trevio-600 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                     }`}
                   >
                     {m.displayName.split(" ")[0]}
@@ -316,14 +316,14 @@ export default function EditExpensePage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Split method</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Split method</label>
             <div className="flex flex-wrap gap-2">
               {splitTypes.map((st) => (
                 <button
                   key={st}
                   onClick={() => setSplitType(st)}
                   className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
-                    splitType === st ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    splitType === st ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                   }`}
                 >
                   {splitLabel(st)}
@@ -333,15 +333,15 @@ export default function EditExpensePage() {
           </div>
 
           {splitType !== "equal" && activeMembers.length > 0 && numericAmount > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {splitType === "exact" && "Enter exact amount for each member"}
                   {splitType === "percent" && "Enter percentage for each member"}
                   {splitType === "shares" && "Enter shares for each member"}
                 </span>
                 {splitSummary && splitType !== "shares" && (
-                  <span className={`text-xs font-semibold ${isSplitValid ? "text-green-600" : "text-amber-600"}`}>
+                  <span className={`text-xs font-semibold ${isSplitValid ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
                     {splitSummary.entered.toFixed(2)} / {splitSummary.expected.toFixed(2)} {splitSummary.label}
                   </span>
                 )}
@@ -352,14 +352,14 @@ export default function EditExpensePage() {
                   return (
                     <div key={m.uid} className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600">(You)</span>}</p>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                       </div>
                       <input
                         type="text"
                         value={val}
                         onChange={(e) => setSplitValues({ ...splitValues, [m.uid]: e.target.value.replace(/[^0-9.]/g, "") })}
                         placeholder={splitPlaceholder(splitType)}
-                        className="w-20 sm:w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm text-right focus:border-trevio-500 focus:outline-none"
+                        className="w-20 sm:w-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 text-right focus:border-trevio-500 focus:outline-none"
                       />
                     </div>
                   );
@@ -369,7 +369,7 @@ export default function EditExpensePage() {
           )}
 
           {updateMutation.isError && (
-            <p className="text-sm text-red-500">{updateMutation.error instanceof Error ? updateMutation.error.message : "Failed to update expense"}</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{updateMutation.error instanceof Error ? updateMutation.error.message : "Failed to update expense"}</p>
           )}
 
           <div className="flex gap-3">
@@ -394,7 +394,7 @@ export default function EditExpensePage() {
                 }
               }}
               disabled={deleteMutation.isPending}
-              className="rounded-xl border-2 border-red-200 px-6 py-4 text-base font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              className="rounded-xl border-2 border-red-200 dark:border-red-800 px-6 py-4 text-base font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
             >
               <Trash2 className="h-5 w-5" />
             </button>

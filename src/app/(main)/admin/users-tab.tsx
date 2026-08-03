@@ -117,17 +117,17 @@ export function UsersTab() {
     <>
       {/* Stats */}
       <div className="mb-6 grid grid-cols-3 gap-3 md:gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Total Users</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900">{totalUsers}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Total Users</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{totalUsers}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Blocked</p>
-          <p className="mt-1 text-2xl font-bold text-red-600">{blockedUsers}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Blocked</p>
+          <p className="mt-1 text-2xl font-bold text-red-600 dark:text-red-400">{blockedUsers}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Superadmins</p>
-          <p className="mt-1 text-2xl font-bold text-trevio-600">{adminUsers}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Superadmins</p>
+          <p className="mt-1 text-2xl font-bold text-trevio-600 dark:text-trevio-400">{adminUsers}</p>
         </div>
       </div>
 
@@ -139,12 +139,12 @@ export function UsersTab() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by name, email, or username..."
-          className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm focus:border-trevio-500 focus:outline-none"
+          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 pl-11 pr-4 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
         />
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           {error}
         </div>
@@ -152,40 +152,40 @@ export function UsersTab() {
 
       {loading ? (
         <div className="flex h-40 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-trevio-600" />
         </div>
       ) : (
         <div className="space-y-2">
           {filteredUsers.map((u) => (
             <div
               key={u.uid}
-              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
                 {u.photoURL ? (
                   <img src={u.photoURL} alt={u.displayName} className="h-10 w-10 rounded-full" />
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-100 text-sm font-semibold text-trevio-700">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-sm font-semibold text-trevio-700 dark:text-trevio-200">
                     {u.displayName.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-medium text-slate-900">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs font-normal text-trevio-600">(You)</span>}</p>
+                    <p className="truncate font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                     {u.role === "superadmin" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-trevio-50 px-2 py-0.5 text-xs font-medium text-trevio-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-trevio-50 dark:bg-trevio-900/30 px-2 py-0.5 text-xs font-medium text-trevio-700 dark:text-trevio-300">
                         <Crown className="h-3 w-3" />
                         Admin
                       </span>
                     )}
                     {u.blocked && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
                         <Ban className="h-3 w-3" />
                         Blocked
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-sm text-slate-500">
+                  <p className="truncate text-sm text-slate-500 dark:text-slate-400">
                     {u.email} {u.username && `· @${u.username}`}
                   </p>
                 </div>
@@ -196,7 +196,7 @@ export function UsersTab() {
                   <button
                     onClick={() => setConfirmAction({ uid: u.uid, type: "unblock", userName: u.displayName })}
                     disabled={actionLoading === u.uid}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400 transition hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-50"
                   >
                     <CheckCircle className="h-4 w-4" />
                     Unblock
@@ -205,7 +205,7 @@ export function UsersTab() {
                   <button
                     onClick={() => setConfirmAction({ uid: u.uid, type: "block", userName: u.displayName })}
                     disabled={actionLoading === u.uid || u.uid === currentUser?.uid}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
                   >
                     <Ban className="h-4 w-4" />
                     Block
@@ -215,7 +215,7 @@ export function UsersTab() {
                   <button
                     onClick={() => setConfirmAction({ uid: u.uid, type: "demote", userName: u.displayName })}
                     disabled={actionLoading === u.uid || u.uid === currentUser?.uid}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
                   >
                     <Shield className="h-4 w-4" />
                     Demote
@@ -224,7 +224,7 @@ export function UsersTab() {
                   <button
                     onClick={() => setConfirmAction({ uid: u.uid, type: "promote", userName: u.displayName })}
                     disabled={actionLoading === u.uid}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 px-3 py-2 text-sm font-medium text-trevio-700 transition hover:bg-trevio-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 dark:bg-trevio-900/20 px-3 py-2 text-sm font-medium text-trevio-700 dark:text-trevio-300 transition hover:bg-trevio-100 dark:hover:bg-trevio-900/30 disabled:opacity-50"
                   >
                     <Crown className="h-4 w-4" />
                     Promote
@@ -234,7 +234,7 @@ export function UsersTab() {
             </div>
           ))}
           {filteredUsers.length === 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-sm text-slate-500 dark:text-slate-400">
               No users found.
             </div>
           )}
@@ -244,22 +244,22 @@ export function UsersTab() {
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmAction(null)} />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h3 className="text-lg font-bold text-slate-900">{confirmMessages[confirmAction.type].title}</h3>
-              <button onClick={() => setConfirmAction(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-5 py-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{confirmMessages[confirmAction.type].title}</h3>
+              <button onClick={() => setConfirmAction(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="px-5 py-4">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">{confirmAction.userName}</span> — {confirmMessages[confirmAction.type].body}
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{confirmAction.userName}</span> — {confirmMessages[confirmAction.type].body}
               </p>
             </div>
-            <div className="flex gap-2 border-t border-slate-200 px-5 py-4">
+            <div className="flex gap-2 border-t border-slate-200 dark:border-slate-700 px-5 py-4">
               <button
                 onClick={() => setConfirmAction(null)}
-                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 Cancel
               </button>

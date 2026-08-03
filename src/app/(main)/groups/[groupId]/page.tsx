@@ -8,9 +8,25 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat } from "lucide-react";
-import type { UserSearchResult, Activity, Settlement } from "@/lib/types";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, CloudOff } from "lucide-react";
+import type { UserSearchResult, Activity, Settlement, SplitType } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
+
+const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
+  food: { icon: Utensils, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20" },
+  transport: { icon: Car, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+  shopping: { icon: ShoppingBag, color: "text-pink-600 dark:text-pink-400", bg: "bg-pink-50 dark:bg-pink-900/20" },
+  turf: { icon: Trophy, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20" },
+  accommodation: { icon: BedDouble, color: "text-trevio-600 dark:text-trevio-400", bg: "bg-trevio-50 dark:bg-trevio-900/20" },
+  other: { icon: Receipt, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/40" },
+};
+
+const splitTypeLabels: Record<SplitType, string> = {
+  equal: "Equal",
+  exact: "Exact",
+  percent: "Percent",
+  shares: "Shares",
+};
 
 export default function GroupDetailPage() {
   const params = useParams();
@@ -20,8 +36,11 @@ export default function GroupDetailPage() {
   const { user: currentUser } = useAuth();
   const { formatBase, formatOriginal, formatDate: formatDateFn } = useCurrencyDisplay();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity" | "history">("expenses");
+  const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity">("expenses");
+  const [activityFilter, setActivityFilter] = useState<"all" | "settlements">("all");
   const [showInvite, setShowInvite] = useState(false);
+  const [showAddOffline, setShowAddOffline] = useState(false);
+  const [offlineName, setOfflineName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -84,7 +103,7 @@ export default function GroupDetailPage() {
   const { data: settlementHistory, isLoading: historyLoading } = useQuery({
     queryKey: ["settlementHistory", groupId],
     queryFn: () => settlement.getSettlementHistory(groupId),
-    enabled: tab === "history",
+    enabled: tab === "activity" && activityFilter === "settlements",
   });
 
   const inviteMutation = useMutation({
@@ -93,6 +112,18 @@ export default function GroupDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       setSearchQuery("");
       setSearchResults([]);
+      setInviteError(null);
+    },
+    onError: (e: Error) => setInviteError(e.message),
+  });
+
+  const addOfflineMutation = useMutation({
+    mutationFn: (name: string) => group.addOfflineMember(groupId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      setOfflineName("");
+      setShowAddOffline(false);
       setInviteError(null);
     },
     onError: (e: Error) => setInviteError(e.message),
@@ -123,6 +154,9 @@ export default function GroupDetailPage() {
     },
     onError: (e: Error) => setActionError(e.message),
   });
+
+  const isAdmin = currentUser?.uid === groupInfo?.createdBy ||
+    members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -239,21 +273,21 @@ export default function GroupDetailPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <button onClick={() => router.push("/dashboard")} className="mb-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700">
+      <button onClick={() => router.push("/dashboard")} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
         Back
       </button>
 
       {groupInfoLoading ? (
         <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 border-t-trevio-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 dark:border-slate-700 border-t-trevio-600" />
         </div>
       ) : groupInfoError ? (
         <div className="flex min-h-[50vh] items-center justify-center text-center">
           <div className="max-w-md">
             <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-            <h2 className="mt-3 text-lg font-semibold text-slate-900">Failed to load group</h2>
-            <p className="mt-1 text-sm text-slate-500">{groupInfoError.message}</p>
+            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Failed to load group</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{groupInfoError.message}</p>
             <button
               onClick={() => queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] })}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
@@ -265,36 +299,40 @@ export default function GroupDetailPage() {
       ) : (
         <>
         {actionError && (
-          <div className="mb-4 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
             <span>{actionError}</span>
-            <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-600">
+            <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300">
               <AlertCircle className="h-4 w-4" />
             </button>
           </div>
         )}
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">{groupInfo?.name || "Group"}</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100">{groupInfo?.name || "Group"}</h1>
           {groupInfo?.archived && (
-            <span className="rounded-lg bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600">Archived</span>
+            <span className="rounded-lg bg-slate-200 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">Archived</span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push(`/groups/${groupId}/settings`)}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Settings</span>
-          </button>
-          <button
-            onClick={() => archiveMutation.mutate(!groupInfo?.archived)}
-            disabled={archiveMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            {groupInfo?.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-            {groupInfo?.archived ? "Unarchive" : "Archive"}
-          </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => router.push(`/groups/${groupId}/settings`)}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+              <button
+                onClick={() => archiveMutation.mutate(!groupInfo?.archived)}
+                disabled={archiveMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                {groupInfo?.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                {groupInfo?.archived ? "Unarchive" : "Archive"}
+              </button>
+            </>
+          )}
           <button
             onClick={() => router.push(`/groups/${groupId}/add-expense`)}
             disabled={groupInfo?.archived}
@@ -308,28 +346,28 @@ export default function GroupDetailPage() {
       </div>
 
       {groupInfo?.description && (
-        <p className="text-sm text-slate-500 mb-2">{groupInfo.description}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{groupInfo.description}</p>
       )}
 
       <div className="flex items-center gap-2 mb-6 flex-wrap">
-        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+        <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
           {groupInfo?.memberCount || 0} members
         </span>
-        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+        <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
           {formatBase(groupInfo?.totalExpenses || 0)} total
         </span>
         {groupInfo?.inviteCode && (
           <>
             <button
               onClick={() => setShowQrDialog(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700"
             >
               <QrCode className="h-3 w-3" />
               QR Code
             </button>
             <button
               onClick={copyInviteCode}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 px-2.5 py-1 text-xs font-medium text-trevio-700 transition hover:bg-trevio-100"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300 transition hover:bg-trevio-100 dark:hover:bg-trevio-900/50"
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "Copied!" : `Code: ${groupInfo.inviteCode}`}
@@ -349,7 +387,6 @@ export default function GroupDetailPage() {
         {([
           { key: "expenses", label: "Expenses", icon: Receipt },
           { key: "balances", label: "Balances", icon: Wallet },
-          { key: "history", label: "History", icon: Clock },
           { key: "members", label: "Members", icon: Users },
           { key: "activity", label: "Activity", icon: ActivityIcon },
         ] as const).map((t) => (
@@ -369,43 +406,56 @@ export default function GroupDetailPage() {
       {tab === "expenses" && (
         <div className="space-y-3">
           {expensesData?.expenses && expensesData.expenses.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-2 mb-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={expenseSearch}
-                  onChange={(e) => setExpenseSearch(e.target.value)}
-                  placeholder="Search expenses..."
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
-                />
+            <>
+              <div className="flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800/60 px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {filteredExpenses.length} {filteredExpenses.length === 1 ? "expense" : "expenses"}
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-trevio-600 dark:text-trevio-400">
+                  {formatBase(filteredExpenses.reduce((sum, e) => sum + (e.exchangeRateToBase ? e.amount * e.exchangeRateToBase : e.amount), 0))}
+                </span>
               </div>
-              <select
-                value={expenseCategoryFilter}
-                onChange={(e) => setExpenseCategoryFilter(e.target.value)}
-                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
-              >
-                <option value="all">All categories</option>
-                <option value="food">Food</option>
-                <option value="transport">Transport</option>
-                <option value="shopping">Shopping</option>
-                <option value="turf">Turf</option>
-                <option value="accommodation">Accommodation</option>
-                <option value="other">Other</option>
-              </select>
-              <button
-                onClick={exportCsv}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-                title="Export as CSV"
-              >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Export</span>
-              </button>
-            </div>
+              <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={expenseSearch}
+                    onChange={(e) => setExpenseSearch(e.target.value)}
+                    placeholder="Search expenses..."
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+                  />
+                </div>
+                <select
+                  value={expenseCategoryFilter}
+                  onChange={(e) => setExpenseCategoryFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+                >
+                  <option value="all">All categories</option>
+                  <option value="food">Food</option>
+                  <option value="transport">Transport</option>
+                  <option value="shopping">Shopping</option>
+                  <option value="turf">Turf</option>
+                  <option value="accommodation">Accommodation</option>
+                  <option value="other">Other</option>
+                </select>
+                <button
+                  onClick={exportCsv}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                  title="Export as CSV"
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </button>
+              </div>
+            </>
           )}
           {expensesLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
             </div>
           ) : filteredExpenses.length > 0 ? (
             filteredExpenses.map((e) => {
@@ -414,47 +464,91 @@ export default function GroupDetailPage() {
               const isPayerMe = currentUser?.uid === e.paidBy;
               const myShare = currentUser ? e.splits?.[currentUser.uid]?.amount : undefined;
               const canEdit = e.createdBy === currentUser?.uid || members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
+              const cat = categoryConfig[e.category] || categoryConfig.other;
+              const CatIcon = cat.icon;
+              const hasMyShare = myShare !== undefined && Math.abs(myShare) > 0.01;
+              const youLent = isPayerMe && hasMyShare && Math.abs(myShare) < e.amount;
+              const youOwe = !isPayerMe && hasMyShare;
               return (
-                <div key={e.expenseId} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 group">
+                <div key={e.expenseId} className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 group">
+                  <div className={`flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center rounded-xl ${cat.bg}`}>
+                    <CatIcon className={`h-5 w-5 ${cat.color}`} />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{e.description}</p>
                       {e.recurring && (
                         <Repeat className="h-3 w-3 text-trevio-500 shrink-0" />
                       )}
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 capitalize">
+                        <SplitSquareHorizontal className="h-2.5 w-2.5" />
+                        {splitTypeLabels[e.splitType] || e.splitType}
+                      </span>
                     </div>
-                    <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 capitalize">
-                      {isPayerMe ? "You" : payerName} paid · {e.category}
-                      {myShare !== undefined && Math.abs(myShare) > 0.01 && (
-                        <span className="text-slate-400"> · your share: {formatOriginal(myShare, e.currency)}</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {payer?.photoURL ? (
+                        <img src={payer.photoURL} alt={payer.displayName} className="h-4 w-4 rounded-full shrink-0" />
+                      ) : (
+                        <div className={`flex h-4 w-4 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-[8px] font-bold text-trevio-700 dark:text-trevio-200 shrink-0`}>
+                          {payerName.charAt(0).toUpperCase()}
+                        </div>
                       )}
-                    </p>
+                      <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
+                        {isPayerMe ? "You" : payerName} paid
+                      </span>
+                      {e.date ? (
+                        <>
+                          <span className="text-xs text-slate-300 dark:text-slate-600">&middot;</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-0.5">
+                            <Calendar className="h-3 w-3" />
+                            {formatDateFn(e.date)}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                    {hasMyShare && (
+                      <div className={`mt-1.5 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-semibold ${
+                        youOwe
+                          ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
+                          : youLent
+                            ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+                            : "bg-slate-100 dark:bg-slate-700/40 text-slate-500 dark:text-slate-400"
+                      }`}>
+                        {youOwe
+                          ? `You owe ${formatOriginal(myShare!, e.currency)}`
+                          : youLent
+                            ? `You lent ${formatOriginal(e.amount - Math.abs(myShare!), e.currency)}`
+                            : `Your share: ${formatOriginal(myShare!, e.currency)}`}
+                      </div>
+                    )}
                     {e.note && (
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
                         <StickyNote className="h-3 w-3" />
                         {e.note}
                       </p>
                     )}
                   </div>
-                  <p className="text-base md:text-lg font-bold text-trevio-600 dark:text-trevio-400 shrink-0">{formatOriginal(e.amount, e.currency)}</p>
-                  {canEdit && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <button
-                        onClick={() => router.push(`/groups/${groupId}/edit-expense/${e.expenseId}`)}
-                        className="rounded-lg p-2 text-slate-400 hover:text-trevio-600 hover:bg-trevio-50 dark:hover:bg-trevio-900/30 transition"
-                        title="Edit expense"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteExpenseId(e.expenseId)}
-                        className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
-                        title="Delete expense"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <p className="text-base md:text-lg font-bold text-trevio-600 dark:text-trevio-400">{formatOriginal(e.amount, e.currency)}</p>
+                    {canEdit && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                        <button
+                          onClick={() => router.push(`/groups/${groupId}/edit-expense/${e.expenseId}`)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:text-trevio-600 hover:bg-trevio-50 dark:hover:bg-trevio-900/30 transition"
+                          title="Edit expense"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteExpenseId(e.expenseId)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
+                          title="Delete expense"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })
@@ -521,24 +615,24 @@ export default function GroupDetailPage() {
             const myDebts = debts?.filter((d) => d.fromUid === currentUser?.uid) ?? [];
             const myCredits = debts?.filter((d) => d.toUid === currentUser?.uid) ?? [];
             return (
-              <div className={`rounded-2xl p-4 md:p-5 ${myBalance > 0.01 ? "bg-green-50 border border-green-200" : myBalance < -0.01 ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}>
-                <p className="text-sm font-medium text-slate-600">Your balance</p>
-                <p className={`mt-1 text-2xl md:text-3xl font-bold ${myBalance > 0.01 ? "text-green-600" : myBalance < -0.01 ? "text-red-600" : "text-slate-500"}`}>
+              <div className={`rounded-2xl p-4 md:p-5 ${myBalance > 0.01 ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : myBalance < -0.01 ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" : "bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"}`}>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Your balance</p>
+                <p className={`mt-1 text-2xl md:text-3xl font-bold ${myBalance > 0.01 ? "text-green-600 dark:text-green-400" : myBalance < -0.01 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}>
                   {myBalance > 0.01 ? "+" : ""}{formatBase(myBalance)}
                 </p>
                 <div className="mt-3 space-y-1.5">
                   {myDebts.length > 0 && (
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-red-600 dark:text-red-400">
                       You owe {myDebts.length} {myDebts.length === 1 ? "person" : "people"} {formatBase(myDebts.reduce((s, d) => s + d.amount, 0))}
                     </p>
                   )}
                   {myCredits.length > 0 && (
-                    <p className="text-sm text-green-600">
+                    <p className="text-sm text-green-600 dark:text-green-400">
                       {myCredits.length} {myCredits.length === 1 ? "person owes" : "people owe"} you {formatBase(myCredits.reduce((s, d) => s + d.amount, 0))}
                     </p>
                   )}
                   {myDebts.length === 0 && myCredits.length === 0 && (
-                    <p className="text-sm text-slate-500">All settled up in this group</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">All settled up in this group</p>
                   )}
                 </div>
               </div>
@@ -546,7 +640,7 @@ export default function GroupDetailPage() {
           })()}
           {debts && debts.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700">Suggested Settlements</h3>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Suggested Settlements</h3>
               {debts.map((d, i) => {
                 const isCurrentUserDebtor = currentUser?.uid === d.fromUid;
                 const isCurrentUserCreditor = currentUser?.uid === d.toUid;
@@ -555,20 +649,20 @@ export default function GroupDetailPage() {
                 const fromFirstName = d.fromName.split(" ")[0] || d.fromName;
                 const toFirstName = d.toName.split(" ")[0] || d.toName;
                 return (
-                  <div key={i} className={`flex items-center gap-3 rounded-2xl border p-4 flex-wrap sm:flex-nowrap ${isCurrentUserDebtor ? "border-red-200 bg-red-50" : isCurrentUserCreditor ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"}`}>
+                  <div key={i} className={`flex items-center gap-3 rounded-2xl border p-4 flex-wrap sm:flex-nowrap ${isCurrentUserDebtor ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : isCurrentUserCreditor ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-900">
+                      <p className="text-sm text-slate-900 dark:text-slate-100">
                         {isCurrentUserDebtor ? (
-                          <><span className="font-semibold text-red-600">You owe</span> <span className="font-medium">{toFirstName}</span></>
+                          <><span className="font-semibold text-red-600 dark:text-red-400">You owe</span> <span className="font-medium">{toFirstName}</span></>
                         ) : isCurrentUserCreditor ? (
-                          <><span className="font-medium">{fromFirstName}</span> <span className="font-semibold text-green-600">owes you</span></>
+                          <><span className="font-medium">{fromFirstName}</span> <span className="font-semibold text-green-600 dark:text-green-400">owes you</span></>
                         ) : (
                           <><span className="font-medium">{fromFirstName}</span> owes <span className="font-medium">{toFirstName}</span></>
                         )}
                       </p>
-                      <p className={`text-lg font-bold ${isCurrentUserDebtor ? "text-red-600" : isCurrentUserCreditor ? "text-green-600" : "text-trevio-600"}`}>{formatBase(d.amount)}</p>
+                      <p className={`text-lg font-bold ${isCurrentUserDebtor ? "text-red-600 dark:text-red-400" : isCurrentUserCreditor ? "text-green-600 dark:text-green-400" : "text-trevio-600 dark:text-trevio-400"}`}>{formatBase(d.amount)}</p>
                       {paymentVpa && isCurrentUserDebtor && (
-                        <p className="text-xs text-slate-400 mt-0.5">Pay to: {paymentVpa}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Pay to: {paymentVpa}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -584,7 +678,7 @@ export default function GroupDetailPage() {
                       <button
                         onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
                         disabled={settleMutation.isPending}
-                        className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                       >
                         Mark Settled
                       </button>
@@ -598,46 +692,46 @@ export default function GroupDetailPage() {
           {debts && debts.length === 0 && (
             <div className="flex flex-col items-center py-12 text-center">
               <Check className="h-12 w-12 text-green-500" />
-              <p className="mt-3 text-sm font-medium text-slate-700">All settled up!</p>
+              <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-300">All settled up!</p>
             </div>
           )}
 
           {members && members.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700">Member Balances</h3>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Member Balances</h3>
               {members.map((m) => {
                 const isMe = currentUser?.uid === m.uid;
                 return (
-                <Link key={m.uid} href={`/users/${m.uid}`} className={`flex items-center gap-3 rounded-2xl border p-3 md:p-4 md:gap-4 transition hover:shadow-sm ${isMe ? "border-trevio-300 bg-trevio-50" : "border-slate-200 bg-white hover:border-trevio-300"}`}>
+                <Link key={m.uid} href={`/users/${m.uid}`} className={`flex items-center gap-3 rounded-2xl border p-3 md:p-4 md:gap-4 transition hover:shadow-sm ${isMe ? "border-trevio-300 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-trevio-300 dark:hover:border-trevio-700"}`}>
                   {m.photoURL ? (
                     <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
                   ) : (
-                    <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-trevio-100 text-xs md:text-sm font-semibold text-trevio-700 shrink-0">
+                    <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-xs md:text-sm font-semibold text-trevio-700 dark:text-trevio-200 shrink-0">
                       {m.displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">
+                    <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
                       {m.displayName}
-                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600">(You)</span>}
+                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}
                     </p>
-                    <p className="text-xs text-slate-500">@{m.username}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
                   </div>
                   {m.status === "pending" ? (
-                    <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600">
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                       <Clock className="h-3 w-3" />
                       pending
                     </span>
                   ) : m.balance > 0.01 ? (
-                    <span className="rounded-lg bg-green-50 px-3 py-1 text-sm font-semibold text-green-600">
+                    <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-1 text-sm font-semibold text-green-600 dark:text-green-400">
                       {isMe ? "you'll get" : "gets"} {formatBase(m.balance)}
                     </span>
                   ) : m.balance < -0.01 ? (
-                    <span className="rounded-lg bg-red-50 px-3 py-1 text-sm font-semibold text-red-500">
+                    <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-1 text-sm font-semibold text-red-500 dark:text-red-400">
                       {isMe ? "you'll pay" : "owes"} {formatBase(Math.abs(m.balance))}
                     </span>
                   ) : (
-                    <span className="rounded-lg bg-slate-50 px-3 py-1 text-sm font-medium text-slate-400">settled</span>
+                    <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400 dark:text-slate-500">settled</span>
                   )}
                 </Link>
                 );
@@ -647,73 +741,93 @@ export default function GroupDetailPage() {
         </div>
       )}
 
-      {tab === "history" && (
-        <div className="space-y-3">
-          {historyLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
-            </div>
-          ) : settlementHistory && settlementHistory.length > 0 ? (
-            settlementHistory.map((s) => {
-              const isFromMe = currentUser?.uid === s.fromUid;
-              const isToMe = currentUser?.uid === s.toUid;
-              const fromFirstName = s.fromName.split(" ")[0] || s.fromName;
-              const toFirstName = s.toName.split(" ")[0] || s.toName;
-              return (
-                <div key={s.settlementId} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 dark:bg-green-900/30">
-                    <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {isFromMe ? "You" : fromFirstName} paid {isToMe ? "you" : toFirstName}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {s.date ? formatDateFn(s.date) : ""} · {s.method}
-                      {s.upiRefId && ` · Ref: ${s.upiRefId}`}
-                    </p>
-                  </div>
-                  <p className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">{formatBase(s.amount)}</p>
-                </div>
-              );
-            })
-          ) : settlementHistory ? (
-            <div className="flex flex-col items-center py-16 text-center">
-              <Wallet className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No settlements yet.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center py-16 text-center">
-              <AlertCircle className="h-10 w-10 text-red-400" />
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load settlement history</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {tab === "activity" && (
         <div className="space-y-3">
-          {activitiesLoading ? (
+          {/* Filter toggle */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActivityFilter("all")}
+              className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                activityFilter === "all"
+                  ? "bg-trevio-600 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setActivityFilter("settlements")}
+              className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                activityFilter === "settlements"
+                  ? "bg-trevio-600 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              Settlements
+            </button>
+          </div>
+
+          {activityFilter === "settlements" ? (
+            historyLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
+              </div>
+            ) : settlementHistory && settlementHistory.length > 0 ? (
+              settlementHistory.map((s) => {
+                const isFromMe = currentUser?.uid === s.fromUid;
+                const isToMe = currentUser?.uid === s.toUid;
+                const fromFirstName = s.fromName.split(" ")[0] || s.fromName;
+                const toFirstName = s.toName.split(" ")[0] || s.toName;
+                return (
+                  <div key={s.settlementId} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 dark:bg-green-900/30">
+                      <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {isFromMe ? "You" : fromFirstName} paid {isToMe ? "you" : toFirstName}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {s.date ? formatDateFn(s.date) : ""} · {s.method}
+                        {s.upiRefId && ` · Ref: ${s.upiRefId}`}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">{formatBase(s.amount)}</p>
+                  </div>
+                );
+              })
+            ) : settlementHistory ? (
+              <div className="flex flex-col items-center py-16 text-center">
+                <Wallet className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No settlements yet.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-16 text-center">
+                <AlertCircle className="h-10 w-10 text-red-400" />
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load settlement history</p>
+              </div>
+            )
+          ) : activitiesLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />)}
+              {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
             </div>
           ) : activities && activities.length > 0 ? (
             activities.map((a) => {
               const Icon = activityIcon(a.type);
               return (
-                <div key={a.activityId} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-trevio-50">
-                    <Icon className="h-4 w-4 text-trevio-600" />
+                <div key={a.activityId} className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
+                    <Icon className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-900">{a.description}</p>
+                    <p className="text-sm text-slate-900 dark:text-slate-100">{a.description}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {a.userPhotoURL ? (
                         <img src={a.userPhotoURL} alt={a.userName} className="h-4 w-4 rounded-full" />
                       ) : null}
-                      <span className="text-xs text-slate-400">{a.userName}{a.userId === currentUser?.uid && " (You)"}</span>
-                      <span className="text-xs text-slate-300">&middot;</span>
-                      <span className="text-xs text-slate-400">{formatActivityTime(a.createdAt)}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{a.userName}{a.userId === currentUser?.uid && " (You)"}</span>
+                      <span className="text-xs text-slate-300 dark:text-slate-600">&middot;</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{formatActivityTime(a.createdAt)}</span>
                     </div>
                   </div>
                 </div>
@@ -721,13 +835,13 @@ export default function GroupDetailPage() {
             })
           ) : activities ? (
             <div className="flex flex-col items-center py-16 text-center">
-              <ActivityIcon className="h-12 w-12 text-slate-300" />
-              <p className="mt-3 text-sm text-slate-500">No activity yet.</p>
+              <ActivityIcon className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No activity yet.</p>
             </div>
           ) : (
             <div className="flex flex-col items-center py-16 text-center">
               <AlertCircle className="h-10 w-10 text-red-400" />
-              <p className="mt-3 text-sm text-slate-500">Failed to load activity</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load activity</p>
               <button
                 onClick={() => queryClient.invalidateQueries({ queryKey: ["activities", groupId] })}
                 className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
@@ -742,18 +856,57 @@ export default function GroupDetailPage() {
       {tab === "members" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Members ({members?.length || 0})</h3>
-            <button
-              onClick={() => setShowInvite(!showInvite)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
-            >
-              <UserPlus className="h-4 w-4" />
-              Invite
-            </button>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Members ({members?.length || 0})</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowAddOffline(!showAddOffline); setShowInvite(false); }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <User className="h-4 w-4" />
+                Add
+              </button>
+              <button
+                onClick={() => { setShowInvite(!showInvite); setShowAddOffline(false); }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
+              >
+                <UserPlus className="h-4 w-4" />
+                Invite
+              </button>
+            </div>
           </div>
 
+          {showAddOffline && (
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3">
+              <p className="text-sm text-slate-600 dark:text-slate-400">Add someone who isn't on the app yet. They can claim their profile later.</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={offlineName}
+                    onChange={(e) => setOfflineName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && offlineName.trim() && addOfflineMutation.mutate(offlineName.trim())}
+                    placeholder="Enter name..."
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={() => offlineName.trim() && addOfflineMutation.mutate(offlineName.trim())}
+                  disabled={!offlineName.trim() || addOfflineMutation.isPending}
+                  className="rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {addOfflineMutation.isPending ? "Adding..." : "Add"}
+                </button>
+              </div>
+              {inviteError && <p className="text-sm text-red-500 dark:text-red-400">{inviteError}</p>}
+              <button onClick={() => { setShowAddOffline(false); setInviteError(null); }} className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                Cancel
+              </button>
+            </div>
+          )}
+
           {showInvite && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
@@ -761,29 +914,29 @@ export default function GroupDetailPage() {
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   placeholder="Search by username..."
-                  className="w-full rounded-xl border border-slate-200 pl-10 pr-4 py-2.5 text-sm focus:border-trevio-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 />
               </div>
 
               {searchResults.length > 0 && (
-                <div className="rounded-xl border border-slate-100 divide-y divide-slate-100">
+                <div className="rounded-xl border border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
                   {searchResults.map((u) => (
                     <button
                       key={u.uid}
                       onClick={() => inviteMutation.mutate(u.username)}
                       disabled={inviteMutation.isPending}
-                      className="flex w-full items-center gap-3 p-2.5 text-left hover:bg-slate-50 disabled:opacity-50"
+                      className="flex w-full items-center gap-3 p-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50"
                     >
                       {u.photoURL ? (
                         <img src={u.photoURL} alt={u.displayName} className="h-8 w-8 rounded-full" />
                       ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-trevio-100 text-sm font-semibold text-trevio-700">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-sm font-semibold text-trevio-700 dark:text-trevio-200">
                           {u.displayName.charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600">(You)</span>}</p>
-                        <p className="text-xs text-slate-500">@{u.username}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">@{u.username}</p>
                       </div>
                       <UserPlus className="h-4 w-4 text-trevio-500" />
                     </button>
@@ -791,9 +944,9 @@ export default function GroupDetailPage() {
                 </div>
               )}
 
-              {inviteError && <p className="text-sm text-red-500">{inviteError}</p>}
+              {inviteError && <p className="text-sm text-red-500 dark:text-red-400">{inviteError}</p>}
 
-              <button onClick={() => setShowInvite(false)} className="text-sm text-slate-500 hover:text-slate-700">
+              <button onClick={() => setShowInvite(false)} className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                 Cancel
               </button>
             </div>
@@ -802,28 +955,49 @@ export default function GroupDetailPage() {
           {members && members.length > 0 && (
             <div className="space-y-2">
               {members.map((m) => (
-                <Link key={m.uid} href={`/users/${m.uid}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 hover:shadow-sm">
-                  {m.photoURL ? (
-                    <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
+                <div key={m.uid} className={m.isOffline ? "flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4" : undefined}>
+                  {m.isOffline ? (
+                    <>
+                      <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-xs md:text-sm font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                        {m.displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Offline member</p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-700/50 px-3 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <CloudOff className="h-3 w-3" />
+                        offline
+                      </span>
+                      {m.role === "admin" && (
+                        <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                      )}
+                    </>
                   ) : (
-                    <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-trevio-100 text-xs md:text-sm font-semibold text-trevio-700 shrink-0">
-                      {m.displayName.charAt(0).toUpperCase()}
-                    </div>
+                    <Link href={`/users/${m.uid}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 dark:hover:border-trevio-700 hover:shadow-sm">
+                      {m.photoURL ? (
+                        <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
+                      ) : (
+                        <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-xs md:text-sm font-semibold text-trevio-700 dark:text-trevio-200 shrink-0">
+                          {m.displayName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
+                      </div>
+                      {m.status === "pending" && (
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <Clock className="h-3 w-3" />
+                          pending
+                        </span>
+                      )}
+                      {m.role === "admin" && (
+                        <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                      )}
+                    </Link>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600">(You)</span>}</p>
-                    <p className="text-xs text-slate-500">@{m.username}</p>
-                  </div>
-                  {m.status === "pending" && (
-                    <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600">
-                      <Clock className="h-3 w-3" />
-                      pending
-                    </span>
-                  )}
-                  {m.role === "admin" && (
-                    <span className="rounded-lg bg-trevio-50 px-2.5 py-1 text-xs font-medium text-trevio-700">admin</span>
-                  )}
-                </Link>
+                </div>
               ))}
             </div>
           )}

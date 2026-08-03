@@ -58,16 +58,16 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => !forceAccept && onClose()}
       />
-      <div className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <FileText className="h-5 w-5 text-trevio-600" />
-            <h2 className="text-lg font-bold text-slate-900">Terms & Conditions</h2>
+            <FileText className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Terms & Conditions</h2>
           </div>
           {!forceAccept && (
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300"
             >
               <X className="h-5 w-5" />
             </button>
@@ -75,7 +75,7 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
         </div>
 
         <div className="overflow-y-auto px-6 py-5" style={{ maxHeight: "calc(85vh - 180px)" }}>
-          <p className="text-sm text-slate-500 mb-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             {forceAccept ? "Before you get started, please read and accept our terms:" : "Please read our terms and conditions:"}
           </p>
           <div className="space-y-4">
@@ -88,18 +88,18 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
         </div>
 
         {forceAccept && (
-          <div className="border-t border-slate-200 px-6 py-4">
+          <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => setChecked(e.target.checked)}
-                className="h-5 w-5 rounded border-slate-300 text-trevio-600 focus:ring-trevio-500"
+                className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-trevio-600 focus:ring-trevio-500"
               />
-              <span className="text-sm text-slate-700">I have read and agree to the Terms & Conditions</span>
+              <span className="text-sm text-slate-700 dark:text-slate-300">I have read and agree to the Terms & Conditions</span>
             </label>
 
-            {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+            {error && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{error}</p>}
 
             <button
               onClick={handleAccept}
@@ -118,8 +118,8 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
 function TermsSection({ title, body }: { title: string; body: string }) {
   return (
     <div>
-      <h3 className="font-semibold text-slate-900 text-sm">{title}</h3>
-      <p className="mt-1 text-sm text-slate-600">{body}</p>
+      <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{title}</h3>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{body}</p>
     </div>
   );
 }

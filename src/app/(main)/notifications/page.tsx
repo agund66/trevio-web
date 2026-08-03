@@ -18,9 +18,9 @@ const broadcastIcon: Record<BroadcastPriority, React.ComponentType<{ className?:
 };
 
 const broadcastColors: Record<BroadcastPriority, { border: string; bg: string; iconBg: string; icon: string }> = {
-  critical: { border: "border-red-200", bg: "bg-red-50", iconBg: "bg-red-100", icon: "text-red-600" },
-  maintenance: { border: "border-amber-200", bg: "bg-amber-50", iconBg: "bg-amber-100", icon: "text-amber-600" },
-  info: { border: "border-blue-200", bg: "bg-blue-50", iconBg: "bg-blue-100", icon: "text-blue-600" },
+  critical: { border: "border-red-200 dark:border-red-800", bg: "bg-red-50 dark:bg-red-900/20", iconBg: "bg-red-100 dark:bg-red-900/40", icon: "text-red-600 dark:text-red-400" },
+  maintenance: { border: "border-amber-200 dark:border-amber-800", bg: "bg-amber-50 dark:bg-amber-900/20", iconBg: "bg-amber-100 dark:bg-amber-900/40", icon: "text-amber-600 dark:text-amber-400" },
+  info: { border: "border-blue-200 dark:border-blue-800", bg: "bg-blue-50 dark:bg-blue-900/20", iconBg: "bg-blue-100 dark:bg-blue-900/40", icon: "text-blue-600 dark:text-blue-400" },
 };
 
 const formatNotificationTime = (createdAt: number, formatDate: (ts: number) => string) => {
@@ -84,6 +84,7 @@ export default function NotificationsPage() {
     mutationFn: (invitationId: string) => group.declineInvitation(invitationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
   });
 
@@ -131,11 +132,11 @@ export default function NotificationsPage() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Notifications</h1>
         {hasUnread && (
           <button
             onClick={() => markAllMutation.mutate()}
-            className="text-sm font-medium text-trevio-600 hover:text-trevio-700"
+            className="text-sm font-medium text-trevio-600 dark:text-trevio-400 hover:text-trevio-700 dark:hover:text-trevio-300"
           >
             Mark all read
           </button>
@@ -146,8 +147,8 @@ export default function NotificationsPage() {
         <div className="flex min-h-[50vh] items-center justify-center text-center">
           <div className="max-w-md">
             <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-            <h2 className="mt-3 text-lg font-semibold text-slate-900">Failed to load notifications</h2>
-            <p className="mt-1 text-sm text-slate-500">{(error as Error).message}</p>
+            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Failed to load notifications</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{(error as Error).message}</p>
             <button
               onClick={() => queryClient.invalidateQueries({ queryKey: ["notifications"] })}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
@@ -158,7 +159,7 @@ export default function NotificationsPage() {
         </div>
       ) : isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
         </div>
       ) : (
         <div className="space-y-2">
@@ -182,25 +183,25 @@ export default function NotificationsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-slate-900">{b.title}</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{b.title}</p>
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium uppercase", colors.iconBg, colors.icon)}>
                         {b.priority}
                       </span>
                     </div>
                     {!isExpanded && (
-                      <p className="mt-0.5 text-sm text-slate-500 line-clamp-2" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+                      <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400 line-clamp-2" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
                     )}
                     {isExpanded && (
-                      <div className="mt-2 prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+                      <div className="mt-2 prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
                     )}
                     <button
                       onClick={() => toggleExpand(b.id)}
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                     >
                       {isExpanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> Read more</>}
                     </button>
                   </div>
-                  <Megaphone className="h-4 w-4 text-slate-300" />
+                  <Megaphone className="h-4 w-4 text-slate-300 dark:text-slate-600" />
                 </div>
               </div>
             );
@@ -220,22 +221,22 @@ export default function NotificationsPage() {
                 key={n.notificationId}
                 onClick={() => { if (!n.read) markReadMutation.mutate(n.notificationId); }}
                 className={`flex flex-col rounded-2xl border p-4 cursor-pointer transition ${
-                  n.read ? "border-slate-200 bg-white" : "border-trevio-200 bg-trevio-50 hover:border-trevio-300"
+                  n.read ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" : "border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 hover:border-trevio-300 dark:hover:border-trevio-600"
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${n.read ? "bg-slate-100" : "bg-trevio-100"}`}>
+                  <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${n.read ? "bg-slate-100 dark:bg-slate-700" : "bg-trevio-100 dark:bg-trevio-900/30"}`}>
                     {isInvitation ? (
-                      <UserPlus className={`h-4 w-4 ${n.read ? "text-slate-400" : "text-trevio-600"}`} />
+                      <UserPlus className={`h-4 w-4 ${n.read ? "text-slate-400 dark:text-slate-500" : "text-trevio-600 dark:text-trevio-400"}`} />
                     ) : (
-                      <Bell className={`h-4 w-4 ${n.read ? "text-slate-400" : "text-trevio-600"}`} />
+                      <Bell className={`h-4 w-4 ${n.read ? "text-slate-400 dark:text-slate-500" : "text-trevio-600 dark:text-trevio-400"}`} />
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{n.title}</p>
-                    <p className="text-sm text-slate-500">{n.body}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{n.title}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{n.body}</p>
                     {n.createdAt > 0 && (
-                      <p className="mt-1 text-xs text-slate-400">{formatNotificationTime(n.createdAt, formatDateFn)}</p>
+                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{formatNotificationTime(n.createdAt, formatDateFn)}</p>
                     )}
                   </div>
                   {!n.read && <div className="mt-1 h-2 w-2 rounded-full bg-trevio-500" />}
@@ -257,7 +258,7 @@ export default function NotificationsPage() {
                     <button
                       onClick={() => handleDeclineInvitation(n.notificationId, n.data.invitationId)}
                       disabled={invitationAction === n.data.invitationId}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                     >
                       <X className="h-3 w-3" />
                       Decline
@@ -268,7 +269,7 @@ export default function NotificationsPage() {
                   <div className="mt-2 pl-11">
                     <button
                       onClick={() => router.push(`/groups/${n.data.groupId}`)}
-                      className="text-xs font-medium text-green-600 hover:text-green-700"
+                      className="text-xs font-medium text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
                     >
                       Open Group →
                     </button>
@@ -276,14 +277,14 @@ export default function NotificationsPage() {
                 )}
                 {isInvitation && isDeclined && (
                   <div className="mt-2 pl-11">
-                    <span className="text-xs font-medium text-slate-500">Declined</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Declined</span>
                   </div>
                 )}
                 {hasGroupLink && (
                   <div className="mt-2 pl-11">
                     <button
                       onClick={() => router.push(`/groups/${n.data.groupId}`)}
-                      className="text-xs font-medium text-trevio-600 hover:text-trevio-700"
+                      className="text-xs font-medium text-trevio-600 dark:text-trevio-400 hover:text-trevio-700 dark:hover:text-trevio-300"
                     >
                       View Group →
                     </button>
@@ -295,10 +296,10 @@ export default function NotificationsPage() {
 
           {activeBroadcasts.length === 0 && notifications.length === 0 && (
             <div className="flex flex-col items-center py-20 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <Bell className="h-8 w-8 text-slate-300" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                <Bell className="h-8 w-8 text-slate-300 dark:text-slate-600" />
               </div>
-              <p className="mt-4 text-sm text-slate-500">No notifications yet</p>
+              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">No notifications yet</p>
             </div>
           )}
         </div>

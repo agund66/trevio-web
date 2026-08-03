@@ -43,9 +43,18 @@ export class FirebaseAdminService implements AdminService {
     });
   }
 
+  private async requireSuperadmin(): Promise<void> {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("User not authenticated");
+    const currentUserDoc = await getDoc(doc(db, "users", currentUid));
+    const currentRole = (currentUserDoc.data()?.role as string) ?? "user";
+    if (currentRole !== "superadmin") throw new Error("Access denied: superadmin only");
+  }
+
   async blockUser(uid: string): Promise<void> {
     const currentUid = auth.currentUser?.uid;
     if (uid === currentUid) throw new Error("Cannot block yourself");
+    await this.requireSuperadmin();
     await updateDoc(doc(db, "users", uid), {
       blocked: true,
       updatedAt: Date.now(),
@@ -53,6 +62,7 @@ export class FirebaseAdminService implements AdminService {
   }
 
   async unblockUser(uid: string): Promise<void> {
+    await this.requireSuperadmin();
     await updateDoc(doc(db, "users", uid), {
       blocked: false,
       updatedAt: Date.now(),
@@ -60,6 +70,7 @@ export class FirebaseAdminService implements AdminService {
   }
 
   async promoteToSuperAdmin(uid: string): Promise<void> {
+    await this.requireSuperadmin();
     await updateDoc(doc(db, "users", uid), {
       role: "superadmin",
       updatedAt: Date.now(),
@@ -69,6 +80,7 @@ export class FirebaseAdminService implements AdminService {
   async demoteToUser(uid: string): Promise<void> {
     const currentUid = auth.currentUser?.uid;
     if (uid === currentUid) throw new Error("Cannot demote yourself");
+    await this.requireSuperadmin();
     await updateDoc(doc(db, "users", uid), {
       role: "user",
       updatedAt: Date.now(),

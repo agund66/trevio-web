@@ -10,6 +10,8 @@ export function calculateSplits(
 ): SplitMap {
   const result: SplitMap = {};
 
+  if (memberUids.length === 0) return result;
+
   switch (splitType) {
     case "equal": {
       const perPerson = Math.round((totalAmount / memberUids.length) * 100) / 100;

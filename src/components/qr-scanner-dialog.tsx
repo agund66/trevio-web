@@ -81,17 +81,17 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80" onClick={() => !starting && onClose()} />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-50">
-              <Camera className="h-4.5 w-4.5 text-trevio-600" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
+              <Camera className="h-4.5 w-4.5 text-trevio-600 dark:text-trevio-400" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900">Scan QR Code</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Scan QR Code</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300"
           >
             <X className="h-5 w-5" />
           </button>

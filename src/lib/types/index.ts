@@ -44,6 +44,7 @@ export interface Member {
   balance: number;
   role: string;
   status: string;
+  isOffline?: boolean;
 }
 
 export interface SplitEntry {

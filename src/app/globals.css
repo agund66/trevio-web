@@ -30,14 +30,76 @@
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: rgb(var(--border));
   }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
+  }
+}
+
+@layer base {
+  .dark {
+    .bg-white { background-color: rgb(var(--card)); }
+    .bg-slate-50 { background-color: hsl(222 47% 11%); }
+    .bg-slate-100 { background-color: hsl(217 33% 17%); }
+    .text-slate-900 { color: hsl(241 5% 91%); }
+    .text-slate-700 { color: hsl(215 16% 77%); }
+    .text-slate-600 { color: hsl(215 16% 65%); }
+    .text-slate-500 { color: hsl(215 16% 57%); }
+    .text-slate-400 { color: hsl(215 16% 47%); }
+    .border-slate-200 { border-color: hsl(217 33% 27%); }
+    .border-slate-100 { border-color: hsl(217 33% 22%); }
+    .hover\:bg-slate-50:hover { background-color: hsl(217 33% 17%); }
+    .hover\:bg-slate-100:hover { background-color: hsl(217 33% 20%); }
+    .bg-trevio-50 { background-color: hsl(173 58% 12%); }
+    .bg-trevio-100 { background-color: hsl(173 48% 15%); }
+    .bg-red-50 { background-color: hsl(0 47% 11%); }
+    .bg-green-50 { background-color: hsl(140 52% 10%); }
+    .bg-amber-50 { background-color: hsl(38 60% 11%); }
+    .bg-slate-200 { background-color: hsl(217 33% 20%); }
+    .bg-blue-50 { background-color: hsl(220 50% 11%); }
+    .bg-blue-100 { background-color: hsl(220 40% 15%); }
+    .bg-amber-100 { background-color: hsl(38 50% 15%); }
+    .bg-red-100 { background-color: hsl(0 47% 15%); }
+    .bg-green-100 { background-color: hsl(140 40% 15%); }
+    .hover\:bg-slate-200:hover { background-color: hsl(217 33% 25%); }
+    .hover\:bg-red-50:hover { background-color: hsl(0 47% 15%); }
+    .hover\:bg-red-100:hover { background-color: hsl(0 47% 20%); }
+    .hover\:bg-trevio-50:hover { background-color: hsl(173 48% 15%); }
+    .hover\:bg-trevio-100:hover { background-color: hsl(173 40% 18%); }
+    .border-slate-300 { border-color: hsl(217 33% 30%); }
+    .border-red-200 { border-color: hsl(0 47% 20%); }
+    .border-red-300 { border-color: hsl(0 47% 25%); }
+    .border-amber-300 { border-color: hsl(38 50% 25%); }
+    .border-blue-300 { border-color: hsl(220 50% 25%); }
+    .border-green-200 { border-color: hsl(140 52% 20%); }
+    .border-amber-200 { border-color: hsl(38 60% 20%); }
+    .border-blue-200 { border-color: hsl(220 50% 20%); }
+    .border-trevio-200 { border-color: hsl(173 40% 20%); }
+    .border-trevio-300 { border-color: hsl(173 40% 25%); }
+    .border-trevio-600 { border-color: hsl(172 75% 58%); }
+    .text-red-900 { color: hsl(0 60% 75%); }
+    .text-red-700 { color: hsl(0 50% 65%); }
+    .text-red-600 { color: hsl(0 91% 71%); }
+    .text-red-500 { color: hsl(0 91% 71%); }
+    .text-amber-900 { color: hsl(38 80% 70%); }
+    .text-blue-900 { color: hsl(217 80% 70%); }
+    .text-trevio-700 { color: hsl(173 75% 66%); }
+    .text-trevio-600 { color: hsl(172 75% 58%); }
+    .text-green-600 { color: hsl(142 69% 61%); }
+    .text-amber-600 { color: hsl(43 96% 56%); }
+    .text-blue-600 { color: hsl(217 91% 68%); }
+    .text-green-700 { color: hsl(142 69% 55%); }
+    .text-amber-700 { color: hsl(43 90% 60%); }
+    .text-blue-700 { color: hsl(217 80% 65%); }
+    .hover\:bg-green-100:hover { background-color: hsl(140 40% 20%); }
+    .hover\:text-green-700:hover { color: hsl(142 69% 55%); }
+    .divide-slate-100 > * { border-color: hsl(217 33% 22%); }
+    .divide-slate-200 > * { border-color: hsl(217 33% 27%); }
   }
 }
 

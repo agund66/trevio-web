@@ -192,12 +192,12 @@ export default function AddExpensePage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">
-      <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700">
+      <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
         Back
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Add Expense</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add Expense</h1>
 
       <div className="space-y-5">
         <div>
@@ -210,7 +210,7 @@ export default function AddExpensePage() {
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.+\-*/]/g, ""))}
               placeholder="0.00"
-              className="w-full rounded-2xl border border-slate-200 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 focus:border-trevio-500 focus:outline-none"
+              className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
           {numericAmount > 0 && /[+\-*/]/.test(amount) && (
@@ -219,7 +219,7 @@ export default function AddExpensePage() {
             </p>
           )}
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-slate-400">Quick calc:</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">Quick calc:</span>
             {[
               { label: "+", op: "+" },
               { label: "−", op: "-" },
@@ -229,7 +229,7 @@ export default function AddExpensePage() {
               <button
                 key={btn.op}
                 onClick={() => setAmount((prev) => prev + btn.op)}
-                className="h-8 w-8 rounded-lg border border-slate-200 bg-slate-50 text-sm font-bold text-slate-600 transition hover:bg-trevio-50 hover:border-trevio-300 hover:text-trevio-600"
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 hover:border-trevio-300 dark:hover:border-trevio-700 hover:text-trevio-600 dark:hover:text-trevio-400"
               >
                 {btn.label}
               </button>
@@ -237,7 +237,7 @@ export default function AddExpensePage() {
             {amount && (
               <button
                 onClick={() => setAmount("")}
-                className="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:text-slate-600"
+                className="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-slate-400 dark:text-slate-500 transition hover:text-slate-600 dark:hover:text-slate-300"
               >
                 Clear
               </button>
@@ -246,18 +246,18 @@ export default function AddExpensePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="e.g., Dinner at restaurant"
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Date</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Date</label>
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -265,20 +265,20 @@ export default function AddExpensePage() {
               value={expenseDate}
               onChange={(e) => setExpenseDate(e.target.value)}
               max={new Date().toISOString().split("T")[0]}
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 pl-10 text-sm focus:border-trevio-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-10 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Category</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Category</label>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
                 className={`rounded-xl px-3 py-1.5 text-sm font-medium capitalize transition ${
-                  category === cat ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  category === cat ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
                 {cat}
@@ -289,16 +289,16 @@ export default function AddExpensePage() {
 
         {members === undefined ? (
           <div className="space-y-2">
-            <div className="h-4 w-20 rounded bg-slate-200 animate-pulse" />
+            <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
             <div className="flex gap-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-9 w-20 rounded-xl bg-slate-100 animate-pulse" />
+                <div key={i} className="h-9 w-20 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
               ))}
             </div>
           </div>
         ) : activeMembers.length > 0 ? (
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Paid by</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Paid by</label>
             <div className="flex flex-wrap gap-2">
               {activeMembers.map((m) => (
                 <button
@@ -307,7 +307,7 @@ export default function AddExpensePage() {
                   className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
                     (paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid) === m.uid
                       ? "bg-trevio-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                   }`}
                 >
                   {m.displayName.split(" ")[0]}
@@ -319,14 +319,14 @@ export default function AddExpensePage() {
         ) : null}
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Split method</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Split method</label>
           <div className="flex flex-wrap gap-2">
             {splitTypes.map((st) => (
               <button
                 key={st}
                 onClick={() => setSplitType(st)}
                 className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
-                  splitType === st ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  splitType === st ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
                 {splitLabel(st)}
@@ -336,12 +336,12 @@ export default function AddExpensePage() {
         </div>
 
         {splitType === "equal" && activeMembers.length > 0 && numericAmount > 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 {currencySymbol(currency)}{equalPerPerson.toFixed(2)} per person
               </span>
-              <span className="text-xs text-slate-400">{includedMembers.length} of {activeMembers.length} members</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">{includedMembers.length} of {activeMembers.length} members</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {activeMembers.map((m) => {
@@ -352,8 +352,8 @@ export default function AddExpensePage() {
                     onClick={() => toggleExclude(m.uid)}
                     className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
                       excluded
-                        ? "bg-slate-100 text-slate-400 line-through"
-                        : "bg-trevio-50 text-trevio-700 border border-trevio-200"
+                        ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 line-through"
+                        : "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300 border border-trevio-200 dark:border-trevio-700"
                     }`}
                   >
                     {m.displayName.split(" ")[0]}{m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">(You)</span>}
@@ -365,16 +365,16 @@ export default function AddExpensePage() {
         )}
 
         {splitType !== "equal" && activeMembers.length > 0 && numericAmount > 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 {splitType === "exact" && "Enter exact amount for each member"}
                 {splitType === "percent" && "Enter percentage for each member"}
                 {splitType === "shares" && "Enter shares for each member"}
               </span>
               {splitSummary && splitType !== "shares" && (
                 <span className={`text-xs font-semibold ${
-                  isSplitValid ? "text-green-600" : "text-amber-600"
+                  isSplitValid ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"
                 }`}>
                   {splitSummary.entered.toFixed(2)} / {splitSummary.expected.toFixed(2)} {splitSummary.label}
                 </span>
@@ -395,18 +395,18 @@ export default function AddExpensePage() {
                 return (
                   <div key={m.uid} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600">(You)</span>}</p>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {displayAmount && (
-                        <span className="text-xs text-slate-400">{displayAmount}</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">{displayAmount}</span>
                       )}
                       <input
                         type="text"
                         value={val}
                         onChange={(e) => setSplitValues({ ...splitValues, [m.uid]: e.target.value.replace(/[^0-9.]/g, "") })}
                         placeholder={splitPlaceholder(splitType)}
-                        className="w-20 sm:w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm text-right focus:border-trevio-500 focus:outline-none"
+                        className="w-20 sm:w-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 text-right focus:border-trevio-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -414,14 +414,14 @@ export default function AddExpensePage() {
               })}
             </div>
             {includedMembers.length < activeMembers.length && (
-              <div className="pt-2 border-t border-slate-200">
-                <p className="text-xs text-slate-400 mb-2">Excluded members (tap to include):</p>
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Excluded members (tap to include):</p>
                 <div className="flex flex-wrap gap-2">
                   {activeMembers.filter((m) => excludedMembers.has(m.uid)).map((m) => (
                     <button
                       key={m.uid}
                       onClick={() => toggleExclude(m.uid)}
-                      className="rounded-xl px-3 py-1.5 text-sm font-medium bg-slate-100 text-slate-400 hover:bg-slate-200 transition"
+                      className="rounded-xl px-3 py-1.5 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
                     >
                       {m.displayName.split(" ")[0]}{m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">(You)</span>}
                     </button>
@@ -430,13 +430,13 @@ export default function AddExpensePage() {
               </div>
             )}
             {splitType === "shares" && (
-              <p className="text-xs text-slate-400">Amounts are split proportionally based on share values.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Amounts are split proportionally based on share values.</p>
             )}
           </div>
         )}
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             <StickyNote className="h-4 w-4 text-slate-400" />
             Note (optional)
           </label>
@@ -445,27 +445,27 @@ export default function AddExpensePage() {
             onChange={(e) => setNote(e.target.value)}
             placeholder="Add a note about this expense..."
             rows={2}
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none resize-none"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
           />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={isRecurring}
               onChange={(e) => setIsRecurring(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-trevio-600 focus:ring-trevio-500"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-trevio-600 focus:ring-trevio-500"
             />
             <Repeat className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-medium text-slate-700">Make this a recurring expense</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Make this a recurring expense</span>
           </label>
           {isRecurring && (
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => setRecurringFreq("weekly")}
                 className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
-                  recurringFreq === "weekly" ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  recurringFreq === "weekly" ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
                 Weekly
@@ -473,7 +473,7 @@ export default function AddExpensePage() {
               <button
                 onClick={() => setRecurringFreq("monthly")}
                 className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
-                  recurringFreq === "monthly" ? "bg-trevio-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  recurringFreq === "monthly" ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
                 Monthly
@@ -483,11 +483,11 @@ export default function AddExpensePage() {
         </div>
 
         {addMutation.isError && (
-          <p className="text-sm text-red-500">{addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense"}</p>
+          <p className="text-sm text-red-500 dark:text-red-400">{addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense"}</p>
         )}
 
         {!isSplitValid && numericAmount > 0 && splitType !== "equal" && includedMembers.length > 0 && (
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
             {splitType === "percent" && `Total must be 100% (currently ${splitSummary?.entered ?? 0}%)`}
             {splitType === "exact" && `Total must match ${currencySymbol(currency)}${numericAmount.toFixed(2)} (currently ${currencySymbol(currency)}${(splitSummary?.entered ?? 0).toFixed(2)})`}
             {splitType === "shares" && "Enter at least one share value"}
@@ -515,7 +515,7 @@ export default function AddExpensePage() {
               addMutation.mutate();
             }}
             disabled={!description.trim() || !amount || !isSplitValid || addMutation.isPending}
-            className="flex-1 rounded-xl border-2 border-trevio-600 py-4 text-base font-semibold text-trevio-600 transition hover:bg-trevio-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl border-2 border-trevio-600 py-4 text-base font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="flex items-center justify-center gap-2">
               <Plus className="h-5 w-5" />

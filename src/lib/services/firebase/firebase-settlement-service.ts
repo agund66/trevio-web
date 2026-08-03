@@ -76,7 +76,7 @@ export class FirebaseSettlementService implements SettlementService {
     batch.set(settlementRef, settlementData);
     batch.set(doc(collection(groupRef, "activities")), {
       type: "settlement_added",
-      description: `${fromUserName} settled ${params.currency} ${amountInBase} with ${toUserName}`,
+      description: `${fromUserName} settled ${params.currency} ${params.amount} with ${toUserName}`,
       userId: uid,
       data: {
         settlementId: settlementRef.id,
@@ -104,8 +104,8 @@ export class FirebaseSettlementService implements SettlementService {
           type: "settlement",
           title: isReceiver ? "Payment Received" : "Payment Recorded",
           body: isReceiver
-            ? `${fromUserName} recorded a payment of ${params.currency} ${amountInBase} to you`
-            : `You paid ${toUserName} ${params.currency} ${amountInBase} (recorded by ${fromUserName === toUserName ? "them" : fromUserName})`,
+            ? `${fromUserName} recorded a payment of ${params.currency} ${params.amount} to you`
+            : `You paid ${toUserName} ${params.currency} ${params.amount} (recorded by ${fromUserName === toUserName ? "them" : fromUserName})`,
           data: {
             groupId: params.groupId,
             groupName,
@@ -178,6 +178,19 @@ export class FirebaseSettlementService implements SettlementService {
     const members = await Promise.all(
       membersSnapshot.docs.map(async (d) => {
         const data = d.data() as Record<string, unknown>;
+        const isOffline = data.isOffline === true;
+        if (isOffline) {
+          return {
+            uid: d.id,
+            displayName: (data.displayName as string) ?? "Unknown",
+            username: "",
+            photoURL: "",
+            balance: (data.balance as number) ?? 0,
+            role: (data.role as string) ?? "member",
+            status: (data.status as string) ?? "active",
+            isOffline: true,
+          } as Member;
+        }
         const userDoc = await getDoc(doc(db, "users", d.id));
         const userData = userDoc.data() as Record<string, unknown> | undefined;
         return {
@@ -188,6 +201,7 @@ export class FirebaseSettlementService implements SettlementService {
           balance: (data.balance as number) ?? 0,
           role: (data.role as string) ?? "member",
           status: (data.status as string) ?? "active",
+          isOffline: false,
         } as Member;
       })
     );

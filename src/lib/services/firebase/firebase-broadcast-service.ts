@@ -32,6 +32,14 @@ function toMillis(value: unknown): number {
 }
 
 export class FirebaseBroadcastService implements BroadcastService {
+  private async requireSuperadmin(): Promise<void> {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("User not authenticated");
+    const currentUserDoc = await getDoc(doc(db, "users", currentUid));
+    const currentRole = (currentUserDoc.data()?.role as string) ?? "user";
+    if (currentRole !== "superadmin") throw new Error("Access denied: superadmin only");
+  }
+
   async createBroadcast(data: {
     title: string;
     htmlContent: string;
@@ -41,6 +49,7 @@ export class FirebaseBroadcastService implements BroadcastService {
     startAt: number;
     endAt: number | null;
   }): Promise<string> {
+    await this.requireSuperadmin();
     const currentUser = auth.currentUser;
     const ref = await addDoc(collection(db, "broadcasts"), {
       title: data.title,
@@ -84,6 +93,7 @@ export class FirebaseBroadcastService implements BroadcastService {
   }
 
   async stopBroadcast(id: string): Promise<void> {
+    await this.requireSuperadmin();
     await updateDoc(doc(db, "broadcasts", id), {
       active: false,
       stoppedAt: Date.now(),

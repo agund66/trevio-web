@@ -17,7 +17,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { user: userService } = useServices();
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, mode, toggleTheme } = useTheme();
   useFcmNotifications();
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <button
               onClick={toggleTheme}
               className="rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              title="Toggle theme"
+              title={`Theme: ${mode}${mode === "system" ? " (device)" : ""} — click to change`}
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>

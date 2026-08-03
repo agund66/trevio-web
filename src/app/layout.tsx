@@ -28,8 +28,22 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const themeScript = `
+    (function() {
+      try {
+        var stored = localStorage.getItem('trevio-theme') || 'system';
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = stored === 'dark' || (stored === 'system' && prefersDark);
+        if (isDark) document.documentElement.classList.add('dark');
+      } catch(e) {}
+    })();
+  `;
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={inter.className}>
         <QueryProvider>
           <ServiceProvider>{children}</ServiceProvider>

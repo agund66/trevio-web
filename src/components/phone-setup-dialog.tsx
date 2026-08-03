@@ -67,36 +67,36 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-50">
-            <Phone className="h-5 w-5 text-trevio-600" />
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 px-6 py-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
+            <Phone className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Add Mobile Number</h2>
-            <p className="text-sm text-slate-500">Required for UPI payments</p>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Add Mobile Number</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Required for UPI payments</p>
           </div>
         </div>
 
         <div className="px-6 py-5 space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Your mobile number is used so friends can pay you via UPI directly from their payment app. It&apos;s also used as a fallback when you don&apos;t have a UPI ID set.
           </p>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700">Mobile Number</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Mobile Number</label>
             <div className="flex gap-2">
               <div className="relative">
                 <button
                   onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                  className="flex h-[46px] items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="flex h-[46px] items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <span className="text-lg">{country.flag}</span>
                   <span>{country.dialCode}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                  <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                 </button>
                 {showCountryDropdown && (
-                  <div className="absolute top-full left-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg max-h-60 overflow-y-auto">
                     {COUNTRY_CODES.map((c) => (
                       <button
                         key={c.code}
@@ -105,13 +105,13 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
                           setShowCountryDropdown(false);
                           setTouched(false);
                         }}
-                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                          c.code === countryCode ? "bg-trevio-50 text-trevio-700" : "text-slate-700"
+                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                          c.code === countryCode ? "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300" : "text-slate-700 dark:text-slate-200"
                         }`}
                       >
                         <span className="text-lg">{c.flag}</span>
                         <span className="flex-1">{c.name}</span>
-                        <span className="text-slate-400">{c.dialCode}</span>
+                        <span className="text-slate-400 dark:text-slate-500">{c.dialCode}</span>
                       </button>
                     ))}
                   </div>
@@ -126,25 +126,25 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
                 }}
                 onBlur={() => setTouched(true)}
                 placeholder={`${country.phoneLength}-digit number`}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 autoFocus
               />
             </div>
             {touched && !validation.valid && (
-              <p className="text-sm text-red-500">{validation.error}</p>
+              <p className="text-sm text-red-500 dark:text-red-400">{validation.error}</p>
             )}
             {validation.valid && (
-              <p className="flex items-center gap-1.5 text-sm text-green-600">
+              <p className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
                 <Check className="h-4 w-4" />
                 Valid {country.phoneLength}-digit number
               </p>
             )}
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
         </div>
 
-        <div className="border-t border-slate-200 px-6 py-4">
+        <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4">
           <button
             onClick={handleSave}
             disabled={!validation.valid || saving}

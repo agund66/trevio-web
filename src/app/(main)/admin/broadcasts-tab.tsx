@@ -34,26 +34,26 @@ const priorityConfig: Record<
   critical: {
     label: "Critical",
     icon: AlertTriangle,
-    color: "text-red-600",
-    bg: "bg-red-50",
-    border: "border-red-200",
-    text: "text-red-700",
+    color: "text-red-600 dark:text-red-400",
+    bg: "bg-red-50 dark:bg-red-900/20",
+    border: "border-red-200 dark:border-red-800",
+    text: "text-red-700 dark:text-red-400",
   },
   maintenance: {
     label: "Maintenance",
     icon: Wrench,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-700",
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-200 dark:border-amber-800",
+    text: "text-amber-700 dark:text-amber-400",
   },
   info: {
     label: "Info",
     icon: Info,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    text: "text-blue-700",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-900/20",
+    border: "border-blue-200 dark:border-blue-800",
+    text: "text-blue-700 dark:text-blue-400",
   },
 };
 
@@ -142,8 +142,8 @@ export function BroadcastsTab() {
       {/* Header with create button */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Broadcast Messages</h2>
-          <p className="text-sm text-slate-500">Send HTML-formatted messages to users</p>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Broadcast Messages</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Send HTML-formatted messages to users</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -156,22 +156,22 @@ export function BroadcastsTab() {
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-3 gap-3 md:gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Total</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900">{broadcasts.length}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Total</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{broadcasts.length}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Active</p>
-          <p className="mt-1 text-2xl font-bold text-green-600">{activeBroadcasts.length}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Active</p>
+          <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{activeBroadcasts.length}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Stopped</p>
-          <p className="mt-1 text-2xl font-bold text-slate-400">{inactiveBroadcasts.length}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Stopped</p>
+          <p className="mt-1 text-2xl font-bold text-slate-400 dark:text-slate-500">{inactiveBroadcasts.length}</p>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           {error}
         </div>
@@ -179,7 +179,7 @@ export function BroadcastsTab() {
 
       {loading ? (
         <div className="flex h-40 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-trevio-600" />
         </div>
       ) : (
         <div className="space-y-2">
@@ -191,7 +191,7 @@ export function BroadcastsTab() {
                 key={b.id}
                 onClick={() => setSelectedBroadcastId(b.id)}
                 className={cn(
-                  "flex flex-col gap-3 rounded-2xl border bg-white p-4 sm:flex-row sm:items-start sm:justify-between cursor-pointer transition hover:shadow-md",
+                  "flex flex-col gap-3 rounded-2xl border bg-white dark:bg-slate-900 p-4 sm:flex-row sm:items-start sm:justify-between cursor-pointer transition hover:shadow-md",
                   config.border
                 )}
               >
@@ -201,21 +201,21 @@ export function BroadcastsTab() {
                       <config.icon className="h-3 w-3" />
                       {config.label}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                       {targetTypeConfig[b.targetType]}
                     </span>
                     {isActive ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
                         Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                         Stopped
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 font-medium text-slate-900">{b.title}</p>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                  <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">{b.title}</p>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Eye className="h-3 w-3" />
                       {readCounts[b.id] ?? 0} reads
@@ -236,7 +236,7 @@ export function BroadcastsTab() {
                   <button
                     onClick={() => handleStop(b.id)}
                     disabled={actionLoading === b.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
                   >
                     <Square className="h-4 w-4" />
                     Stop
@@ -246,9 +246,9 @@ export function BroadcastsTab() {
             );
           })}
           {broadcasts.length === 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-              <Megaphone className="mx-auto h-10 w-10 text-slate-300" />
-              <p className="mt-3 text-sm text-slate-500">No broadcasts yet. Create one to get started.</p>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
+              <Megaphone className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No broadcasts yet. Create one to get started.</p>
             </div>
           )}
         </div>
@@ -393,19 +393,19 @@ function BroadcastForm({
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+            className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Broadcasts
           </button>
         </div>
-        <h2 className="text-lg font-semibold text-slate-900">Create Broadcast</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Broadcast</h2>
       </div>
 
       {/* Body */}
       <div className="space-y-5">
           {error && (
-            <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
               {error}
             </div>
@@ -413,19 +413,19 @@ function BroadcastForm({
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Broadcast title..."
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-trevio-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
 
           {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Priority</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Priority</label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(priorityConfig) as BroadcastPriority[]).map((p) => {
                 const config = priorityConfig[p];
@@ -437,7 +437,7 @@ function BroadcastForm({
                       "flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition",
                       priority === p
                         ? cn(config.bg, config.border, config.text)
-                        : "border-slate-200 text-slate-500 hover:border-slate-300"
+                        : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"
                     )}
                   >
                     <config.icon className="h-4 w-4" />
@@ -450,7 +450,7 @@ function BroadcastForm({
 
           {/* Target audience */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Target Audience</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Target Audience</label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(targetTypeConfig) as BroadcastTargetType[]).map((t) => (
                 <button
@@ -459,8 +459,8 @@ function BroadcastForm({
                   className={cn(
                     "flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition",
                     targetType === t
-                      ? "border-trevio-500 bg-trevio-50 text-trevio-700"
-                      : "border-slate-200 text-slate-500 hover:border-slate-300"
+                      ? "border-trevio-500 bg-trevio-50 dark:bg-trevio-900/20 text-trevio-700 dark:text-trevio-300"
+                      : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"
                   )}
                 >
                   {t === "all" && <Users className="h-4 w-4" />}
@@ -474,7 +474,7 @@ function BroadcastForm({
 
           {/* Specific user selection */}
           {targetType === "specific" && (
-            <div className="rounded-xl border border-slate-200 p-3">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
               <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -482,14 +482,14 @@ function BroadcastForm({
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   placeholder="Search users..."
-                  className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-trevio-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 />
               </div>
               <div className="max-h-40 overflow-y-auto space-y-1">
                 {filteredUsers.map((u) => (
                   <label
                     key={u.uid}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     <input
                       type="checkbox"
@@ -497,16 +497,16 @@ function BroadcastForm({
                       onChange={() => toggleUser(u.uid)}
                       className="h-4 w-4 rounded border-slate-300 text-trevio-600 focus:ring-trevio-500"
                     />
-                    <span className="text-sm text-slate-700">{u.displayName}</span>
-                    <span className="text-xs text-slate-400">{u.email}</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300">{u.displayName}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{u.email}</span>
                   </label>
                 ))}
                 {filteredUsers.length === 0 && (
-                  <p className="py-2 text-center text-xs text-slate-400">No users found</p>
+                  <p className="py-2 text-center text-xs text-slate-400 dark:text-slate-500">No users found</p>
                 )}
               </div>
               {targetUids.length > 0 && (
-                <p className="mt-2 text-xs text-slate-500">{targetUids.length} user(s) selected</p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{targetUids.length} user(s) selected</p>
               )}
             </div>
           )}
@@ -514,33 +514,33 @@ function BroadcastForm({
           {/* Schedule */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date & Time</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Start Date & Time</label>
               <input
                 type="datetime-local"
                 value={startAt}
                 onChange={(e) => setStartAt(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-trevio-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">End Date & Time (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">End Date & Time (optional)</label>
               <input
                 type="datetime-local"
                 value={endAt}
                 onChange={(e) => setEndAt(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-trevio-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
-              <p className="mt-1 text-xs text-slate-400">Leave empty to run until manually stopped</p>
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Leave empty to run until manually stopped</p>
             </div>
           </div>
 
           {/* Rich text editor + preview */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-slate-700">Message Content</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Message Content</label>
               <button
                 onClick={() => setShowPreview(!showPreview)}
-                className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
                 {showPreview ? <><EyeOff className="h-3.5 w-3.5" /> Hide Preview</> : <><Eye className="h-3.5 w-3.5" /> Show Preview</>}
               </button>
@@ -548,15 +548,15 @@ function BroadcastForm({
 
             <div className={cn("grid gap-3", showPreview ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1")}>
               {/* Editor */}
-              <div className="rounded-xl border border-slate-200">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700">
                 {/* Toolbar */}
-                <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 px-2 py-1.5">
+                <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 dark:border-slate-700 px-2 py-1.5">
                   {toolbarButtons.map((btn) => (
                     <button
                       key={btn.cmd}
                       onClick={() => execCommand(btn.cmd)}
                       className={cn(
-                        "h-8 w-8 rounded text-sm hover:bg-slate-100",
+                        "h-8 w-8 rounded text-sm hover:bg-slate-100 dark:hover:bg-slate-800",
                         btn.style
                       )}
                       title={btn.cmd}
@@ -564,54 +564,54 @@ function BroadcastForm({
                       {btn.label}
                     </button>
                   ))}
-                  <div className="h-5 w-px bg-slate-200" />
+                  <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
                   <button
                     onClick={() => execCommand("formatBlock", "<h2>")}
-                    className="h-8 rounded px-2 text-xs font-semibold hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Heading 2"
                   >
                     H2
                   </button>
                   <button
                     onClick={() => execCommand("formatBlock", "<h3>")}
-                    className="h-8 rounded px-2 text-xs font-semibold hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Heading 3"
                   >
                     H3
                   </button>
                   <button
                     onClick={() => execCommand("formatBlock", "<p>")}
-                    className="h-8 rounded px-2 text-xs hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Paragraph"
                   >
                     P
                   </button>
-                  <div className="h-5 w-px bg-slate-200" />
+                  <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
                   <button
                     onClick={() => execCommand("insertUnorderedList")}
-                    className="h-8 rounded px-2 text-xs hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Bullet List"
                   >
                     • List
                   </button>
                   <button
                     onClick={() => execCommand("insertOrderedList")}
-                    className="h-8 rounded px-2 text-xs hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Numbered List"
                   >
                     1. List
                   </button>
-                  <div className="h-5 w-px bg-slate-200" />
+                  <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
                   <button
                     onClick={handleAddLink}
-                    className="h-8 rounded px-2 text-xs hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Add Link"
                   >
                     🔗
                   </button>
                   <button
                     onClick={() => execCommand("removeFormat")}
-                    className="h-8 rounded px-2 text-xs hover:bg-slate-100"
+                    className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Clear Formatting"
                   >
                     Clear
@@ -623,18 +623,18 @@ function BroadcastForm({
                   contentEditable
                   suppressContentEditableWarning
                   onInput={handleEditorInput}
-                  className="min-h-[200px] max-h-[300px] overflow-y-auto px-4 py-3 text-sm focus:outline-none prose prose-sm max-w-none"
+                  className="min-h-[200px] max-h-[300px] overflow-y-auto px-4 py-3 text-sm focus:outline-none prose prose-sm dark:prose-invert max-w-none"
                 />
               </div>
 
               {/* Preview */}
               {showPreview && (
-                <div className="rounded-xl border border-slate-200">
-                  <div className="border-b border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="border-b border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                     Live Preview
                   </div>
                   <div
-                    className="min-h-[200px] max-h-[300px] overflow-y-auto px-4 py-3 prose prose-sm max-w-none"
+                    className="min-h-[200px] max-h-[300px] overflow-y-auto px-4 py-3 prose prose-sm dark:prose-invert max-w-none"
                     dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                   />
                 </div>
@@ -646,7 +646,7 @@ function BroadcastForm({
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            className="rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Cancel
           </button>
@@ -725,7 +725,7 @@ function BroadcastDetail({
       {/* Back button */}
       <button
         onClick={onClose}
-        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:text-slate-900 dark:hover:text-slate-100"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Broadcasts
@@ -738,25 +738,25 @@ function BroadcastDetail({
             <config.icon className="h-3 w-3" />
             {config.label}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
             {targetTypeConfig[broadcast.targetType]}
           </span>
           {broadcast.active ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
               Active
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
               Stopped
             </span>
           )}
         </div>
         <h2 className={cn("text-lg font-bold mb-2", config.text)}>{broadcast.title}</h2>
         <div
-          className={cn("prose prose-sm max-w-none mb-3", config.text)}
+          className={cn("prose prose-sm dark:prose-invert max-w-none mb-3", config.text)}
           dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         />
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
           <span className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
             {formatDateFn(broadcast.startAt, true)}
@@ -772,28 +772,28 @@ function BroadcastDetail({
 
       {/* Read stats */}
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Target Users</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900">{targetUsers.length}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Target Users</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{targetUsers.length}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Read</p>
-          <p className="mt-1 text-2xl font-bold text-green-600">{readUsers.length}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Read</p>
+          <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{readUsers.length}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Unread</p>
-          <p className="mt-1 text-2xl font-bold text-amber-600">{unreadUsers.length}</p>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Unread</p>
+          <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">{unreadUsers.length}</p>
         </div>
       </div>
 
       {/* User list */}
       {loading ? (
         <div className="mt-6 flex h-40 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-trevio-600" />
         </div>
       ) : (
         <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold text-slate-900">User Read Status</h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">User Read Status</h3>
           <div className="space-y-2">
             {targetUsers.map((u) => {
               const hasRead = readUids.has(u.uid);
@@ -801,22 +801,22 @@ function BroadcastDetail({
               return (
                 <div
                   key={u.uid}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-sm font-medium text-slate-600">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-medium text-slate-600 dark:text-slate-300">
                     {u.displayName?.charAt(0)?.toUpperCase() || "?"}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900 truncate">{u.displayName}</p>
-                    <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{u.displayName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{u.email}</p>
                   </div>
                   {hasRead ? (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400">
                       <CheckCircle2 className="h-4 w-4" />
                       {readAt ? formatDateFn(readAt) : "Read"}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
                       <Clock className="h-4 w-4" />
                       Pending
                     </div>
@@ -825,9 +825,9 @@ function BroadcastDetail({
               );
             })}
             {targetUsers.length === 0 && (
-              <div className="rounded-xl border border-slate-200 bg-white p-6 text-center">
-                <Users className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-2 text-sm text-slate-500">No target users found.</p>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center">
+                <Users className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No target users found.</p>
               </div>
             )}
           </div>

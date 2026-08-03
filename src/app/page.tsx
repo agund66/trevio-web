@@ -21,14 +21,14 @@ export default function Home() {
   }, [user, loading, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-white dark:bg-slate-950">
       <div className="flex flex-col items-center">
         <TrevioIcon size={72} />
-        <h1 className="mt-4 text-3xl font-bold text-trevio-600">Trevio</h1>
-        <p className="mt-1 text-slate-500">Split bills. Simplify life.</p>
+        <h1 className="mt-4 text-3xl font-bold text-trevio-600 dark:text-trevio-400">Trevio</h1>
+        <p className="mt-1 text-slate-500 dark:text-slate-400">Split bills. Simplify life.</p>
         {loading && (
           <div className="mt-6">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 border-t-trevio-600 mx-auto" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 dark:border-trevio-800 border-t-trevio-600 dark:border-t-trevio-400 mx-auto" />
           </div>
         )}
       </div>
