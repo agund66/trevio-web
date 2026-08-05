@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import { TrevioLogo } from "@/components/trevio-logo";
 import { BroadcastPopup } from "@/components/broadcast-popup";
+import { Avatar } from "@/components/avatar";
 import { Home, Bell, User, LogOut, Users, Shield, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
@@ -45,12 +46,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   if (!user) return null;
 
-  const navItems = [
+  const desktopNavItems = [
+    { href: "/dashboard", label: "Home", icon: Home },
+    { href: "/groups", label: "Groups", icon: Users },
+    { href: "/notifications", label: "Notifications", icon: Bell },
+    ...(user.role === "superadmin" ? [{ href: "/admin", label: "Dashboard", icon: Shield }] : []),
+  ];
+
+  const mobileNavItems = [
     { href: "/dashboard", label: "Home", icon: Home },
     { href: "/groups", label: "Groups", icon: Users },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/profile", label: "Profile", icon: User },
-    ...(user.role === "superadmin" ? [{ href: "/admin", label: "Dashboard", icon: Shield }] : []),
+    ...(user.role === "superadmin" ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
   ];
 
   return (
@@ -62,7 +70,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <TrevioLogo size="md" />
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-          {navItems.map((item) => {
+          {desktopNavItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -80,26 +88,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           })}
         </nav>
         <div className="border-t border-slate-200 dark:border-slate-700 p-3 shrink-0">
-          <div className="flex items-center gap-3 px-3 py-2">
-            {user.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName} className="h-9 w-9 rounded-full" />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-sm font-semibold text-trevio-700 dark:text-trevio-200">
-                {user.displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
+          <Link
+            href="/profile"
+            className={`flex items-center gap-3 rounded-xl px-3 py-2 transition ${pathname === "/profile" ? "bg-trevio-50 dark:bg-trevio-900/30" : "hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+          >
+            <Avatar photoURL={user.photoURL} displayName={user.displayName} className="h-9 w-9" />
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{user.displayName}</p>
               <p className="truncate text-xs text-slate-500 dark:text-slate-400">@{user.username}</p>
             </div>
             <button
-              onClick={toggleTheme}
+              onClick={(e) => { e.preventDefault(); toggleTheme(); }}
               className="rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               title={`Theme: ${mode}${mode === "system" ? " (device)" : ""} — click to change`}
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-          </div>
+          </Link>
           <button
             onClick={signOut}
             className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -116,7 +121,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
         {/* Bottom navigation - mobile */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

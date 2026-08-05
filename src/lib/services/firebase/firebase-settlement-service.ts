@@ -68,9 +68,17 @@ export class FirebaseSettlementService implements SettlementService {
     }
 
     const fromUserDoc = await getDoc(doc(db, "users", params.fromUid));
-    const fromUserName = (fromUserDoc.data()?.displayName as string) ?? "Someone";
+    const fromMemberDoc = await getDoc(doc(groupRef, "members", params.fromUid));
+    const fromIsOffline = fromMemberDoc.data()?.isOffline === true;
+    const fromUserName = fromIsOffline
+      ? (fromMemberDoc.data()?.displayName as string) ?? "Someone"
+      : (fromUserDoc.data()?.displayName as string) ?? "Someone";
     const toUserDoc = await getDoc(doc(db, "users", params.toUid));
-    const toUserName = (toUserDoc.data()?.displayName as string) ?? "Someone";
+    const toMemberDoc = await getDoc(doc(groupRef, "members", params.toUid));
+    const toIsOffline = toMemberDoc.data()?.isOffline === true;
+    const toUserName = toIsOffline
+      ? (toMemberDoc.data()?.displayName as string) ?? "Someone"
+      : (toUserDoc.data()?.displayName as string) ?? "Someone";
 
     const batch = writeBatch(db);
     batch.set(settlementRef, settlementData);
@@ -136,22 +144,59 @@ export class FirebaseSettlementService implements SettlementService {
 
     const enrichedDebts = await Promise.all(
       debts.map(async (debt) => {
-        const [fromDoc, toDoc] = await Promise.all([
-          getDoc(doc(db, "users", debt.fromUid)),
-          getDoc(doc(db, "users", debt.toUid)),
+        const [fromMemberDoc, toMemberDoc] = await Promise.all([
+          getDoc(doc(groupRef, "members", debt.fromUid)),
+          getDoc(doc(groupRef, "members", debt.toUid)),
         ]);
-        const fromData = fromDoc.data() as Record<string, unknown> | undefined;
-        const toData = toDoc.data() as Record<string, unknown> | undefined;
+        const fromIsOffline = fromMemberDoc.data()?.isOffline === true;
+        const toIsOffline = toMemberDoc.data()?.isOffline === true;
+
+        let fromName: string;
+        let fromPhotoURL: string;
+        let fromUpiId: string;
+        if (fromIsOffline) {
+          fromName = (fromMemberDoc.data()?.displayName as string) ?? "Unknown";
+          fromPhotoURL = "";
+          fromUpiId = "";
+        } else {
+          const fromDoc = await getDoc(doc(db, "users", debt.fromUid));
+          const fromData = fromDoc.data() as Record<string, unknown> | undefined;
+          fromName = (fromData?.displayName as string) ?? "Unknown";
+          fromPhotoURL = (fromData?.photoURL as string) ?? "";
+          fromUpiId = (fromData?.upiId as string) ?? "";
+        }
+
+        let toName: string;
+        let toPhotoURL: string;
+        let toUpiId: string;
+        let toPhoneNumber: string;
+        let toCountryCode: string;
+        if (toIsOffline) {
+          toName = (toMemberDoc.data()?.displayName as string) ?? "Unknown";
+          toPhotoURL = "";
+          toUpiId = "";
+          toPhoneNumber = "";
+          toCountryCode = "";
+        } else {
+          const toDoc = await getDoc(doc(db, "users", debt.toUid));
+          const toData = toDoc.data() as Record<string, unknown> | undefined;
+          toName = (toData?.displayName as string) ?? "Unknown";
+          toPhotoURL = (toData?.photoURL as string) ?? "";
+          toUpiId = (toData?.upiId as string) ?? "";
+          toPhoneNumber = (toData?.phoneNumber as string) ?? "";
+          toCountryCode = (toData?.countryCode as string) ?? "";
+        }
+
         return {
           ...debt,
-          fromName: (fromData?.displayName as string) ?? "Unknown",
-          toName: (toData?.displayName as string) ?? "Unknown",
-          fromPhotoURL: (fromData?.photoURL as string) ?? "",
-          toPhotoURL: (toData?.photoURL as string) ?? "",
-          toUpiId: (toData?.upiId as string) ?? "",
-          fromUpiId: (fromData?.upiId as string) ?? "",
-          toPhoneNumber: (toData?.phoneNumber as string) ?? "",
-          toCountryCode: (toData?.countryCode as string) ?? "",
+          fromName,
+          toName,
+          fromPhotoURL,
+          toPhotoURL,
+          fromUpiId,
+          toUpiId,
+          toPhoneNumber,
+          toCountryCode,
         } as SimplifiedDebt;
       })
     );
@@ -229,16 +274,38 @@ export class FirebaseSettlementService implements SettlementService {
     const settlements = await Promise.all(
       snapshot.docs.map(async (d) => {
         const data = d.data() as Record<string, unknown>;
-        const [fromDoc, toDoc] = await Promise.all([
-          getDoc(doc(db, "users", data.fromUid as string)),
-          getDoc(doc(db, "users", data.toUid as string)),
+        const fromUid = (data.fromUid as string) ?? "";
+        const toUid = (data.toUid as string) ?? "";
+
+        const [fromMemberDoc, toMemberDoc] = await Promise.all([
+          getDoc(doc(groupRef, "members", fromUid)),
+          getDoc(doc(groupRef, "members", toUid)),
         ]);
+        const fromIsOffline = fromMemberDoc.data()?.isOffline === true;
+        const toIsOffline = toMemberDoc.data()?.isOffline === true;
+
+        let fromName: string;
+        if (fromIsOffline) {
+          fromName = (fromMemberDoc.data()?.displayName as string) ?? "Unknown";
+        } else {
+          const fromDoc = await getDoc(doc(db, "users", fromUid));
+          fromName = (fromDoc.data()?.displayName as string) ?? "Unknown";
+        }
+
+        let toName: string;
+        if (toIsOffline) {
+          toName = (toMemberDoc.data()?.displayName as string) ?? "Unknown";
+        } else {
+          const toDoc = await getDoc(doc(db, "users", toUid));
+          toName = (toDoc.data()?.displayName as string) ?? "Unknown";
+        }
+
         return {
           settlementId: d.id,
-          fromUid: (data.fromUid as string) ?? "",
-          toUid: (data.toUid as string) ?? "",
-          fromName: (fromDoc.data()?.displayName as string) ?? "Unknown",
-          toName: (toDoc.data()?.displayName as string) ?? "Unknown",
+          fromUid,
+          toUid,
+          fromName,
+          toName,
           amount: (data.amount as number) ?? 0,
           currency: (data.currency as string) ?? "",
           method: (data.method as SettlementMethod) ?? "cash",

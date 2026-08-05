@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import type { User } from "@/lib/types";
 import { Ban, CheckCircle, Crown, Search, AlertCircle, Shield, X } from "lucide-react";
+import { Avatar } from "@/components/avatar";
 
 const confirmMessages: Record<string, { title: string; body: string; confirm: string }> = {
   block: { title: "Block User", body: "This user will be unable to sign in or use Trevio. They can be unblocked later.", confirm: "Block" },
@@ -162,13 +163,7 @@ export function UsersTab() {
               className="flex flex-col gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                {u.photoURL ? (
-                  <img src={u.photoURL} alt={u.displayName} className="h-10 w-10 rounded-full" />
-                ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-sm font-semibold text-trevio-700 dark:text-trevio-200">
-                    {u.displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-10 w-10" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="truncate font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>

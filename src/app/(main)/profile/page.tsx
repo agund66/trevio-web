@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor } from "lucide-react";
+import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor, LogOut } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { TermsDialog } from "@/components/terms-dialog";
+import { Avatar } from "@/components/avatar";
 import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber } from "@/lib/utils";
 import type { User } from "@/lib/types";
 
@@ -111,13 +112,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="flex flex-col items-center mb-8">
-        {user.photoURL ? (
-          <img src={user.photoURL} alt={user.displayName} className="h-24 w-24 rounded-full" />
-        ) : (
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-3xl font-bold text-trevio-700 dark:text-trevio-200">
-            {user.displayName.charAt(0).toUpperCase()}
-          </div>
-        )}
+        <Avatar photoURL={user.photoURL} displayName={user.displayName} className="h-24 w-24" textClassName="text-3xl" />
         <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-slate-100">{user.displayName}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
         <p className="text-xs text-slate-400 dark:text-slate-500">{user.email}</p>
@@ -392,6 +387,14 @@ export default function ProfilePage() {
           >
             <Trash2 className="h-4 w-4" />
             Delete Account
+          </button>
+
+          <button
+            onClick={signOut}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 md:hidden"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
           </button>
         </div>
       )}

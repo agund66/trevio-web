@@ -11,6 +11,7 @@ import { buildUpiVpa } from "@/lib/utils";
 import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, CloudOff } from "lucide-react";
 import type { UserSearchResult, Activity, Settlement, SplitType } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
+import { Avatar } from "@/components/avatar";
 
 const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
   food: { icon: Utensils, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20" },
@@ -110,6 +111,8 @@ export default function GroupDetailPage() {
     mutationFn: (username: string) => group.sendGroupInvitation(groupId, username),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
       setSearchQuery("");
       setSearchResults([]);
       setInviteError(null);
@@ -122,6 +125,7 @@ export default function GroupDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
       setOfflineName("");
       setShowAddOffline(false);
       setInviteError(null);
@@ -486,13 +490,7 @@ export default function GroupDetailPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
-                      {payer?.photoURL ? (
-                        <img src={payer.photoURL} alt={payer.displayName} className="h-4 w-4 rounded-full shrink-0" />
-                      ) : (
-                        <div className={`flex h-4 w-4 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-[8px] font-bold text-trevio-700 dark:text-trevio-200 shrink-0`}>
-                          {payerName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar photoURL={payer?.photoURL} displayName={payerName} className="h-4 w-4" textClassName="text-[8px]" />
                       <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
                         {isPayerMe ? "You" : payerName} paid
                       </span>
@@ -703,13 +701,7 @@ export default function GroupDetailPage() {
                 const isMe = currentUser?.uid === m.uid;
                 return (
                 <Link key={m.uid} href={`/users/${m.uid}`} className={`flex items-center gap-3 rounded-2xl border p-3 md:p-4 md:gap-4 transition hover:shadow-sm ${isMe ? "border-trevio-300 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-trevio-300 dark:hover:border-trevio-700"}`}>
-                  {m.photoURL ? (
-                    <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
-                  ) : (
-                    <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-xs md:text-sm font-semibold text-trevio-700 dark:text-trevio-200 shrink-0">
-                      {m.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-8 w-8 md:h-10 md:w-10" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
                       {m.displayName}
@@ -822,9 +814,9 @@ export default function GroupDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-900 dark:text-slate-100">{a.description}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      {a.userPhotoURL ? (
-                        <img src={a.userPhotoURL} alt={a.userName} className="h-4 w-4 rounded-full" />
-                      ) : null}
+                      {a.userPhotoURL && (
+                        <img src={a.userPhotoURL} alt={a.userName} className="h-4 w-4 rounded-full" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                      )}
                       <span className="text-xs text-slate-400 dark:text-slate-500">{a.userName}{a.userId === currentUser?.uid && " (You)"}</span>
                       <span className="text-xs text-slate-300 dark:text-slate-600">&middot;</span>
                       <span className="text-xs text-slate-400 dark:text-slate-500">{formatActivityTime(a.createdAt)}</span>
@@ -855,7 +847,7 @@ export default function GroupDetailPage() {
 
       {tab === "members" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Members ({members?.length || 0})</h3>
             <div className="flex items-center gap-2">
               <button
@@ -927,13 +919,7 @@ export default function GroupDetailPage() {
                       disabled={inviteMutation.isPending}
                       className="flex w-full items-center gap-3 p-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50"
                     >
-                      {u.photoURL ? (
-                        <img src={u.photoURL} alt={u.displayName} className="h-8 w-8 rounded-full" />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-sm font-semibold text-trevio-700 dark:text-trevio-200">
-                          {u.displayName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-8 w-8" />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">@{u.username}</p>
@@ -975,13 +961,7 @@ export default function GroupDetailPage() {
                     </>
                   ) : (
                     <Link href={`/users/${m.uid}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 dark:hover:border-trevio-700 hover:shadow-sm">
-                      {m.photoURL ? (
-                        <img src={m.photoURL} alt={m.displayName} className="h-8 w-8 md:h-10 md:w-10 rounded-full shrink-0" />
-                      ) : (
-                        <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-xs md:text-sm font-semibold text-trevio-700 dark:text-trevio-200 shrink-0">
-                          {m.displayName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-8 w-8 md:h-10 md:w-10" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>

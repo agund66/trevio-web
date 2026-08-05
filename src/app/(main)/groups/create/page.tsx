@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Plane, Dumbbell, Coffee, Search, UserPlus, X, User, Plus } from "lucide-react";
+import { Avatar } from "@/components/avatar";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
 
 export default function CreateGroupPage() {
@@ -150,13 +151,7 @@ export default function CreateGroupPage() {
                   onClick={() => addMember(u)}
                   className="flex w-full items-center gap-3 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  {u.photoURL ? (
-                    <img src={u.photoURL} alt={u.displayName} className="h-9 w-9 rounded-full" />
-                  ) : (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-sm font-semibold text-trevio-700 dark:text-trevio-200">
-                      {u.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-9 w-9" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">@{u.username}</p>
@@ -208,13 +203,7 @@ export default function CreateGroupPage() {
               <div className="flex flex-wrap gap-2">
                 {selectedMembers.map((u) => (
                   <div key={u.uid} className="flex items-center gap-2 rounded-full bg-trevio-50 dark:bg-trevio-900/30 border border-trevio-200 dark:border-trevio-700 pl-1.5 pr-1 py-1">
-                    {u.photoURL ? (
-                      <img src={u.photoURL} alt={u.displayName} className="h-6 w-6 rounded-full" />
-                    ) : (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-800 text-xs font-semibold text-trevio-700 dark:text-trevio-200">
-                        {u.displayName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-6 w-6" textClassName="text-xs" />
                     <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</span>
                     <button onClick={() => removeMember(u)} className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400">
                       <X className="h-3.5 w-3.5" />

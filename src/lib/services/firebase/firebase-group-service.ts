@@ -16,8 +16,8 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { GroupService, GroupInfo } from "../interfaces/group-service";
-import type { Group, GroupTemplate, Activity } from "../../types";
-import { generateInviteCode } from "../../utils/calculations";
+import type { Group, GroupTemplate, Activity, SplitEntry } from "../../types";
+import { generateInviteCode, calculateBalances } from "../../utils/calculations";
 
 function toMillis(value: unknown): number {
   if (value instanceof Timestamp) return value.toMillis();
@@ -559,6 +559,11 @@ export class FirebaseGroupService implements GroupService {
     const groupDoc = await getDoc(groupRef);
     if (!groupDoc.exists()) throw new Error("Group not found");
 
+    const callerMemberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!callerMemberDoc.exists() || callerMemberDoc.data()?.status !== "active") {
+      throw new Error("You are not a member of this group");
+    }
+
     const now = Date.now();
     const memberRef = doc(collection(groupRef, "members"));
     const batch = writeBatch(db);
@@ -598,20 +603,25 @@ export class FirebaseGroupService implements GroupService {
     if (memberDoc.data()?.isOffline !== true) throw new Error("This member is not an offline profile");
 
     const existingMemberDoc = await getDoc(doc(groupRef, "members", uid));
-    if (existingMemberDoc.exists() && existingMemberDoc.data()?.status === "active") {
-      throw new Error("You are already a member of this group");
-    }
 
+    const memberData = memberDoc.data() as Record<string, unknown>;
     const now = Date.now();
     const batch = writeBatch(db);
-    batch.update(doc(groupRef, "members", memberDocId), {
-      uid,
-      isOffline: false,
-      claimedAt: now,
-      claimedBy: uid,
-    });
+
     if (existingMemberDoc.exists()) {
-      batch.delete(doc(groupRef, "members", uid));
+      // User already has a member doc (e.g. joined via invite code)
+      // Keep existing doc, just delete the offline profile doc
+      batch.delete(doc(groupRef, "members", memberDocId));
+      const groupDocForCount = await getDoc(groupRef);
+      const currentCount = (groupDocForCount.data()?.memberCount as number) ?? 0;
+      if (currentCount > 0) {
+        batch.update(groupRef, { memberCount: currentCount - 1 });
+      }
+    } else {
+      // No existing doc — create one with offline member's data
+      const claimedData = { ...memberData, uid, isOffline: false, claimedAt: now, claimedBy: uid };
+      batch.set(doc(groupRef, "members", uid), claimedData);
+      batch.delete(doc(groupRef, "members", memberDocId));
     }
     batch.set(doc(collection(groupRef, "activities")), {
       type: "member_claimed",
@@ -623,6 +633,7 @@ export class FirebaseGroupService implements GroupService {
     await batch.commit();
 
     await this.migrateMemberReferences(groupId, memberDocId, uid);
+    await this.recalculateBalances(groupId);
   }
 
   async linkOfflineMember(groupId: string, memberDocId: string, realUid: string): Promise<void> {
@@ -638,20 +649,25 @@ export class FirebaseGroupService implements GroupService {
     if (memberDoc.data()?.isOffline !== true) throw new Error("This member is not an offline profile");
 
     const existingMemberDoc = await getDoc(doc(groupRef, "members", realUid));
-    if (existingMemberDoc.exists() && existingMemberDoc.data()?.status === "active") {
-      throw new Error("That user is already an active member of this group");
-    }
 
+    const memberData = memberDoc.data() as Record<string, unknown>;
     const now = Date.now();
     const batch = writeBatch(db);
-    batch.update(doc(groupRef, "members", memberDocId), {
-      uid: realUid,
-      isOffline: false,
-      claimedAt: now,
-      claimedBy: uid,
-    });
+
     if (existingMemberDoc.exists()) {
-      batch.delete(doc(groupRef, "members", realUid));
+      // Target user already has a member doc (e.g. joined via invite code)
+      // Keep existing doc, just delete the offline profile doc
+      batch.delete(doc(groupRef, "members", memberDocId));
+      const groupDocForCount = await getDoc(groupRef);
+      const currentCount = (groupDocForCount.data()?.memberCount as number) ?? 0;
+      if (currentCount > 0) {
+        batch.update(groupRef, { memberCount: currentCount - 1 });
+      }
+    } else {
+      // No existing doc — create one with offline member's data
+      const linkedData = { ...memberData, uid: realUid, isOffline: false, claimedAt: now, claimedBy: uid };
+      batch.set(doc(groupRef, "members", realUid), linkedData);
+      batch.delete(doc(groupRef, "members", memberDocId));
     }
     batch.set(doc(collection(groupRef, "activities")), {
       type: "member_linked",
@@ -663,6 +679,7 @@ export class FirebaseGroupService implements GroupService {
     await batch.commit();
 
     await this.migrateMemberReferences(groupId, memberDocId, realUid);
+    await this.recalculateBalances(groupId);
   }
 
   private async migrateMemberReferences(groupId: string, oldId: string, newId: string): Promise<void> {
@@ -708,5 +725,46 @@ export class FirebaseGroupService implements GroupService {
 
       if (changed) await updateDoc(settlementDoc.ref, updates);
     }
+  }
+
+  private async recalculateBalances(groupId: string): Promise<void> {
+    const groupRef = doc(db, "groups", groupId);
+
+    const [expensesSnapshot, settlementsSnapshot, membersSnapshot] = await Promise.all([
+      getDocs(collection(groupRef, "expenses")),
+      getDocs(collection(groupRef, "settlements")),
+      getDocs(firestoreQuery(collection(groupRef, "members"), where("status", "==", "active"))),
+    ]);
+
+    const memberUids = membersSnapshot.docs.map((d) => d.id);
+
+    const expenses = expensesSnapshot.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      return {
+        paidBy: data.paidBy as string,
+        splits: data.splits as Record<string, SplitEntry>,
+        amount: data.amount as number,
+        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+      };
+    });
+
+    const settlements = settlementsSnapshot.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      return {
+        fromUid: data.fromUid as string,
+        toUid: data.toUid as string,
+        amount: data.amount as number,
+      };
+    });
+
+    const balances = calculateBalances(expenses, settlements, memberUids);
+
+    const batch = writeBatch(db);
+    balances.forEach((balance, memberUid) => {
+      batch.update(doc(groupRef, "members", memberUid), {
+        balance: Math.round(balance * 100) / 100,
+      });
+    });
+    await batch.commit();
   }
 }
