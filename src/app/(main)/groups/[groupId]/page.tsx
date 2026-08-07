@@ -27,6 +27,7 @@ const splitTypeLabels: Record<SplitType, string> = {
   exact: "Exact",
   percent: "Percent",
   shares: "Shares",
+  itemized: "Items",
 };
 
 export default function GroupDetailPage() {

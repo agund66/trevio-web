@@ -6,7 +6,7 @@ import {
   generateInviteCode,
   generateBaseUsername,
 } from "@/lib/utils/calculations";
-import type { SplitEntry } from "@/lib/types";
+import type { SplitEntry, ItemizedSplitData } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────
 const mkSplits = (entries: Record<string, { amount: number; shareValue?: number }>): Record<string, SplitEntry> => {
@@ -1297,5 +1297,178 @@ describe("generateBaseUsername", () => {
 
   it("handles empty string first name with valid last name", () => {
     expect(generateBaseUsername("", "Smith")).toBe("smith");
+  });
+});
+
+// ─── calculateSplits: ITEMIZED ────────────────────────────────────
+describe("calculateSplits — itemized", () => {
+  const mkItemized = (items: Array<{ name: string; amount: number; assignedTo: string[] }>, tax = 0, tip = 0, taxMode: "proportional" | "equal" = "proportional", tipMode: "proportional" | "equal" = "proportional"): ItemizedSplitData => ({
+    items: items.map((it, i) => ({ itemId: `item_${i}`, name: it.name, amount: it.amount, assignedTo: it.assignedTo })),
+    taxAmount: tax,
+    tipAmount: tip,
+    taxSplitMode: taxMode,
+    tipSplitMode: tipMode,
+  });
+
+  it("returns zeros for empty items", () => {
+    const result = calculateSplits(0, "itemized", ["u1", "u2"], undefined, mkItemized([]));
+    expect(result.u1.amount).toBe(0);
+    expect(result.u2.amount).toBe(0);
+  });
+
+  it("returns zeros when itemizedData is undefined", () => {
+    const result = calculateSplits(0, "itemized", ["u1", "u2"], undefined, undefined);
+    expect(result.u1.amount).toBe(0);
+    expect(result.u2.amount).toBe(0);
+  });
+
+  it("splits single item among 2 people equally", () => {
+    const data = mkItemized([{ name: "Pizza", amount: 100, assignedTo: ["u1", "u2"] }]);
+    const result = calculateSplits(100, "itemized", ["u1", "u2"], undefined, data);
+    expect(result.u1.amount).toBe(50);
+    expect(result.u2.amount).toBe(50);
+  });
+
+  it("assigns item only to assigned person", () => {
+    const data = mkItemized([{ name: "Beer", amount: 60, assignedTo: ["u1"] }]);
+    const result = calculateSplits(60, "itemized", ["u1", "u2"], undefined, data);
+    expect(result.u1.amount).toBe(60);
+    expect(result.u2.amount).toBe(0);
+  });
+
+  it("splits multiple items correctly", () => {
+    const data = mkItemized([
+      { name: "Pizza", amount: 300, assignedTo: ["u1", "u2", "u3"] },
+      { name: "Beer", amount: 100, assignedTo: ["u1"] },
+      { name: "Salad", amount: 150, assignedTo: ["u2", "u3"] },
+    ]);
+    const result = calculateSplits(550, "itemized", ["u1", "u2", "u3"], undefined, data);
+    // u1: 100 (pizza) + 100 (beer) = 200
+    // u2: 100 (pizza) + 75 (salad) = 175
+    // u3: 100 (pizza) + 75 (salad) = 175
+    expect(result.u1.amount).toBeCloseTo(200, 2);
+    expect(result.u2.amount).toBeCloseTo(175, 2);
+    expect(result.u3.amount).toBeCloseTo(175, 2);
+  });
+
+  it("handles proportional tax", () => {
+    const data = mkItemized(
+      [{ name: "Burger", amount: 200, assignedTo: ["u1"] }, { name: "Salad", amount: 100, assignedTo: ["u2"] }],
+      30, 0, "proportional"
+    );
+    const result = calculateSplits(330, "itemized", ["u1", "u2"], undefined, data);
+    // u1: 200 + (200/300)*30 = 200 + 20 = 220
+    // u2: 100 + (100/300)*30 = 100 + 10 = 110
+    expect(result.u1.amount).toBeCloseTo(220, 2);
+    expect(result.u2.amount).toBeCloseTo(110, 2);
+  });
+
+  it("handles equal tax", () => {
+    const data = mkItemized(
+      [{ name: "Burger", amount: 200, assignedTo: ["u1"] }, { name: "Salad", amount: 100, assignedTo: ["u2"] }],
+      30, 0, "equal"
+    );
+    const result = calculateSplits(330, "itemized", ["u1", "u2"], undefined, data);
+    // u1: 200 + 15 = 215
+    // u2: 100 + 15 = 115
+    expect(result.u1.amount).toBeCloseTo(215, 2);
+    expect(result.u2.amount).toBeCloseTo(115, 2);
+  });
+
+  it("handles proportional tip", () => {
+    const data = mkItemized(
+      [{ name: "Burger", amount: 200, assignedTo: ["u1"] }, { name: "Salad", amount: 100, assignedTo: ["u2"] }],
+      0, 15, "proportional", "proportional"
+    );
+    const result = calculateSplits(315, "itemized", ["u1", "u2"], undefined, data);
+    // base for tip prop = 200 + 100 = 300
+    // u1: 200 + (200/300)*15 = 200 + 10 = 210
+    // u2: 100 + (100/300)*15 = 100 + 5 = 105
+    expect(result.u1.amount).toBeCloseTo(210, 2);
+    expect(result.u2.amount).toBeCloseTo(105, 2);
+  });
+
+  it("handles equal tip", () => {
+    const data = mkItemized(
+      [{ name: "Burger", amount: 200, assignedTo: ["u1"] }, { name: "Salad", amount: 100, assignedTo: ["u2"] }],
+      0, 15, "proportional", "equal"
+    );
+    const result = calculateSplits(315, "itemized", ["u1", "u2"], undefined, data);
+    // u1: 200 + 7.5 = 207.5
+    // u2: 100 + 7.5 = 107.5
+    expect(result.u1.amount).toBeCloseTo(207.5, 2);
+    expect(result.u2.amount).toBeCloseTo(107.5, 2);
+  });
+
+  it("handles tax + tip together proportional", () => {
+    const data = mkItemized(
+      [{ name: "Pizza", amount: 400, assignedTo: ["u1", "u2"] }, { name: "Beer", amount: 100, assignedTo: ["u3"] }],
+      50, 30, "proportional", "proportional"
+    );
+    const result = calculateSplits(580, "itemized", ["u1", "u2", "u3"], undefined, data);
+    // items: u1=200, u2=200, u3=100, itemsTotal=500
+    // tax: u1 += (200/500)*50 = 20, u2 += 20, u3 += 10
+    // after tax: u1=220, u2=220, u3=110, base for tip = 500+50 = 550
+    // tip: u1 += (220/550)*30 = 12, u2 += 12, u3 += (110/550)*30 = 6
+    // final: u1=232, u2=232, u3=116
+    expect(result.u1.amount).toBeCloseTo(232, 2);
+    expect(result.u2.amount).toBeCloseTo(232, 2);
+    expect(result.u3.amount).toBeCloseTo(116, 2);
+  });
+
+  it("skips items with no assignments", () => {
+    const data = mkItemized([
+      { name: "Pizza", amount: 100, assignedTo: ["u1"] },
+      { name: "Unassigned", amount: 50, assignedTo: [] },
+    ]);
+    const result = calculateSplits(100, "itemized", ["u1", "u2"], undefined, data);
+    expect(result.u1.amount).toBe(100);
+    expect(result.u2.amount).toBe(0);
+  });
+
+  it("handles item assigned to subset of members", () => {
+    const data = mkItemized([
+      { name: "Pizza", amount: 300, assignedTo: ["u1", "u2"] },
+      { name: "Wine", amount: 200, assignedTo: ["u3"] },
+    ]);
+    const result = calculateSplits(500, "itemized", ["u1", "u2", "u3"], undefined, data);
+    expect(result.u1.amount).toBe(150);
+    expect(result.u2.amount).toBe(150);
+    expect(result.u3.amount).toBe(200);
+  });
+
+  it("sum of splits equals grand total", () => {
+    const data = mkItemized(
+      [{ name: "A", amount: 120, assignedTo: ["u1", "u2"] }, { name: "B", amount: 80, assignedTo: ["u3"] }],
+      20, 10
+    );
+    const result = calculateSplits(230, "itemized", ["u1", "u2", "u3"], undefined, data);
+    const total = Object.values(result).reduce((s, r) => s + r.amount, 0);
+    expect(total).toBeCloseTo(230, 2);
+  });
+
+  it("handles all items assigned to all members (same as equal split)", () => {
+    const data = mkItemized([{ name: "Dinner", amount: 300, assignedTo: ["u1", "u2", "u3"] }]);
+    const result = calculateSplits(300, "itemized", ["u1", "u2", "u3"], undefined, data);
+    expect(result.u1.amount).toBe(100);
+    expect(result.u2.amount).toBe(100);
+    expect(result.u3.amount).toBe(100);
+  });
+
+  it("handles single member assigned to all items", () => {
+    const data = mkItemized([
+      { name: "A", amount: 100, assignedTo: ["u1"] },
+      { name: "B", amount: 200, assignedTo: ["u1"] },
+    ]);
+    const result = calculateSplits(300, "itemized", ["u1", "u2"], undefined, data);
+    expect(result.u1.amount).toBe(300);
+    expect(result.u2.amount).toBe(0);
+  });
+
+  it("handles tax with zero items total (no crash)", () => {
+    const data = mkItemized([{ name: "A", amount: 100, assignedTo: [] }], 30, 0);
+    const result = calculateSplits(0, "itemized", ["u1", "u2"], undefined, data);
+    expect(result.u1.amount).toBe(0);
+    expect(result.u2.amount).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-export type SplitType = "equal" | "exact" | "percent" | "shares";
+export type SplitType = "equal" | "exact" | "percent" | "shares" | "itemized";
 export type GroupTemplate = "trip" | "turf" | "casual";
 export type SettlementMethod = "upi" | "cash" | "other";
 
@@ -52,6 +52,21 @@ export interface SplitEntry {
   shareValue?: number;
 }
 
+export interface BillItem {
+  itemId: string;
+  name: string;
+  amount: number;
+  assignedTo: string[];
+}
+
+export interface ItemizedSplitData {
+  items: BillItem[];
+  taxAmount?: number;
+  tipAmount?: number;
+  taxSplitMode?: "proportional" | "equal";
+  tipSplitMode?: "proportional" | "equal";
+}
+
 export interface Expense {
   expenseId: string;
   description: string;
@@ -66,6 +81,7 @@ export interface Expense {
   date?: number;
   note?: string;
   recurring?: RecurringConfig;
+  itemizedData?: ItemizedSplitData;
 }
 
 export type RecurringFrequency = "weekly" | "monthly";

@@ -1,4 +1,4 @@
-import type { SplitEntry, SplitType } from "../types";
+import type { SplitEntry, SplitType, ItemizedSplitData } from "../types";
 
 type SplitMap = Record<string, SplitEntry>;
 
@@ -6,7 +6,8 @@ export function calculateSplits(
   totalAmount: number,
   splitType: SplitType,
   memberUids: string[],
-  splits?: SplitMap
+  splits?: SplitMap,
+  itemizedData?: ItemizedSplitData
 ): SplitMap {
   const result: SplitMap = {};
 
@@ -72,6 +73,80 @@ export function calculateSplits(
           });
         }
       }
+      break;
+    }
+
+    case "itemized": {
+      if (!itemizedData || !itemizedData.items || itemizedData.items.length === 0) {
+        memberUids.forEach((uid) => {
+          result[uid] = { amount: 0 };
+        });
+        break;
+      }
+
+      const memberTotals: Record<string, number> = {};
+      memberUids.forEach((uid) => { memberTotals[uid] = 0; });
+
+      for (const item of itemizedData.items) {
+        if (!item.assignedTo || item.assignedTo.length === 0) continue;
+        const perPerson = item.amount / item.assignedTo.length;
+        for (const uid of item.assignedTo) {
+          if (memberTotals[uid] !== undefined) {
+            memberTotals[uid] += perPerson;
+          }
+        }
+      }
+
+      const itemsTotal = itemizedData.items.reduce(
+        (sum, item) => sum + (item.assignedTo.length > 0 ? item.amount : 0), 0
+      );
+
+      const taxAmt = itemizedData.taxAmount ?? 0;
+      if (taxAmt > 0 && itemsTotal > 0) {
+        const taxMode = itemizedData.taxSplitMode ?? "proportional";
+        const membersWithItems = memberUids.filter((uid) => memberTotals[uid] > 0);
+        if (taxMode === "proportional" && itemsTotal > 0) {
+          for (const uid of memberUids) {
+            const proportion = memberTotals[uid] / itemsTotal;
+            memberTotals[uid] += taxAmt * proportion;
+          }
+        } else {
+          const taxPerPerson = taxAmt / Math.max(membersWithItems.length, 1);
+          for (const uid of membersWithItems) {
+            memberTotals[uid] += taxPerPerson;
+          }
+        }
+      }
+
+      const tipAmt = itemizedData.tipAmount ?? 0;
+      if (tipAmt > 0 && itemsTotal > 0) {
+        const tipMode = itemizedData.tipSplitMode ?? "proportional";
+        const membersWithItems = memberUids.filter((uid) => memberTotals[uid] > 0);
+        if (tipMode === "proportional" && itemsTotal > 0) {
+          for (const uid of memberUids) {
+            const proportion = memberTotals[uid] / (itemsTotal + taxAmt);
+            memberTotals[uid] += tipAmt * proportion;
+          }
+        } else {
+          const tipPerPerson = tipAmt / Math.max(membersWithItems.length, 1);
+          for (const uid of membersWithItems) {
+            memberTotals[uid] += tipPerPerson;
+          }
+        }
+      }
+
+      let allocated = 0;
+      const totalToSplit = itemsTotal + (itemsTotal > 0 ? taxAmt : 0) + (itemsTotal > 0 ? tipAmt : 0);
+      memberUids.forEach((uid, index) => {
+        const rawAmount = memberTotals[uid];
+        if (index === memberUids.length - 1) {
+          result[uid] = { amount: Math.round((totalToSplit - allocated) * 100) / 100 };
+        } else {
+          const rounded = Math.round(rawAmount * 100) / 100;
+          result[uid] = { amount: rounded };
+          allocated += rounded;
+        }
+      });
       break;
     }
   }

@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
-import type { Expense, SplitEntry, SplitType, RecurringConfig } from "../../types";
+import type { Expense, SplitEntry, SplitType, RecurringConfig, ItemizedSplitData } from "../../types";
 import { calculateSplits, calculateBalances } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 
@@ -34,6 +34,7 @@ export class FirebaseExpenseService implements ExpenseService {
     date?: number;
     note?: string;
     recurring?: RecurringConfig;
+    itemizedData?: ItemizedSplitData;
   }): Promise<string> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -52,7 +53,8 @@ export class FirebaseExpenseService implements ExpenseService {
       params.amount,
       params.splitType,
       params.memberUids,
-      params.splits as SplitMap
+      params.splits as SplitMap,
+      params.itemizedData
     );
 
     const exchangeRateToBase = await this.exchangeRateService.getRateToBase(params.currency);
@@ -75,6 +77,7 @@ export class FirebaseExpenseService implements ExpenseService {
       exchangeRateToBase,
       ...(params.note ? { note: params.note } : {}),
       ...(params.recurring ? { recurring: params.recurring } : {}),
+      ...(params.itemizedData ? { itemizedData: params.itemizedData } : {}),
     });
 
     const amountInBase = params.amount * exchangeRateToBase;
@@ -149,6 +152,7 @@ export class FirebaseExpenseService implements ExpenseService {
     memberUids: string[];
     category: string;
     note?: string;
+    itemizedData?: ItemizedSplitData;
   }): Promise<void> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -190,8 +194,12 @@ export class FirebaseExpenseService implements ExpenseService {
         params.amount ?? (oldExpense.amount as number),
         params.splitType,
         params.memberUids,
-        params.splits as SplitMap
+        params.splits as SplitMap,
+        params.itemizedData
       );
+      if (params.itemizedData) {
+        updateData.itemizedData = params.itemizedData;
+      }
     }
 
     const oldAmount = oldExpense.amount as number;
@@ -314,6 +322,7 @@ export class FirebaseExpenseService implements ExpenseService {
         date: (data.date as number) ?? 0,
         note: (data.note as string) ?? "",
         recurring: (data.recurring as RecurringConfig) ?? undefined,
+        itemizedData: (data.itemizedData as ItemizedSplitData) ?? undefined,
       };
     });
 

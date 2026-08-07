@@ -6,8 +6,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat } from "lucide-react";
-import type { SplitType, SplitEntry, Member, RecurringFrequency } from "@/lib/types";
+import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat, Receipt } from "lucide-react";
+import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem } from "@/lib/types";
+import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
 
 export default function AddExpensePage() {
   const params = useParams();
@@ -30,6 +31,7 @@ export default function AddExpensePage() {
   const [note, setNote] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringFreq, setRecurringFreq] = useState<RecurringFrequency>("monthly");
+  const [itemizedData, setItemizedData] = useState<ItemizedSplitData>({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
   const { user } = useAuth();
 
   const { data: members } = useQuery({
@@ -91,16 +93,20 @@ export default function AddExpensePage() {
 
   const isSplitValid = useMemo(() => {
     if (splitType === "equal") return includedMembers.length > 0;
+    if (splitType === "itemized") {
+      if (itemizedData.items.length === 0) return false;
+      return itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0);
+    }
     if (!numericAmount || includedMembers.length === 0) return false;
     if (splitType === "shares") {
       return Object.values(splitValues).some((v) => parseFloat(v) > 0);
     }
     if (!splitSummary) return false;
     return Math.abs(splitSummary.entered - splitSummary.expected) < 0.01;
-  }, [splitType, splitValues, includedMembers, numericAmount, splitSummary]);
+  }, [splitType, splitValues, includedMembers, numericAmount, splitSummary, itemizedData]);
 
   const buildSplits = (): Record<string, SplitEntry> => {
-    if (splitType === "equal") return {};
+    if (splitType === "equal" || splitType === "itemized") return {};
 
     const splits: Record<string, SplitEntry> = {};
     for (const m of includedMembers) {
@@ -126,6 +132,7 @@ export default function AddExpensePage() {
     setExpenseDate(new Date().toISOString().split("T")[0]);
     setNote("");
     setIsRecurring(false);
+    setItemizedData({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
   };
 
   const addMutation = useMutation({
@@ -143,6 +150,7 @@ export default function AddExpensePage() {
         date: new Date(expenseDate).getTime(),
         note: note.trim() || undefined,
         recurring: isRecurring ? { frequency: recurringFreq } : undefined,
+        itemizedData: splitType === "itemized" ? itemizedData : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
@@ -161,7 +169,7 @@ export default function AddExpensePage() {
   });
 
   const categories = ["food", "transport", "shopping", "turf", "accommodation", "other"];
-  const splitTypes: SplitType[] = ["equal", "exact", "percent", "shares"];
+  const splitTypes: SplitType[] = ["equal", "exact", "percent", "shares", "itemized"];
 
   const toggleExclude = (uid: string) => {
     setExcludedMembers((prev) => {
@@ -178,6 +186,7 @@ export default function AddExpensePage() {
       case "exact": return "Exact Amount";
       case "percent": return "Percentage";
       case "shares": return "Shares";
+      case "itemized": return "Items";
     }
   };
 
@@ -186,6 +195,7 @@ export default function AddExpensePage() {
       case "exact": return "0.00";
       case "percent": return "0";
       case "shares": return "0";
+      case "itemized": return "";
       default: return "";
     }
   };
@@ -364,7 +374,24 @@ export default function AddExpensePage() {
           </div>
         )}
 
-        {splitType !== "equal" && activeMembers.length > 0 && numericAmount > 0 && (
+        {splitType === "itemized" && activeMembers.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Split bill by items
+              </span>
+            </div>
+            <ItemizedSplitEditor
+              members={activeMembers}
+              currency={currency}
+              itemizedData={itemizedData}
+              onChange={setItemizedData}
+            />
+          </div>
+        )}
+
+        {splitType !== "equal" && splitType !== "itemized" && activeMembers.length > 0 && numericAmount > 0 && (
           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -486,7 +513,7 @@ export default function AddExpensePage() {
           <p className="text-sm text-red-500 dark:text-red-400">{addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense"}</p>
         )}
 
-        {!isSplitValid && numericAmount > 0 && splitType !== "equal" && includedMembers.length > 0 && (
+        {!isSplitValid && numericAmount > 0 && splitType !== "equal" && splitType !== "itemized" && includedMembers.length > 0 && (
           <p className="text-sm text-amber-600 dark:text-amber-400">
             {splitType === "percent" && `Total must be 100% (currently ${splitSummary?.entered ?? 0}%)`}
             {splitType === "exact" && `Total must match ${currencySymbol(currency)}${numericAmount.toFixed(2)} (currently ${currencySymbol(currency)}${(splitSummary?.entered ?? 0).toFixed(2)})`}

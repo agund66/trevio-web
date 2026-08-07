@@ -6,8 +6,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Calendar, Loader2, Trash2, StickyNote } from "lucide-react";
-import type { SplitType, SplitEntry } from "@/lib/types";
+import { ArrowLeft, Calendar, Loader2, Trash2, StickyNote, Receipt } from "lucide-react";
+import type { SplitType, SplitEntry, ItemizedSplitData } from "@/lib/types";
+import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
 
 export default function EditExpensePage() {
   const params = useParams();
@@ -29,6 +30,7 @@ export default function EditExpensePage() {
   const [excludedMembers, setExcludedMembers] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [itemizedData, setItemizedData] = useState<ItemizedSplitData>({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
 
   const { data: members } = useQuery({
     queryKey: ["balances", groupId],
@@ -65,12 +67,15 @@ export default function EditExpensePage() {
       setSplitType(existingExpense.splitType);
       setPaidByUid(existingExpense.paidBy);
       setNote(existingExpense.note || "");
-      if (existingExpense.splitType !== "equal" && existingExpense.splits) {
+      if (existingExpense.splitType !== "equal" && existingExpense.splitType !== "itemized" && existingExpense.splits) {
         const sv: Record<string, string> = {};
         for (const [uid, split] of Object.entries(existingExpense.splits)) {
           sv[uid] = split.shareValue !== undefined ? String(split.shareValue) : String(split.amount);
         }
         setSplitValues(sv);
+      }
+      if (existingExpense.itemizedData) {
+        setItemizedData(existingExpense.itemizedData);
       }
       setLoaded(true);
     }
@@ -107,11 +112,15 @@ export default function EditExpensePage() {
 
   const isSplitValid = useMemo(() => {
     if (splitType === "equal") return includedMembers.length > 0;
+    if (splitType === "itemized") {
+      if (itemizedData.items.length === 0) return false;
+      return itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0);
+    }
     if (!numericAmount || includedMembers.length === 0) return false;
     if (splitType === "shares") return Object.values(splitValues).some((v) => parseFloat(v) > 0);
     if (!splitSummary) return false;
     return Math.abs(splitSummary.entered - splitSummary.expected) < 0.01;
-  }, [splitType, splitValues, includedMembers, numericAmount, splitSummary]);
+  }, [splitType, splitValues, includedMembers, numericAmount, splitSummary, itemizedData]);
 
   const currencySymbol = (curr: string) => {
     const symbols: Record<string, string> = { INR: "\u20B9", USD: "$", EUR: "\u20AC", GBP: "\u00A3", JPY: "\u00A5", AUD: "A$", CAD: "C$", SGD: "S$", AED: "\u062F.\u0625" };
@@ -119,7 +128,7 @@ export default function EditExpensePage() {
   };
 
   const buildSplits = (): Record<string, SplitEntry> => {
-    if (splitType === "equal") return {};
+    if (splitType === "equal" || splitType === "itemized") return {};
     const splits: Record<string, SplitEntry> = {};
     for (const m of includedMembers) {
       const val = parseFloat(splitValues[m.uid] || "0") || 0;
@@ -140,7 +149,7 @@ export default function EditExpensePage() {
   };
 
   const categories = ["food", "transport", "shopping", "turf", "accommodation", "other"];
-  const splitTypes: SplitType[] = ["equal", "exact", "percent", "shares"];
+  const splitTypes: SplitType[] = ["equal", "exact", "percent", "shares", "itemized"];
 
   const splitLabel = (st: SplitType) => {
     switch (st) {
@@ -148,6 +157,7 @@ export default function EditExpensePage() {
       case "exact": return "Exact Amount";
       case "percent": return "Percentage";
       case "shares": return "Shares";
+      case "itemized": return "Items";
     }
   };
 
@@ -156,6 +166,7 @@ export default function EditExpensePage() {
       case "exact": return "0.00";
       case "percent": return "0";
       case "shares": return "0";
+      case "itemized": return "";
       default: return "";
     }
   };
@@ -174,6 +185,7 @@ export default function EditExpensePage() {
         memberUids: includedMembers.map((m) => m.uid),
         category,
         note,
+        itemizedData: splitType === "itemized" ? itemizedData : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
@@ -332,7 +344,24 @@ export default function EditExpensePage() {
             </div>
           </div>
 
-          {splitType !== "equal" && activeMembers.length > 0 && numericAmount > 0 && (
+          {splitType === "itemized" && activeMembers.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Split bill by items
+              </span>
+            </div>
+            <ItemizedSplitEditor
+              members={activeMembers}
+              currency={currency}
+              itemizedData={itemizedData}
+              onChange={setItemizedData}
+            />
+          </div>
+        )}
+
+        {splitType !== "equal" && splitType !== "itemized" && activeMembers.length > 0 && numericAmount > 0 && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
