@@ -11,6 +11,7 @@ import type { ExchangeRateService } from "./interfaces/exchange-rate-service";
 import type { AdminService } from "./interfaces/admin-service";
 import type { BroadcastService } from "./interfaces/broadcast-service";
 import type { AnalyticsService } from "./interfaces/analytics-service";
+import type { TripService } from "./interfaces/trip-service";
 import { FirebaseAuthService } from "./firebase/firebase-auth-service";
 import { FirebaseUserService } from "./firebase/firebase-user-service";
 import { FirebaseGroupService } from "./firebase/firebase-group-service";
@@ -21,6 +22,7 @@ import { FirebaseExchangeRateService } from "./firebase/firebase-exchange-rate-s
 import { FirebaseAdminService } from "./firebase/firebase-admin-service";
 import { FirebaseBroadcastService } from "./firebase/firebase-broadcast-service";
 import { FirebaseAnalyticsService } from "./firebase/firebase-analytics-service";
+import { FirebaseTripService } from "./firebase/firebase-trip-service";
 
 interface Services {
   auth: AuthService;
@@ -33,6 +35,7 @@ interface Services {
   admin: AdminService;
   broadcast: BroadcastService;
   analytics: AnalyticsService;
+  trip: TripService;
 }
 
 const firebaseServices: Services = {
@@ -46,6 +49,7 @@ const firebaseServices: Services = {
   admin: new FirebaseAdminService(),
   broadcast: new FirebaseBroadcastService(),
   analytics: new FirebaseAnalyticsService(),
+  trip: new FirebaseTripService(),
 };
 
 const ServiceContext = createContext<Services>(firebaseServices);

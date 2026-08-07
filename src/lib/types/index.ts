@@ -222,3 +222,44 @@ export interface UserAnalytics {
   monthlyTrends: MonthlyTrend[];
   topGroups: { groupId: string; groupName: string; totalSpent: number; expenseCount: number }[];
 }
+
+export interface TripItineraryItem {
+  itemId: string;
+  title: string;
+  description: string;
+  date: number;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  category: string;
+  estimatedCost: number;
+  assignedTo: string[];
+  completed: boolean;
+}
+
+export interface TripDay {
+  date: number;
+  label: string;
+  items: TripItineraryItem[];
+  totalEstimatedCost: number;
+}
+
+export interface TripLocation {
+  locationId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  category: string;
+  visitedOn?: number;
+  expenseId?: string;
+}
+
+export interface TripData {
+  startDate: number;
+  endDate: number;
+  destination: string;
+  coverPhotoURL: string;
+  itinerary: TripItineraryItem[];
+  locations: TripLocation[];
+}
