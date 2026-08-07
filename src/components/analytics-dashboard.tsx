@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { Avatar } from "@/components/avatar";
 import {
   TrendingUp,
-  TrendingDown,
   Receipt,
   Calendar,
   Award,
