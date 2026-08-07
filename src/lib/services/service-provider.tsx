@@ -10,6 +10,7 @@ import type { NotificationService } from "./interfaces/notification-service";
 import type { ExchangeRateService } from "./interfaces/exchange-rate-service";
 import type { AdminService } from "./interfaces/admin-service";
 import type { BroadcastService } from "./interfaces/broadcast-service";
+import type { AnalyticsService } from "./interfaces/analytics-service";
 import { FirebaseAuthService } from "./firebase/firebase-auth-service";
 import { FirebaseUserService } from "./firebase/firebase-user-service";
 import { FirebaseGroupService } from "./firebase/firebase-group-service";
@@ -19,6 +20,7 @@ import { FirebaseNotificationService } from "./firebase/firebase-notification-se
 import { FirebaseExchangeRateService } from "./firebase/firebase-exchange-rate-service";
 import { FirebaseAdminService } from "./firebase/firebase-admin-service";
 import { FirebaseBroadcastService } from "./firebase/firebase-broadcast-service";
+import { FirebaseAnalyticsService } from "./firebase/firebase-analytics-service";
 
 interface Services {
   auth: AuthService;
@@ -30,6 +32,7 @@ interface Services {
   exchangeRate: ExchangeRateService;
   admin: AdminService;
   broadcast: BroadcastService;
+  analytics: AnalyticsService;
 }
 
 const firebaseServices: Services = {
@@ -42,6 +45,7 @@ const firebaseServices: Services = {
   exchangeRate: new FirebaseExchangeRateService(),
   admin: new FirebaseAdminService(),
   broadcast: new FirebaseBroadcastService(),
+  analytics: new FirebaseAnalyticsService(),
 };
 
 const ServiceContext = createContext<Services>(firebaseServices);

@@ -8,9 +8,10 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, CloudOff } from "lucide-react";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, CloudOff, BarChart3 } from "lucide-react";
 import type { UserSearchResult, Activity, Settlement, SplitType } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
+import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { Avatar } from "@/components/avatar";
 
 const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
@@ -38,7 +39,7 @@ export default function GroupDetailPage() {
   const { user: currentUser } = useAuth();
   const { formatBase, formatOriginal, formatDate: formatDateFn } = useCurrencyDisplay();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"expenses" | "balances" | "members" | "activity">("expenses");
+  const [tab, setTab] = useState<"expenses" | "balances" | "analytics" | "members" | "activity">("expenses");
   const [activityFilter, setActivityFilter] = useState<"all" | "settlements">("all");
   const [showInvite, setShowInvite] = useState(false);
   const [showAddOffline, setShowAddOffline] = useState(false);
@@ -392,6 +393,7 @@ export default function GroupDetailPage() {
         {([
           { key: "expenses", label: "Expenses", icon: Receipt },
           { key: "balances", label: "Balances", icon: Wallet },
+          { key: "analytics", label: "Insights", icon: BarChart3 },
           { key: "members", label: "Members", icon: Users },
           { key: "activity", label: "Activity", icon: ActivityIcon },
         ] as const).map((t) => (
@@ -841,6 +843,26 @@ export default function GroupDetailPage() {
               >
                 Try Again
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "analytics" && (
+        <div>
+          {expensesData?.expenses && members && members.length > 0 ? (
+            <AnalyticsDashboard
+              groupId={groupId}
+              groupName={groupInfo?.name || "Group"}
+              expenses={expensesData.expenses}
+              members={members}
+            />
+          ) : (
+            <div className="flex flex-col items-center py-16 text-center">
+              <BarChart3 className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                {expensesLoading ? "Loading analytics..." : "No data available for analytics yet."}
+              </p>
             </div>
           )}
         </div>

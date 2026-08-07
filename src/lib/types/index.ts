@@ -172,3 +172,53 @@ export interface BroadcastRead {
   uid: string;
   readAt: number;
 }
+
+export interface CategoryBreakdown {
+  category: string;
+  totalAmount: number;
+  expenseCount: number;
+  percentage: number;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  label: string;
+  totalAmount: number;
+  expenseCount: number;
+}
+
+export interface MemberSpending {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  totalPaid: number;
+  totalShare: number;
+  expenseCount: number;
+  netBalance: number;
+}
+
+export interface GroupAnalytics {
+  groupId: string;
+  groupName: string;
+  totalExpenses: number;
+  expenseCount: number;
+  categoryBreakdown: CategoryBreakdown[];
+  monthlyTrends: MonthlyTrend[];
+  memberSpending: MemberSpending[];
+  avgExpenseAmount: number;
+  highestExpense: { description: string; amount: number; date: number } | null;
+  recentActivityRate: number;
+}
+
+export interface UserAnalytics {
+  totalSpent: number;
+  totalPaid: number;
+  totalOwed: number;
+  totalOwing: number;
+  netBalance: number;
+  groupCount: number;
+  expenseCount: number;
+  categoryBreakdown: CategoryBreakdown[];
+  monthlyTrends: MonthlyTrend[];
+  topGroups: { groupId: string; groupName: string; totalSpent: number; expenseCount: number }[];
+}
