@@ -9,6 +9,7 @@ import {
   limit,
   startAfter,
   writeBatch,
+  deleteField,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
@@ -199,6 +200,8 @@ export class FirebaseExpenseService implements ExpenseService {
       );
       if (params.itemizedData) {
         updateData.itemizedData = params.itemizedData;
+      } else if (params.splitType && params.splitType !== "itemized") {
+        updateData.itemizedData = deleteField();
       }
     }
 
