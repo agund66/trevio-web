@@ -155,3 +155,90 @@ describe("Trip Itinerary Grouping Logic", () => {
     expect(completed).toBe(2);
   });
 });
+
+// ─── Edge cases ───────────────────────────────────────────────────
+
+describe("Trip Edge Cases", () => {
+  it("empty itinerary and locations is valid trip data", () => {
+    const trip: TripData = {
+      startDate: 0,
+      endDate: 0,
+      destination: "",
+      coverPhotoURL: "",
+      itinerary: [],
+      locations: [],
+    };
+    expect(trip.itinerary).toHaveLength(0);
+    expect(trip.locations).toHaveLength(0);
+  });
+
+  it("itinerary items sort by date chronologically", () => {
+    const items: TripItineraryItem[] = [
+      { itemId: "3", title: "Dinner", description: "", date: new Date(2024, 5, 16).getTime(), location: "", category: "food", estimatedCost: 200, assignedTo: ["u1"], completed: false },
+      { itemId: "1", title: "Breakfast", description: "", date: new Date(2024, 5, 15).getTime(), location: "", category: "food", estimatedCost: 50, assignedTo: ["u1"], completed: false },
+      { itemId: "2", title: "Lunch", description: "", date: new Date(2024, 5, 15, 12).getTime(), location: "", category: "food", estimatedCost: 100, assignedTo: ["u1"], completed: false },
+    ];
+    const sorted = [...items].sort((a, b) => a.date - b.date);
+    expect(sorted[0].title).toBe("Breakfast");
+    expect(sorted[1].title).toBe("Lunch");
+    expect(sorted[2].title).toBe("Dinner");
+  });
+
+  it("trip with only locations (no itinerary) is valid", () => {
+    const trip: TripData = {
+      startDate: Date.now(),
+      endDate: Date.now() + 3 * 24 * 60 * 60 * 1000,
+      destination: "Goa",
+      coverPhotoURL: "",
+      itinerary: [],
+      locations: [
+        { locationId: "1", name: "Beach", latitude: 15.5, longitude: 73.8, address: "Goa", category: "activity" },
+        { locationId: "2", name: "Hotel", latitude: 15.4, longitude: 73.9, address: "Panjim", category: "accommodation" },
+      ],
+    };
+    expect(trip.itinerary).toHaveLength(0);
+    expect(trip.locations).toHaveLength(2);
+  });
+
+  it("completed percentage calculation", () => {
+    const items: TripItineraryItem[] = [
+      { itemId: "1", title: "A", description: "", date: 0, location: "", category: "other", estimatedCost: 0, assignedTo: [], completed: true },
+      { itemId: "2", title: "B", description: "", date: 0, location: "", category: "other", estimatedCost: 0, assignedTo: [], completed: false },
+      { itemId: "3", title: "C", description: "", date: 0, location: "", category: "other", estimatedCost: 0, assignedTo: [], completed: true },
+      { itemId: "4", title: "D", description: "", date: 0, location: "", category: "other", estimatedCost: 0, assignedTo: [], completed: true },
+    ];
+    const completed = items.filter((i) => i.completed).length;
+    const pct = (completed / items.length) * 100;
+    expect(pct).toBe(75);
+  });
+
+  it("location can be linked to an expense via expenseId", () => {
+    const loc: TripLocation = {
+      locationId: "loc_1",
+      name: "Restaurant",
+      latitude: 0,
+      longitude: 0,
+      address: "",
+      category: "food",
+      visitedOn: Date.now(),
+      expenseId: "exp_123",
+    };
+    expect(loc.expenseId).toBe("exp_123");
+  });
+
+  it("itinerary item with assignedTo tracks who participates", () => {
+    const item: TripItineraryItem = {
+      itemId: "i1",
+      title: "Safari",
+      description: "",
+      date: 0,
+      location: "",
+      category: "activity",
+      estimatedCost: 1500,
+      assignedTo: ["u1", "u2", "u3"],
+      completed: false,
+    };
+    expect(item.assignedTo).toHaveLength(3);
+    expect(item.assignedTo).toContain("u2");
+  });
+});

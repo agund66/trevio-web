@@ -1471,4 +1471,98 @@ describe("calculateSplits — itemized", () => {
     expect(result.u1.amount).toBe(0);
     expect(result.u2.amount).toBe(0);
   });
+
+  it("ignores assignedTo uid not in memberUids", () => {
+    const data = mkItemized([{ name: "A", amount: 100, assignedTo: ["u1", "uX"] }]);
+    const result = calculateSplits(100, "itemized", ["u1", "u2"], undefined, data);
+    expect(result.u1.amount).toBe(50);
+    expect(result.u2.amount).toBe(50);
+  });
+
+  it("member with no assigned items gets zero", () => {
+    const data = mkItemized([
+      { name: "A", amount: 100, assignedTo: ["u1"] },
+      { name: "B", amount: 200, assignedTo: ["u2"] },
+    ]);
+    const result = calculateSplits(300, "itemized", ["u1", "u2", "u3"], undefined, data);
+    expect(result.u3.amount).toBe(0);
+  });
+
+  it("proportional tax with 3 members of unequal amounts", () => {
+    const data = mkItemized(
+      [
+        { name: "A", amount: 300, assignedTo: ["u1"] },
+        { name: "B", amount: 100, assignedTo: ["u2"] },
+        { name: "C", amount: 100, assignedTo: ["u3"] },
+      ],
+      50
+    );
+    const result = calculateSplits(550, "itemized", ["u1", "u2", "u3"], undefined, data);
+    // u1: 300 + (300/500)*50 = 300 + 30 = 330
+    // u2: 100 + (100/500)*50 = 100 + 10 = 110
+    // u3: 100 + (100/500)*50 = 100 + 10 = 110
+    expect(result.u1.amount).toBeCloseTo(330, 2);
+    expect(result.u2.amount).toBeCloseTo(110, 2);
+    expect(result.u3.amount).toBeCloseTo(110, 2);
+  });
+
+  it("equal tax skips members with no items", () => {
+    const data = mkItemized(
+      [
+        { name: "A", amount: 200, assignedTo: ["u1"] },
+        { name: "B", amount: 100, assignedTo: ["u2"] },
+      ],
+      30, 0, "equal"
+    );
+    const result = calculateSplits(330, "itemized", ["u1", "u2", "u3"], undefined, data);
+    // u3 has no items, so tax is split between u1 and u2 only: 15 each
+    expect(result.u1.amount).toBeCloseTo(215, 2);
+    expect(result.u2.amount).toBeCloseTo(115, 2);
+    expect(result.u3.amount).toBeCloseTo(0, 2);
+  });
+
+  it("proportional tip is based on items + tax", () => {
+    const data = mkItemized(
+      [
+        { name: "A", amount: 200, assignedTo: ["u1"] },
+        { name: "B", amount: 100, assignedTo: ["u2"] },
+      ],
+      30, 15, "proportional", "proportional"
+    );
+    const result = calculateSplits(345, "itemized", ["u1", "u2"], undefined, data);
+    // tip base = 300 + 30 = 330
+    // u1: 200 + 20 (tax) + (220/330)*15 = 220 + 10 = 230
+    // u2: 100 + 10 (tax) + (110/330)*15 = 110 + 5 = 115
+    expect(result.u1.amount).toBeCloseTo(230, 2);
+    expect(result.u2.amount).toBeCloseTo(115, 2);
+  });
+
+  it("sum of splits equals grand total with tax and tip", () => {
+    const data = mkItemized(
+      [
+        { name: "A", amount: 120, assignedTo: ["u1", "u2"] },
+        { name: "B", amount: 80, assignedTo: ["u3"] },
+        { name: "C", amount: 50, assignedTo: ["u1"] },
+      ],
+      20, 10
+    );
+    const grandTotal = 250 + 20 + 10;
+    const result = calculateSplits(grandTotal, "itemized", ["u1", "u2", "u3"], undefined, data);
+    const sum = Object.values(result).reduce((s, e) => s + e.amount, 0);
+    expect(sum).toBeCloseTo(grandTotal, 2);
+  });
+
+  it("handles many items with varying assignments", () => {
+    const items = Array.from({ length: 10 }, (_, i) => ({
+      name: `Item${i}`,
+      amount: (i + 1) * 10,
+      assignedTo: i % 2 === 0 ? ["u1", "u2"] : ["u2", "u3"],
+    }));
+    const data = mkItemized(items, 25, 15);
+    const itemsTotal = items.reduce((s, i) => s + i.amount, 0);
+    const grandTotal = itemsTotal + 25 + 15;
+    const result = calculateSplits(grandTotal, "itemized", ["u1", "u2", "u3"], undefined, data);
+    const sum = Object.values(result).reduce((s, e) => s + e.amount, 0);
+    expect(sum).toBeCloseTo(grandTotal, 2);
+  });
 });

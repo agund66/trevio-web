@@ -274,3 +274,70 @@ describe("Analytics - computeUserAnalytics", () => {
     expect(result.topGroups).toEqual([]);
   });
 });
+
+// ─── Edge cases ───────────────────────────────────────────────────
+
+describe("Analytics - edge cases", () => {
+  it("computeCategoryBreakdown handles expense with empty category as 'other'", () => {
+    const expenses = [makeExpense("1", 100, "", "u1", {})];
+    const result = computeCategoryBreakdown(expenses);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("other");
+  });
+
+  it("computeMemberSpending handles expense paid by non-member (not in members list)", () => {
+    const members = [makeMember("u1", "Alice")];
+    const expenses = [makeExpense("1", 100, "food", "u2", { u1: { amount: 100 } })];
+    const result = computeMemberSpending(expenses, members, "u1");
+    const alice = result.find((m) => m.uid === "u1")!;
+    expect(alice.totalPaid).toBe(0);
+    expect(alice.totalShare).toBe(100);
+  });
+
+  it("computeMonthlyTrends ignores expenses older than 6 months", () => {
+    const oldDate = new Date();
+    oldDate.setMonth(oldDate.getMonth() - 8);
+    const expenses = [makeExpense("1", 500, "food", "u1", {}, oldDate.getTime())];
+    const result = computeMonthlyTrends(expenses);
+    const totalAcrossMonths = result.reduce((s, t) => s + t.totalAmount, 0);
+    expect(totalAcrossMonths).toBe(0);
+  });
+
+  it("computeCategoryBreakdown with all same category returns 100%", () => {
+    const expenses = [
+      makeExpense("1", 100, "food", "u1", {}),
+      makeExpense("2", 200, "food", "u1", {}),
+    ];
+    const result = computeCategoryBreakdown(expenses);
+    expect(result).toHaveLength(1);
+    expect(result[0].percentage).toBe(100);
+  });
+
+  it("computeGroupAnalytics with single expense", () => {
+    const expenses = [makeExpense("1", 250, "food", "u1", {})];
+    const result = computeGroupAnalytics("g1", "Solo", expenses, [], "u1");
+    expect(result.expenseCount).toBe(1);
+    expect(result.avgExpenseAmount).toBe(250);
+    expect(result.highestExpense!.amount).toBe(250);
+    expect(result.recentActivityRate).toBe(100);
+  });
+
+  it("computeUserAnalytics with only archived groups returns zeros", () => {
+    const groups = [
+      { groupId: "g1", groupName: "Archived", yourBalance: 50, totalExpenses: 500, archived: true },
+    ];
+    const allExpensesByGroup = new Map<string, Expense[]>([
+      ["g1", [makeExpense("1", 500, "food", "u1", {})]],
+    ]);
+    const result = computeUserAnalytics(groups, allExpensesByGroup, "u1");
+    expect(result.totalSpent).toBe(0);
+    expect(result.groupCount).toBe(0);
+    expect(result.expenseCount).toBe(0);
+  });
+
+  it("computeMemberSpending preserves member balance from input", () => {
+    const members = [makeMember("u1", "Alice", 75.5)];
+    const result = computeMemberSpending([], members, "u1");
+    expect(result[0].netBalance).toBe(75.5);
+  });
+});
