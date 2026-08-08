@@ -10,6 +10,7 @@ import {
   startAfter,
   writeBatch,
   deleteField,
+  increment,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
@@ -92,7 +93,7 @@ export class FirebaseExpenseService implements ExpenseService {
     });
 
     batch.update(groupRef, {
-      totalExpenses: (groupDoc.data()?.totalExpenses ?? 0) + amountInBase,
+      totalExpenses: increment(amountInBase),
       updatedAt: now,
     });
 
@@ -107,7 +108,7 @@ export class FirebaseExpenseService implements ExpenseService {
       const membersSnapshot = await getDocs(
         firestoreQuery(collection(groupRef, "members"), where("status", "==", "active"))
       );
-      const notifyBatch = writeBatch(db);
+      let notifyBatch = writeBatch(db);
       let count = 0;
       for (const memberDoc of membersSnapshot.docs) {
         const memberUid = memberDoc.id;
@@ -126,12 +127,12 @@ export class FirebaseExpenseService implements ExpenseService {
           createdAt: now,
         });
         count++;
-        if (count >= 450) {
+        if (count % 400 === 0) {
           await notifyBatch.commit();
-          break;
+          notifyBatch = writeBatch(db);
         }
       }
-      if (count > 0 && count < 450) {
+      if (count % 400 !== 0) {
         await notifyBatch.commit();
       }
     } catch (notifError) {
@@ -217,9 +218,8 @@ export class FirebaseExpenseService implements ExpenseService {
     batch.update(expenseRef, updateData);
 
     if (amountDiffInBase !== 0) {
-      const groupDoc = await getDoc(groupRef);
       batch.update(groupRef, {
-        totalExpenses: (groupDoc.data()?.totalExpenses ?? 0) + amountDiffInBase,
+        totalExpenses: increment(amountDiffInBase),
         updatedAt: now,
       });
     }
@@ -263,9 +263,8 @@ export class FirebaseExpenseService implements ExpenseService {
     const expenseRate = (expenseData.exchangeRateToBase as number) ?? 1;
     const amountInBase = expenseAmount * expenseRate;
 
-    const groupDoc = await getDoc(groupRef);
     batch.update(groupRef, {
-      totalExpenses: Math.max(0, (groupDoc.data()?.totalExpenses ?? 0) - amountInBase),
+      totalExpenses: increment(-amountInBase),
       updatedAt: now,
     });
 
@@ -368,12 +367,17 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const balances = calculateBalances(expenses, settlements, memberUids);
 
-    const batch = writeBatch(db);
-    balances.forEach((balance, memberUid) => {
-      batch.update(doc(groupRef, "members", memberUid), {
-        balance: Math.round(balance * 100) / 100,
-      });
-    });
-    await batch.commit();
+    const balanceEntries = Array.from(balances.entries());
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
+      const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      for (const [memberUid, balance] of chunk) {
+        batch.update(doc(groupRef, "members", memberUid), {
+          balance: Math.round(balance * 100) / 100,
+        });
+      }
+      await batch.commit();
+    }
   }
 }

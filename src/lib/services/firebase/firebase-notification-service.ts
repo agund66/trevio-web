@@ -103,17 +103,28 @@ export class FirebaseNotificationService implements NotificationService {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
 
-    const snapshot = await getDocs(
-      firestoreQuery(
-        collection(db, "users", uid, "notifications"),
-        where("read", "==", false)
-      )
-    );
+    let hasMore = true;
+    while (hasMore) {
+      const snapshot = await getDocs(
+        firestoreQuery(
+          collection(db, "users", uid, "notifications"),
+          where("read", "==", false),
+          limit(100)
+        )
+      );
 
-    const batch = writeBatch(db);
-    snapshot.docs.forEach((d) => {
-      batch.update(d.ref, { read: true });
-    });
-    await batch.commit();
+      if (snapshot.empty) {
+        hasMore = false;
+        break;
+      }
+
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((d) => {
+        batch.update(d.ref, { read: true });
+      });
+      await batch.commit();
+
+      if (snapshot.size < 100) hasMore = false;
+    }
   }
 }

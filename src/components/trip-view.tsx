@@ -22,6 +22,7 @@ import {
   Receipt,
   X,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 
 const CATEGORY_ICONS: Record<string, typeof Receipt> = {
@@ -53,6 +54,7 @@ export function TripView({ groupId, members }: TripViewProps) {
   const queryClient = useQueryClient();
   const [showAddItem, setShowAddItem] = useState(false);
   const [showAddLocation, setShowAddLocation] = useState(false);
+  const [tripError, setTripError] = useState<string | null>(null);
 
   const { data: tripData, isLoading } = useQuery({
     queryKey: ["tripData", groupId],
@@ -62,33 +64,49 @@ export function TripView({ groupId, members }: TripViewProps) {
   const addItineraryMutation = useMutation({
     mutationFn: (item: Omit<TripItineraryItem, "itemId">) => trip.addItineraryItem(groupId, item),
     onSuccess: () => {
+      setTripError(null);
       queryClient.invalidateQueries({ queryKey: ["tripData", groupId] });
       setShowAddItem(false);
     },
+    onError: (e: Error) => setTripError(e.message),
   });
 
   const toggleCompleteMutation = useMutation({
     mutationFn: ({ itemId, completed }: { itemId: string; completed: boolean }) =>
       trip.updateItineraryItem(groupId, itemId, { completed }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tripData", groupId] }),
+    onSuccess: () => {
+      setTripError(null);
+      queryClient.invalidateQueries({ queryKey: ["tripData", groupId] });
+    },
+    onError: (e: Error) => setTripError(e.message),
   });
 
   const removeItemMutation = useMutation({
     mutationFn: (itemId: string) => trip.removeItineraryItem(groupId, itemId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tripData", groupId] }),
+    onSuccess: () => {
+      setTripError(null);
+      queryClient.invalidateQueries({ queryKey: ["tripData", groupId] });
+    },
+    onError: (e: Error) => setTripError(e.message),
   });
 
   const addLocationMutation = useMutation({
     mutationFn: (location: Omit<TripLocation, "locationId">) => trip.addLocation(groupId, location),
     onSuccess: () => {
+      setTripError(null);
       queryClient.invalidateQueries({ queryKey: ["tripData", groupId] });
       setShowAddLocation(false);
     },
+    onError: (e: Error) => setTripError(e.message),
   });
 
   const removeLocationMutation = useMutation({
     mutationFn: (locationId: string) => trip.removeLocation(groupId, locationId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tripData", groupId] }),
+    onSuccess: () => {
+      setTripError(null);
+      queryClient.invalidateQueries({ queryKey: ["tripData", groupId] });
+    },
+    onError: (e: Error) => setTripError(e.message),
   });
 
   if (isLoading) {
@@ -120,6 +138,14 @@ export function TripView({ groupId, members }: TripViewProps) {
 
   return (
     <div className="space-y-6">
+      {tripError && (
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          <span>{tripError}</span>
+          <button onClick={() => setTripError(null)} className="text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300">
+            <AlertCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* Trip Header */}
       <div className="rounded-2xl bg-gradient-to-br from-trevio-500 to-trevio-700 p-5 text-white">
         <div className="flex items-center gap-2 mb-2">

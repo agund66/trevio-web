@@ -1,34 +1,42 @@
-import { collection, query, orderBy, getDocs, limit } from "firebase/firestore";
-import { db } from "../../firebase";
+import { collection, doc, getDoc, orderBy, getDocs, limit, where, query as firestoreQuery } from "firebase/firestore";
+import { db, auth } from "../../firebase";
 import type { AnalyticsService } from "../interfaces/analytics-service";
-import type { Expense, GroupAnalytics, UserAnalytics } from "../../types";
+import type { Expense, GroupAnalytics, UserAnalytics, SplitType, SplitEntry } from "../../types";
 import { computeGroupAnalytics, computeUserAnalytics } from "../../utils/analytics";
 
 export class FirebaseAnalyticsService implements AnalyticsService {
   async getGroupAnalytics(groupId: string): Promise<GroupAnalytics> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId) throw new Error("Group ID is required");
     const expensesRef = collection(db, "groups", groupId, "expenses");
-    const q = query(expensesRef, orderBy("date", "desc"), limit(500));
+    const q = firestoreQuery(expensesRef, orderBy("date", "desc"), limit(500));
     const snapshot = await getDocs(q);
     const expenses: Expense[] = [];
     snapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() as Record<string, unknown>;
       expenses.push({
         expenseId: doc.id,
-        description: data.description || "",
-        amount: data.amount || 0,
-        currency: data.currency || "INR",
-        paidBy: data.paidBy || "",
-        splitType: data.splitType || "equal",
-        splits: data.splits || {},
-        category: data.category || "other",
-        createdBy: data.createdBy || "",
-        date: data.date || 0,
-        note: data.note || "",
+        description: (data.description as string) || "",
+        amount: (data.amount as number) || 0,
+        currency: (data.currency as string) || "INR",
+        paidBy: (data.paidBy as string) || "",
+        splitType: (data.splitType as SplitType) || "equal",
+        splits: (data.splits as Record<string, SplitEntry>) || {},
+        category: (data.category as string) || "other",
+        createdBy: (data.createdBy as string) || "",
+        date: (data.date as number) || 0,
+        note: (data.note as string) || "",
       });
     });
 
-    const groupDoc = await getDocs(collection(db, "groups", groupId, "members"));
-    const members = groupDoc.docs.map((d) => {
+    const membersSnapshot = await getDocs(
+      firestoreQuery(
+        collection(db, "groups", groupId, "members"),
+        where("status", "in", ["active", "pending"])
+      )
+    );
+    const members = membersSnapshot.docs.map((d) => {
       const data = d.data();
       return {
         uid: d.id,
@@ -41,19 +49,14 @@ export class FirebaseAnalyticsService implements AnalyticsService {
       };
     });
 
-    const groupInfoDoc = await getDocs(collection(db, "groups"));
-    let groupName = groupId;
-    for (const doc of groupInfoDoc.docs) {
-      if (doc.id === groupId) {
-        groupName = doc.data().name || groupId;
-        break;
-      }
-    }
+    const groupInfoDoc = await getDoc(doc(db, "groups", groupId));
+    const groupName = groupInfoDoc.data()?.name || groupId;
 
     return computeGroupAnalytics(groupId, groupName, expenses, members, "");
   }
 
   async getUserAnalytics(): Promise<UserAnalytics> {
+    if (!auth.currentUser?.uid) throw new Error("User not authenticated");
     return {
       totalSpent: 0,
       totalPaid: 0,

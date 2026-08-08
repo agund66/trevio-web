@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor, LogOut } from "lucide-react";
@@ -14,6 +15,7 @@ export default function ProfilePage() {
   const { user, signOut, refreshUser } = useAuth();
   const { user: userService } = useServices();
   const { mode, setThemeMode } = useTheme();
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +75,9 @@ export default function ProfilePage() {
       };
       await userService.updateUser(updated);
       await refreshUser();
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+      queryClient.invalidateQueries({ queryKey: ["publicProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
       setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update profile");

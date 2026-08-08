@@ -13,6 +13,7 @@ import {
   collectionGroup,
   writeBatch,
   Timestamp,
+  increment,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { GroupService, GroupInfo } from "../interfaces/group-service";
@@ -122,7 +123,7 @@ export class FirebaseGroupService implements GroupService {
         status: "active",
       });
       batch.update(groupDoc.ref, {
-        memberCount: (groupData.memberCount as number ?? 0) + 1,
+        memberCount: increment(1),
         updatedAt: now,
       });
     }
@@ -192,9 +193,7 @@ export class FirebaseGroupService implements GroupService {
         balance: 0,
         status: "pending",
       });
-      const groupDoc = await getDoc(groupRef);
-      const currentCount = (groupDoc.data()?.memberCount as number) ?? 1;
-      await updateDoc(groupRef, { memberCount: currentCount + 1, updatedAt: now });
+      await updateDoc(groupRef, { memberCount: increment(1), updatedAt: now });
     }
 
     await setDoc(doc(collection(db, "users", toUid, "notifications")), {
@@ -239,7 +238,7 @@ export class FirebaseGroupService implements GroupService {
         uid, role: "member", joinedAt: now, balance: 0, status: "active",
       });
       batch.update(groupDoc.ref, {
-        memberCount: (groupData.memberCount as number ?? 0) + 1,
+        memberCount: increment(1),
         updatedAt: now,
       });
     }
@@ -276,9 +275,7 @@ export class FirebaseGroupService implements GroupService {
 
     if (memberDoc.exists() && memberDoc.data()?.status === "pending") {
       batch.delete(memberDoc.ref);
-      const groupDoc = await getDoc(groupRef);
-      const currentCount = (groupDoc.data()?.memberCount as number) ?? 1;
-      batch.update(groupRef, { memberCount: Math.max(0, currentCount - 1), updatedAt: Date.now() });
+      batch.update(groupRef, { memberCount: increment(-1), updatedAt: Date.now() });
     }
 
     await batch.commit();
@@ -309,7 +306,7 @@ export class FirebaseGroupService implements GroupService {
     const batch = writeBatch(db);
     batch.update(memberDoc.ref, { status: "left" });
     batch.update(groupDoc.ref, {
-      memberCount: (groupDoc.data()?.memberCount as number ?? 1) - 1,
+      memberCount: increment(-1),
       updatedAt: now,
     });
     batch.set(doc(collection(groupDoc.ref, "activities")), {
@@ -413,10 +410,21 @@ export class FirebaseGroupService implements GroupService {
     );
 
     const activities: Activity[] = [];
+
+    const uniqueUserIds = [...new Set(snapshot.docs.map((d) => (d.data() as Record<string, unknown>).userId as string).filter(Boolean))];
+    const userDocs = await Promise.all(
+      uniqueUserIds.map((userId) => getDoc(doc(db, "users", userId)))
+    );
+    const userMap = new Map<string, Record<string, unknown>>();
+    userDocs.forEach((userDoc, i) => {
+      if (userDoc.exists()) {
+        userMap.set(uniqueUserIds[i], userDoc.data() as Record<string, unknown>);
+      }
+    });
+
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as Record<string, unknown>;
-      const userDoc = await getDoc(doc(db, "users", data.userId as string));
-      const userData = userDoc.data() as Record<string, unknown> | undefined;
+      const userData = userMap.get((data.userId as string) ?? "");
       activities.push({
         activityId: docSnap.id,
         type: (data.type as string) ?? "unknown",
@@ -476,28 +484,27 @@ export class FirebaseGroupService implements GroupService {
       throw new Error("Cannot delete group with other active members. Remove all members first.");
     }
 
-    const batch = writeBatch(db);
-    for (const memberDoc of membersSnapshot.docs) {
-      batch.delete(memberDoc.ref);
-    }
-
     const expensesSnapshot = await getDocs(collection(groupRef, "expenses"));
-    for (const expDoc of expensesSnapshot.docs) {
-      batch.delete(expDoc.ref);
-    }
-
     const settlementsSnapshot = await getDocs(collection(groupRef, "settlements"));
-    for (const setDoc of settlementsSnapshot.docs) {
-      batch.delete(setDoc.ref);
-    }
-
     const activitiesSnapshot = await getDocs(collection(groupRef, "activities"));
-    for (const actDoc of activitiesSnapshot.docs) {
-      batch.delete(actDoc.ref);
-    }
 
-    batch.delete(groupRef);
-    await batch.commit();
+    const allDocs = [
+      ...membersSnapshot.docs.map((d) => d.ref),
+      ...expensesSnapshot.docs.map((d) => d.ref),
+      ...settlementsSnapshot.docs.map((d) => d.ref),
+      ...activitiesSnapshot.docs.map((d) => d.ref),
+      groupRef,
+    ];
+
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
+      const chunk = allDocs.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      for (const ref of chunk) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
   }
 
   async updateGroup(groupId: string, name: string, description: string): Promise<void> {
@@ -578,7 +585,7 @@ export class FirebaseGroupService implements GroupService {
       addedBy: uid,
     });
     batch.update(groupRef, {
-      memberCount: (groupDoc.data()?.memberCount as number ?? 0) + 1,
+      memberCount: increment(1),
       updatedAt: now,
     });
     batch.set(doc(collection(groupRef, "activities")), {
@@ -612,11 +619,7 @@ export class FirebaseGroupService implements GroupService {
       // User already has a member doc (e.g. joined via invite code)
       // Keep existing doc, just delete the offline profile doc
       batch.delete(doc(groupRef, "members", memberDocId));
-      const groupDocForCount = await getDoc(groupRef);
-      const currentCount = (groupDocForCount.data()?.memberCount as number) ?? 0;
-      if (currentCount > 0) {
-        batch.update(groupRef, { memberCount: currentCount - 1 });
-      }
+      batch.update(groupRef, { memberCount: increment(-1), updatedAt: now });
     } else {
       // No existing doc — create one with offline member's data
       const claimedData = { ...memberData, uid, isOffline: false, claimedAt: now, claimedBy: uid };
@@ -658,11 +661,7 @@ export class FirebaseGroupService implements GroupService {
       // Target user already has a member doc (e.g. joined via invite code)
       // Keep existing doc, just delete the offline profile doc
       batch.delete(doc(groupRef, "members", memberDocId));
-      const groupDocForCount = await getDoc(groupRef);
-      const currentCount = (groupDocForCount.data()?.memberCount as number) ?? 0;
-      if (currentCount > 0) {
-        batch.update(groupRef, { memberCount: currentCount - 1 });
-      }
+      batch.update(groupRef, { memberCount: increment(-1), updatedAt: now });
     } else {
       // No existing doc — create one with offline member's data
       const linkedData = { ...memberData, uid: realUid, isOffline: false, claimedAt: now, claimedBy: uid };
@@ -684,6 +683,7 @@ export class FirebaseGroupService implements GroupService {
 
   private async migrateMemberReferences(groupId: string, oldId: string, newId: string): Promise<void> {
     const groupRef = doc(db, "groups", groupId);
+    const ops: { ref: ReturnType<typeof doc>; updates: Record<string, unknown> }[] = [];
 
     const expensesSnap = await getDocs(collection(groupRef, "expenses"));
     for (const expenseDoc of expensesSnap.docs) {
@@ -705,7 +705,7 @@ export class FirebaseGroupService implements GroupService {
         changed = true;
       }
 
-      if (changed) await updateDoc(expenseDoc.ref, updates);
+      if (changed) ops.push({ ref: expenseDoc.ref, updates });
     }
 
     const settlementsSnap = await getDocs(collection(groupRef, "settlements"));
@@ -723,7 +723,15 @@ export class FirebaseGroupService implements GroupService {
         changed = true;
       }
 
-      if (changed) await updateDoc(settlementDoc.ref, updates);
+      if (changed) ops.push({ ref: settlementDoc.ref, updates });
+    }
+
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+      const chunk = ops.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      for (const op of chunk) batch.update(op.ref, op.updates);
+      await batch.commit();
     }
   }
 
@@ -759,12 +767,17 @@ export class FirebaseGroupService implements GroupService {
 
     const balances = calculateBalances(expenses, settlements, memberUids);
 
-    const batch = writeBatch(db);
-    balances.forEach((balance, memberUid) => {
-      batch.update(doc(groupRef, "members", memberUid), {
-        balance: Math.round(balance * 100) / 100,
-      });
-    });
-    await batch.commit();
+    const balanceEntries = Array.from(balances.entries());
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
+      const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      for (const [memberUid, balance] of chunk) {
+        batch.update(doc(groupRef, "members", memberUid), {
+          balance: Math.round(balance * 100) / 100,
+        });
+      }
+      await batch.commit();
+    }
   }
 }

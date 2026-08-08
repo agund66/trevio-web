@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDoc,
   Timestamp,
 } from "firebase/firestore";
@@ -70,7 +71,7 @@ export class FirebaseBroadcastService implements BroadcastService {
 
   async getAllBroadcasts(): Promise<BroadcastMessage[]> {
     const snapshot = await getDocs(
-      query(collection(db, "broadcasts"), orderBy("createdAt", "desc"))
+      query(collection(db, "broadcasts"), orderBy("createdAt", "desc"), limit(100))
     );
     return snapshot.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
@@ -102,14 +103,14 @@ export class FirebaseBroadcastService implements BroadcastService {
 
   async getReadCount(broadcastId: string): Promise<number> {
     const snapshot = await getDocs(
-      collection(db, "broadcasts", broadcastId, "reads")
+      query(collection(db, "broadcasts", broadcastId, "reads"), limit(500))
     );
     return snapshot.size;
   }
 
   async getBroadcastReads(broadcastId: string): Promise<{ uid: string; readAt: number }[]> {
     const snapshot = await getDocs(
-      collection(db, "broadcasts", broadcastId, "reads")
+      query(collection(db, "broadcasts", broadcastId, "reads"), limit(500))
     );
     return snapshot.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
@@ -129,7 +130,8 @@ export class FirebaseBroadcastService implements BroadcastService {
       query(
         collection(db, "broadcasts"),
         where("active", "==", true),
-        where("startAt", "<=", now)
+        where("startAt", "<=", now),
+        limit(50)
       )
     );
 
@@ -174,14 +176,17 @@ export class FirebaseBroadcastService implements BroadcastService {
     isBlocked: boolean
   ): Promise<BroadcastMessage[]> {
     const active = await this.getActiveBroadcastsForUser(uid, isBlocked);
-    const unread: BroadcastMessage[] = [];
 
-    for (const b of active) {
-      const readDoc = await getDoc(doc(db, "broadcasts", b.id, "reads", uid));
-      if (!readDoc.exists()) {
+    const readDocs = await Promise.all(
+      active.map((b) => getDoc(doc(db, "broadcasts", b.id, "reads", uid)))
+    );
+
+    const unread: BroadcastMessage[] = [];
+    active.forEach((b, i) => {
+      if (!readDocs[i].exists()) {
         unread.push(b);
       }
-    }
+    });
 
     return unread;
   }

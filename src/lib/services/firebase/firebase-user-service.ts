@@ -9,8 +9,10 @@ import {
   query as firestoreQuery,
   where,
   getDocs,
+  limit,
   runTransaction,
   writeBatch,
+  increment,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { auth } from "../../firebase";
@@ -43,6 +45,9 @@ export class FirebaseUserService implements UserService {
   }
 
   async updateUser(user: User): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (uid !== user.uid) throw new Error("Cannot update another user's profile");
     await updateDoc(doc(db, "users", user.uid), {
       displayName: user.displayName || "",
       firstName: user.firstName || "",
@@ -81,16 +86,14 @@ export class FirebaseUserService implements UserService {
     }
 
     // Check if username already exists (may have been set in a previous call)
-    const latestDoc = await getDoc(userDocRef);
-    const userData = latestDoc.data();
-    if (userData?.username) {
-      return userData.username;
+    if (existingData?.username) {
+      return existingData.username;
     }
 
     // Generate username from user's name, falling back to email or uid
-    const firstName = userData?.firstName || "";
-    const lastName = userData?.lastName || "";
-    const email = userData?.email || "";
+    const firstName = existingData?.firstName || "";
+    const lastName = existingData?.lastName || "";
+    const email = existingData?.email || "";
     let baseUsername = generateBaseUsername(firstName, lastName);
     if (!baseUsername) {
       // Fall back to email prefix
@@ -174,7 +177,8 @@ export class FirebaseUserService implements UserService {
     const q = firestoreQuery(
       collection(db, "users"),
       where("username", ">=", normalized),
-      where("username", "<=", normalized + "\uf8ff")
+      where("username", "<=", normalized + "\uf8ff"),
+      limit(10)
     );
     const snapshot = await getDocs(q);
     const currentUid = auth.currentUser?.uid;
@@ -190,8 +194,7 @@ export class FirebaseUserService implements UserService {
           photoURL: (data.photoURL as string) || "",
         };
       })
-      .filter((u) => u.username.length > 0)
-      .slice(0, 10);
+      .filter((u) => u.username.length > 0);
   }
 
   async updateFcmToken(token: string): Promise<void> {
@@ -223,20 +226,21 @@ export class FirebaseUserService implements UserService {
       )
     );
 
-    for (const memberDoc of membersSnapshot.docs) {
-      const pathSegments = memberDoc.ref.path.split("/");
-      const groupId = pathSegments[1];
-      await updateDoc(memberDoc.ref, {
-        status: "left",
-        leftAt: Date.now(),
-      });
-      // Decrement group memberCount
-      const groupRef = doc(db, "groups", groupId);
-      const groupDoc = await getDoc(groupRef);
-      if (groupDoc.exists()) {
-        const count = (groupDoc.data().memberCount as number) ?? 0;
-        await updateDoc(groupRef, { memberCount: Math.max(0, count - 1) });
+    const memberDocs = membersSnapshot.docs;
+    const BATCH_SIZE = 200;
+    for (let i = 0; i < memberDocs.length; i += BATCH_SIZE) {
+      const chunk = memberDocs.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      for (const memberDoc of chunk) {
+        const pathSegments = memberDoc.ref.path.split("/");
+        const groupId = pathSegments[1];
+        batch.update(memberDoc.ref, {
+          status: "left",
+          leftAt: Date.now(),
+        });
+        batch.update(doc(db, "groups", groupId), { memberCount: increment(-1) });
       }
+      await batch.commit();
     }
 
     // 3. Delete username doc if exists

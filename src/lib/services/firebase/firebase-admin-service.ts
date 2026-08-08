@@ -6,6 +6,7 @@ import {
   updateDoc,
   orderBy,
   query,
+  limit,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { AdminService } from "../interfaces/admin-service";
@@ -20,7 +21,7 @@ export class FirebaseAdminService implements AdminService {
     if (currentRole !== "superadmin") throw new Error("Access denied");
 
     const snapshot = await getDocs(
-      query(collection(db, "users"), orderBy("createdAt", "desc"))
+      query(collection(db, "users"), orderBy("createdAt", "desc"), limit(500))
     );
     return snapshot.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;

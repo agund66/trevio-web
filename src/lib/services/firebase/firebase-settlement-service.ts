@@ -67,14 +67,16 @@ export class FirebaseSettlementService implements SettlementService {
       settlementData.upiRefId = params.upiRefId;
     }
 
-    const fromUserDoc = await getDoc(doc(db, "users", params.fromUid));
-    const fromMemberDoc = await getDoc(doc(groupRef, "members", params.fromUid));
+    const [fromUserDoc, fromMemberDoc, toUserDoc, toMemberDoc] = await Promise.all([
+      getDoc(doc(db, "users", params.fromUid)),
+      getDoc(doc(groupRef, "members", params.fromUid)),
+      getDoc(doc(db, "users", params.toUid)),
+      getDoc(doc(groupRef, "members", params.toUid)),
+    ]);
     const fromIsOffline = fromMemberDoc.data()?.isOffline === true;
     const fromUserName = fromIsOffline
       ? (fromMemberDoc.data()?.displayName as string) ?? "Someone"
       : (fromUserDoc.data()?.displayName as string) ?? "Someone";
-    const toUserDoc = await getDoc(doc(db, "users", params.toUid));
-    const toMemberDoc = await getDoc(doc(groupRef, "members", params.toUid));
     const toIsOffline = toMemberDoc.data()?.isOffline === true;
     const toUserName = toIsOffline
       ? (toMemberDoc.data()?.displayName as string) ?? "Someone"
@@ -142,64 +144,75 @@ export class FirebaseSettlementService implements SettlementService {
 
     const debts = await this.calculateSimplifiedDebts(groupId);
 
-    const enrichedDebts = await Promise.all(
-      debts.map(async (debt) => {
-        const [fromMemberDoc, toMemberDoc] = await Promise.all([
-          getDoc(doc(groupRef, "members", debt.fromUid)),
-          getDoc(doc(groupRef, "members", debt.toUid)),
-        ]);
-        const fromIsOffline = fromMemberDoc.data()?.isOffline === true;
-        const toIsOffline = toMemberDoc.data()?.isOffline === true;
+    const allUids = debts.flatMap((d) => [d.fromUid, d.toUid]).filter(Boolean);
+    const uniqueUids = [...new Set(allUids)];
 
-        let fromName: string;
-        let fromPhotoURL: string;
-        let fromUpiId: string;
-        if (fromIsOffline) {
-          fromName = (fromMemberDoc.data()?.displayName as string) ?? "Unknown";
-          fromPhotoURL = "";
-          fromUpiId = "";
-        } else {
-          const fromDoc = await getDoc(doc(db, "users", debt.fromUid));
-          const fromData = fromDoc.data() as Record<string, unknown> | undefined;
-          fromName = (fromData?.displayName as string) ?? "Unknown";
-          fromPhotoURL = (fromData?.photoURL as string) ?? "";
-          fromUpiId = (fromData?.upiId as string) ?? "";
-        }
+    const [memberDocs, userDocs] = await Promise.all([
+      Promise.all(uniqueUids.map((uid) => getDoc(doc(groupRef, "members", uid)))),
+      Promise.all(uniqueUids.map((uid) => getDoc(doc(db, "users", uid)))),
+    ]);
 
-        let toName: string;
-        let toPhotoURL: string;
-        let toUpiId: string;
-        let toPhoneNumber: string;
-        let toCountryCode: string;
-        if (toIsOffline) {
-          toName = (toMemberDoc.data()?.displayName as string) ?? "Unknown";
-          toPhotoURL = "";
-          toUpiId = "";
-          toPhoneNumber = "";
-          toCountryCode = "";
-        } else {
-          const toDoc = await getDoc(doc(db, "users", debt.toUid));
-          const toData = toDoc.data() as Record<string, unknown> | undefined;
-          toName = (toData?.displayName as string) ?? "Unknown";
-          toPhotoURL = (toData?.photoURL as string) ?? "";
-          toUpiId = (toData?.upiId as string) ?? "";
-          toPhoneNumber = (toData?.phoneNumber as string) ?? "";
-          toCountryCode = (toData?.countryCode as string) ?? "";
-        }
+    const memberMap = new Map<string, Record<string, unknown>>();
+    memberDocs.forEach((d, i) => {
+      if (d.exists()) memberMap.set(uniqueUids[i], d.data() as Record<string, unknown>);
+    });
+    const userMap = new Map<string, Record<string, unknown>>();
+    userDocs.forEach((d, i) => {
+      if (d.exists()) userMap.set(uniqueUids[i], d.data() as Record<string, unknown>);
+    });
 
-        return {
-          ...debt,
-          fromName,
-          toName,
-          fromPhotoURL,
-          toPhotoURL,
-          fromUpiId,
-          toUpiId,
-          toPhoneNumber,
-          toCountryCode,
-        } as SimplifiedDebt;
-      })
-    );
+    const enrichedDebts = debts.map((debt) => {
+      const fromMemberData = memberMap.get(debt.fromUid);
+      const toMemberData = memberMap.get(debt.toUid);
+      const fromIsOffline = fromMemberData?.isOffline === true;
+      const toIsOffline = toMemberData?.isOffline === true;
+
+      let fromName: string;
+      let fromPhotoURL: string;
+      let fromUpiId: string;
+      if (fromIsOffline) {
+        fromName = (fromMemberData?.displayName as string) ?? "Unknown";
+        fromPhotoURL = "";
+        fromUpiId = "";
+      } else {
+        const fromData = userMap.get(debt.fromUid);
+        fromName = (fromData?.displayName as string) ?? "Unknown";
+        fromPhotoURL = (fromData?.photoURL as string) ?? "";
+        fromUpiId = (fromData?.upiId as string) ?? "";
+      }
+
+      let toName: string;
+      let toPhotoURL: string;
+      let toUpiId: string;
+      let toPhoneNumber: string;
+      let toCountryCode: string;
+      if (toIsOffline) {
+        toName = (toMemberData?.displayName as string) ?? "Unknown";
+        toPhotoURL = "";
+        toUpiId = "";
+        toPhoneNumber = "";
+        toCountryCode = "";
+      } else {
+        const toData = userMap.get(debt.toUid);
+        toName = (toData?.displayName as string) ?? "Unknown";
+        toPhotoURL = (toData?.photoURL as string) ?? "";
+        toUpiId = (toData?.upiId as string) ?? "";
+        toPhoneNumber = (toData?.phoneNumber as string) ?? "";
+        toCountryCode = (toData?.countryCode as string) ?? "";
+      }
+
+      return {
+        ...debt,
+        fromName,
+        toName,
+        fromPhotoURL,
+        toPhotoURL,
+        fromUpiId,
+        toUpiId,
+        toPhoneNumber,
+        toCountryCode,
+      } as SimplifiedDebt;
+    });
 
     return enrichedDebts;
   }
@@ -220,36 +233,45 @@ export class FirebaseSettlementService implements SettlementService {
       )
     );
 
-    const members = await Promise.all(
-      membersSnapshot.docs.map(async (d) => {
-        const data = d.data() as Record<string, unknown>;
-        const isOffline = data.isOffline === true;
-        if (isOffline) {
-          return {
-            uid: d.id,
-            displayName: (data.displayName as string) ?? "Unknown",
-            username: "",
-            photoURL: "",
-            balance: (data.balance as number) ?? 0,
-            role: (data.role as string) ?? "member",
-            status: (data.status as string) ?? "active",
-            isOffline: true,
-          } as Member;
-        }
-        const userDoc = await getDoc(doc(db, "users", d.id));
-        const userData = userDoc.data() as Record<string, unknown> | undefined;
+    const onlineMemberIds = membersSnapshot.docs
+      .filter((d) => (d.data() as Record<string, unknown>).isOffline !== true)
+      .map((d) => d.id);
+
+    const userDocs = await Promise.all(
+      onlineMemberIds.map((memberUid) => getDoc(doc(db, "users", memberUid)))
+    );
+    const userMap = new Map<string, Record<string, unknown>>();
+    userDocs.forEach((d, i) => {
+      if (d.exists()) userMap.set(onlineMemberIds[i], d.data() as Record<string, unknown>);
+    });
+
+    const members = membersSnapshot.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const isOffline = data.isOffline === true;
+      if (isOffline) {
         return {
           uid: d.id,
-          displayName: (userData?.displayName as string) ?? "Unknown",
-          username: (userData?.username as string) ?? "",
-          photoURL: (userData?.photoURL as string) ?? "",
+          displayName: (data.displayName as string) ?? "Unknown",
+          username: "",
+          photoURL: "",
           balance: (data.balance as number) ?? 0,
           role: (data.role as string) ?? "member",
           status: (data.status as string) ?? "active",
-          isOffline: false,
+          isOffline: true,
         } as Member;
-      })
-    );
+      }
+      const userData = userMap.get(d.id);
+      return {
+        uid: d.id,
+        displayName: (userData?.displayName as string) ?? "Unknown",
+        username: (userData?.username as string) ?? "",
+        photoURL: (userData?.photoURL as string) ?? "",
+        balance: (data.balance as number) ?? 0,
+        role: (data.role as string) ?? "member",
+        status: (data.status as string) ?? "active",
+        isOffline: false,
+      } as Member;
+    });
 
     return members;
   }
@@ -271,50 +293,64 @@ export class FirebaseSettlementService implements SettlementService {
       )
     );
 
-    const settlements = await Promise.all(
-      snapshot.docs.map(async (d) => {
-        const data = d.data() as Record<string, unknown>;
-        const fromUid = (data.fromUid as string) ?? "";
-        const toUid = (data.toUid as string) ?? "";
+    const allUids = snapshot.docs.flatMap((d) => {
+      const data = d.data() as Record<string, unknown>;
+      return [(data.fromUid as string) ?? "", (data.toUid as string) ?? ""];
+    }).filter(Boolean);
+    const uniqueUids = [...new Set(allUids)];
 
-        const [fromMemberDoc, toMemberDoc] = await Promise.all([
-          getDoc(doc(groupRef, "members", fromUid)),
-          getDoc(doc(groupRef, "members", toUid)),
-        ]);
-        const fromIsOffline = fromMemberDoc.data()?.isOffline === true;
-        const toIsOffline = toMemberDoc.data()?.isOffline === true;
+    const [memberDocs, userDocs] = await Promise.all([
+      Promise.all(uniqueUids.map((u) => getDoc(doc(groupRef, "members", u)))),
+      Promise.all(uniqueUids.map((u) => getDoc(doc(db, "users", u)))),
+    ]);
 
-        let fromName: string;
-        if (fromIsOffline) {
-          fromName = (fromMemberDoc.data()?.displayName as string) ?? "Unknown";
-        } else {
-          const fromDoc = await getDoc(doc(db, "users", fromUid));
-          fromName = (fromDoc.data()?.displayName as string) ?? "Unknown";
-        }
+    const memberMap = new Map<string, Record<string, unknown>>();
+    memberDocs.forEach((d, i) => {
+      if (d.exists()) memberMap.set(uniqueUids[i], d.data() as Record<string, unknown>);
+    });
+    const userMap = new Map<string, Record<string, unknown>>();
+    userDocs.forEach((d, i) => {
+      if (d.exists()) userMap.set(uniqueUids[i], d.data() as Record<string, unknown>);
+    });
 
-        let toName: string;
-        if (toIsOffline) {
-          toName = (toMemberDoc.data()?.displayName as string) ?? "Unknown";
-        } else {
-          const toDoc = await getDoc(doc(db, "users", toUid));
-          toName = (toDoc.data()?.displayName as string) ?? "Unknown";
-        }
+    const settlements = snapshot.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const fromUid = (data.fromUid as string) ?? "";
+      const toUid = (data.toUid as string) ?? "";
 
-        return {
-          settlementId: d.id,
-          fromUid,
-          toUid,
-          fromName,
-          toName,
-          amount: (data.amount as number) ?? 0,
-          currency: (data.currency as string) ?? "",
-          method: (data.method as SettlementMethod) ?? "cash",
-          upiRefId: (data.upiRefId as string) ?? "",
-          date: (data.date as number) ?? 0,
-          createdBy: (data.createdBy as string) ?? "",
-        } as Settlement;
-      })
-    );
+      const fromMemberData = memberMap.get(fromUid);
+      const toMemberData = memberMap.get(toUid);
+      const fromIsOffline = fromMemberData?.isOffline === true;
+      const toIsOffline = toMemberData?.isOffline === true;
+
+      let fromName: string;
+      if (fromIsOffline) {
+        fromName = (fromMemberData?.displayName as string) ?? "Unknown";
+      } else {
+        fromName = (userMap.get(fromUid)?.displayName as string) ?? "Unknown";
+      }
+
+      let toName: string;
+      if (toIsOffline) {
+        toName = (toMemberData?.displayName as string) ?? "Unknown";
+      } else {
+        toName = (userMap.get(toUid)?.displayName as string) ?? "Unknown";
+      }
+
+      return {
+        settlementId: d.id,
+        fromUid,
+        toUid,
+        fromName,
+        toName,
+        amount: (data.amount as number) ?? 0,
+        currency: (data.currency as string) ?? "",
+        method: (data.method as SettlementMethod) ?? "cash",
+        upiRefId: (data.upiRefId as string) ?? "",
+        date: (data.date as number) ?? 0,
+        createdBy: (data.createdBy as string) ?? "",
+      } as Settlement;
+    });
 
     return settlements;
   }
@@ -385,12 +421,17 @@ export class FirebaseSettlementService implements SettlementService {
 
     const balances = calculateBalances(expenses, settlements, memberUids);
 
-    const batch = writeBatch(db);
-    balances.forEach((balance, memberUid) => {
-      batch.update(doc(groupRef, "members", memberUid), {
-        balance: Math.round(balance * 100) / 100,
-      });
-    });
-    await batch.commit();
+    const balanceEntries = Array.from(balances.entries());
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
+      const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      for (const [memberUid, balance] of chunk) {
+        batch.update(doc(groupRef, "members", memberUid), {
+          balance: Math.round(balance * 100) / 100,
+        });
+      }
+      await batch.commit();
+    }
   }
 }
