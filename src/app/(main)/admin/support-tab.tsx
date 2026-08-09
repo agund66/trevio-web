@@ -1,0 +1,895 @@
+"use client";
+
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServices } from "@/lib/services/service-provider";
+import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { LoadMoreButton } from "@/components/load-more-button";
+import {
+  Inbox,
+  BookOpen,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Send,
+  CircleDot,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  MessageCircle,
+  AlertCircle,
+  MapPin,
+  Plus,
+  Edit3,
+  Trash2,
+  Eye,
+  EyeOff,
+  X,
+  Save,
+  Filter,
+} from "lucide-react";
+import DOMPurify from "dompurify";
+import { cn } from "@/lib/utils";
+import type {
+  SupportTicket,
+  SupportStatus,
+  SupportPriority,
+  SupportCategory,
+  SupportMessage,
+  HelpArticle,
+} from "@/lib/types";
+
+const STATUS_CONFIG: Record<
+  SupportStatus,
+  { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
+> = {
+  open: { label: "Open", icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+  in_progress: { label: "In Progress", icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
+  waiting_user: { label: "Waiting User", icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
+  resolved: { label: "Resolved", icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
+  closed: { label: "Closed", icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
+};
+
+const PRIORITY_CONFIG: Record<SupportPriority, { label: string; color: string; dot: string }> = {
+  urgent: { label: "Urgent", color: "text-red-600 dark:text-red-400", dot: "bg-red-500" },
+  high: { label: "High", color: "text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
+  medium: { label: "Medium", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+  low: { label: "Low", color: "text-slate-500 dark:text-slate-400", dot: "bg-slate-400" },
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  calculation: "Calculation",
+  settlement: "Settlement",
+  expense: "Expense",
+  group_access: "Group Access",
+  payment_info: "Payment Info",
+  account: "Account",
+  bug: "Bug",
+  other: "Other",
+  general: "General",
+};
+
+function formatTime(ts: number): string {
+  if (!ts) return "";
+  const date = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(ts: number): string {
+  if (!ts) return "";
+  return new Date(ts).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type SubTab = "tickets" | "articles";
+
+export function SupportTab() {
+  const [subTab, setSubTab] = useState<SubTab>("tickets");
+
+  return (
+    <div>
+      {/* Sub-tabs */}
+      <div className="mb-4 flex gap-1 border-b border-slate-200 dark:border-slate-700">
+        <button
+          onClick={() => setSubTab("tickets")}
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition",
+            subTab === "tickets"
+              ? "border-trevio-600 text-trevio-700 dark:text-trevio-400"
+              : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+          )}
+        >
+          <Inbox className="h-4 w-4" />
+          Tickets
+        </button>
+        <button
+          onClick={() => setSubTab("articles")}
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition",
+            subTab === "articles"
+              ? "border-trevio-600 text-trevio-700 dark:text-trevio-400"
+              : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+          )}
+        >
+          <BookOpen className="h-4 w-4" />
+          Help Articles
+        </button>
+      </div>
+
+      {subTab === "tickets" && <TicketsPanel />}
+      {subTab === "articles" && <ArticlesPanel />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tickets Panel
+// ═══════════════════════════════════════════════════════════════════
+
+function TicketsPanel() {
+  const { support } = useServices();
+  const queryClient = useQueryClient();
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [statusFilter, setStatusFilter] = useState<SupportStatus | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<SupportCategory | "all">("all");
+  const [search, setSearch] = useState("");
+
+  const ticketsPagination = usePaginatedQuery<SupportTicket, { tickets: SupportTicket[]; hasMore: boolean; lastTicketId: string | null }>({
+    queryKey: ["adminTickets", statusFilter === "all" ? "all" : statusFilter],
+    queryFn: (pageSize, lastId) =>
+      support.getAllTickets(
+        statusFilter === "all" ? undefined : { status: statusFilter },
+        pageSize,
+        lastId,
+      ),
+    pageSize: 20,
+    extractItems: (r) => r.tickets,
+    extractHasMore: (r) => r.hasMore,
+    extractLastId: (r) => r.lastTicketId,
+  });
+  const tickets = ticketsPagination.items;
+  const isLoading = ticketsPagination.isLoading;
+
+  const filteredTickets = useMemo(() => {
+    if (!tickets) return [];
+    return tickets.filter((t) => {
+      const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
+      const q = search.toLowerCase();
+      const matchesSearch =
+        !q ||
+        t.subject.toLowerCase().includes(q) ||
+        t.userDisplayName.toLowerCase().includes(q) ||
+        t.userEmail.toLowerCase().includes(q) ||
+        t.userUsername.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [tickets, categoryFilter, search]);
+
+  const unreadCount = tickets?.filter((t) => t.unreadByAdmin).length ?? 0;
+  const openCount = tickets?.filter((t) => t.status === "open" || t.status === "in_progress").length ?? 0;
+
+  if (selectedTicket) {
+    return (
+      <TicketDetailAdmin
+        ticket={selectedTicket}
+        onBack={() => {
+          setSelectedTicket(null);
+          ticketsPagination.refresh();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      {/* Stats */}
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{tickets?.length ?? 0}</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+          <p className="text-xs text-amber-600 dark:text-amber-400">Open / In Progress</p>
+          <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{openCount}</p>
+        </div>
+        <div className="rounded-xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-3">
+          <p className="text-xs text-trevio-600 dark:text-trevio-400">Unread</p>
+          <p className="text-xl font-bold text-trevio-700 dark:text-trevio-300">{unreadCount}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by subject, user, email..."
+            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as SupportStatus | "all")}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+        >
+          <option value="all">All Status</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="waiting_user">Waiting User</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as SupportCategory | "all")}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+        >
+          <option value="all">All Categories</option>
+          <option value="calculation">Calculation</option>
+          <option value="settlement">Settlement</option>
+          <option value="expense">Expense</option>
+          <option value="group_access">Group Access</option>
+          <option value="payment_info">Payment Info</option>
+          <option value="account">Account</option>
+          <option value="bug">Bug</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      {/* Ticket list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
+        </div>
+      ) : filteredTickets.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center">
+          <Inbox className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
+          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">No tickets found</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredTickets.map((ticket) => {
+            const statusConfig = STATUS_CONFIG[ticket.status];
+            const StatusIcon = statusConfig.icon;
+            const priorityConfig = PRIORITY_CONFIG[ticket.priority];
+            return (
+              <button
+                key={ticket.ticketId}
+                onClick={() => setSelectedTicket(ticket)}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-xl border bg-white dark:bg-slate-800 p-4 text-left transition hover:shadow-sm",
+                  ticket.unreadByAdmin
+                    ? "border-trevio-300 dark:border-trevio-600"
+                    : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                )}
+              >
+                <div className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", priorityConfig.dot)} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={cn(
+                      "text-sm truncate",
+                      ticket.unreadByAdmin ? "font-bold text-slate-900 dark:text-slate-100" : "font-medium text-slate-700 dark:text-slate-200"
+                    )}>
+                      {ticket.subject}
+                    </p>
+                    {ticket.unreadByAdmin && (
+                      <span className="shrink-0 rounded-full bg-trevio-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        NEW
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {ticket.userDisplayName} @{ticket.userUsername}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium", statusConfig.bg, statusConfig.color)}>
+                      <StatusIcon className="h-3 w-3" />
+                      {statusConfig.label}
+                    </span>
+                    <span className={cn("text-[10px] font-medium", priorityConfig.color)}>
+                      {priorityConfig.label}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {CATEGORY_LABELS[ticket.category] || ticket.category}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      • {formatTime(ticket.updatedAt)}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 mt-1" />
+              </button>
+            );
+          })}
+          <LoadMoreButton
+            onClick={ticketsPagination.loadMore}
+            loading={ticketsPagination.loadingMore}
+            hasMore={ticketsPagination.hasMore}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Admin Ticket Detail
+// ═══════════════════════════════════════════════════════════════════
+
+function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: () => void }) {
+  const { support } = useServices();
+  const queryClient = useQueryClient();
+  const [reply, setReply] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: messages, isLoading: messagesLoading } = useQuery({
+    queryKey: ["adminTicketMessages", ticket.ticketId],
+    queryFn: () => support.getMessages(ticket.ticketId),
+  });
+
+  // Mark as read by admin
+  useEffect(() => {
+    if (ticket.unreadByAdmin) {
+      support.markTicketReadByAdmin(ticket.ticketId).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["adminTickets"] });
+      }).catch(console.error);
+    }
+  }, [ticket.unreadByAdmin, ticket.ticketId, support, queryClient]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const replyMutation = useMutation({
+    mutationFn: (body: string) => support.sendAdminMessage(ticket.ticketId, body),
+    onSuccess: () => {
+      setReply("");
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ["adminTicketMessages", ticket.ticketId] });
+      queryClient.invalidateQueries({ queryKey: ["adminTickets"] });
+    },
+    onError: (e) => {
+      setError(e instanceof Error ? e.message : "Failed to send message");
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (status: SupportStatus) => support.updateTicketStatus(ticket.ticketId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminTickets"] });
+      onBack();
+    },
+  });
+
+  const priorityMutation = useMutation({
+    mutationFn: (priority: SupportPriority) => support.updateTicketPriority(ticket.ticketId, priority),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminTickets"] });
+    },
+  });
+
+  const statusConfig = STATUS_CONFIG[ticket.status];
+  const StatusIcon = statusConfig.icon;
+  const priorityConfig = PRIORITY_CONFIG[ticket.priority];
+
+  const handleSendReply = () => {
+    if (!reply.trim()) return;
+    replyMutation.mutate(reply.trim());
+  };
+
+  return (
+    <div>
+      <button
+        onClick={onBack}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Back to Tickets
+      </button>
+
+      {/* Ticket info */}
+      <div className="mb-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex-1">
+            {ticket.subject}
+          </h2>
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium shrink-0", statusConfig.bg, statusConfig.color)}>
+            <StatusIcon className="h-3 w-3" />
+            {statusConfig.label}
+          </span>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{ticket.description}</p>
+
+        {/* User info */}
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 mb-3">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Reported by</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{ticket.userDisplayName}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">@{ticket.userUsername} • {ticket.userEmail}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Context */}
+        {(ticket.context?.groupId || ticket.context?.screen) && (
+          <div className="mb-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <MapPin className="h-3 w-3" />
+            Context: {ticket.context.groupName || ticket.context.groupId || "N/A"}
+            {ticket.context.screen ? ` • ${ticket.context.screen}` : ""}
+          </div>
+        )}
+
+        {/* Meta row */}
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+          <span>Created: {formatDateTime(ticket.createdAt)}</span>
+          <span>•</span>
+          <span>Updated: {formatTime(ticket.updatedAt)}</span>
+          <span>•</span>
+          <span>Category: {CATEGORY_LABELS[ticket.category] || ticket.category}</span>
+        </div>
+
+        {/* Admin controls */}
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 dark:border-slate-700 pt-3">
+          {/* Status controls */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">Status:</span>
+            {(["open", "in_progress", "waiting_user", "resolved", "closed"] as SupportStatus[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => statusMutation.mutate(s)}
+                disabled={statusMutation.isPending || ticket.status === s}
+                className={cn(
+                  "rounded-lg px-2 py-1 text-[10px] font-medium transition disabled:opacity-50",
+                  ticket.status === s
+                    ? STATUS_CONFIG[s].bg + " " + STATUS_CONFIG[s].color
+                    : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
+                )}
+              >
+                {STATUS_CONFIG[s].label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-2 flex items-center gap-1">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">Priority:</span>
+          {(["urgent", "high", "medium", "low"] as SupportPriority[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => priorityMutation.mutate(p)}
+              disabled={priorityMutation.isPending || ticket.priority === p}
+              className={cn(
+                "rounded-lg px-2 py-1 text-[10px] font-medium transition disabled:opacity-50",
+                ticket.priority === p
+                  ? "bg-trevio-100 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300"
+                  : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
+              )}
+            >
+              {PRIORITY_CONFIG[p].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Conversation */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 mb-4 overflow-y-auto min-h-[300px]" style={{ maxHeight: "50vh" }}>
+        {messagesLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
+          </div>
+        ) : !messages || messages.length === 0 ? (
+          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">No messages yet</p>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((msg) => {
+              const isAdmin = msg.fromRole === "superadmin";
+              return (
+                <div key={msg.messageId} className={cn("flex", isAdmin ? "justify-end" : "justify-start")}>
+                  <div className={cn(
+                    "max-w-[80%] rounded-2xl px-4 py-2.5",
+                    isAdmin
+                      ? "bg-trevio-600 text-white rounded-br-sm"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-sm"
+                  )}>
+                    {isAdmin ? (
+                      <p className="text-xs font-semibold text-trevio-200 mb-0.5">You (Admin)</p>
+                    ) : (
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-0.5">{msg.fromName}</p>
+                    )}
+                    <p className="text-sm whitespace-pre-wrap break-words">{msg.body}</p>
+                    <p className={cn("mt-1 text-[10px]", isAdmin ? "text-trevio-200" : "text-slate-400 dark:text-slate-500")}>
+                      {formatDateTime(msg.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Closed ticket notice */}
+      {ticket.status === "closed" && (
+        <div className="mb-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            This ticket is closed. Change status above to reopen, or send a message below.
+          </p>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+          <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
+        </div>
+      )}
+
+      {/* Reply box — always visible so admin can reply even to closed tickets */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+        <div className="flex gap-2">
+          <textarea
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="Type your response to the user..."
+            rows={3}
+            maxLength={2000}
+            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                handleSendReply();
+              }
+            }}
+          />
+          <button
+            onClick={handleSendReply}
+            disabled={!reply.trim() || replyMutation.isPending}
+            className="self-end rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+          The user will receive a notification when you respond. Press Ctrl+Enter to send.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Help Articles Panel
+// ═══════════════════════════════════════════════════════════════════
+
+function ArticlesPanel() {
+  const { support } = useServices();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<HelpArticle | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const { data: articles, isLoading } = useQuery({
+    queryKey: ["adminArticles"],
+    queryFn: () => support.getAllHelpArticles(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => support.deleteHelpArticle(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminArticles"] });
+      queryClient.invalidateQueries({ queryKey: ["helpArticles"] });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      support.updateHelpArticle(id, { active }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminArticles"] });
+      queryClient.invalidateQueries({ queryKey: ["helpArticles"] });
+    },
+  });
+
+  if (creating || editing) {
+    return (
+      <ArticleEditor
+        article={editing}
+        onClose={() => {
+          setCreating(false);
+          setEditing(null);
+        }}
+        onSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ["adminArticles"] });
+          queryClient.invalidateQueries({ queryKey: ["helpArticles"] });
+          setCreating(false);
+          setEditing(null);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Manage help articles that users see in the Help Center
+        </p>
+        <button
+          onClick={() => setCreating(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
+        >
+          <Plus className="h-4 w-4" />
+          New Article
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
+        </div>
+      ) : !articles || articles.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center">
+          <BookOpen className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
+          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">No articles yet</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Create your first help article to get started
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {articles.map((article) => (
+            <div
+              key={article.articleId}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                    {article.title}
+                  </p>
+                  {!article.active && (
+                    <span className="shrink-0 rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                      Hidden
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  {CATEGORY_LABELS[article.category] || article.category} • Order: {article.order}
+                </p>
+              </div>
+              <button
+                onClick={() => toggleActiveMutation.mutate({ id: article.articleId, active: !article.active })}
+                className="rounded-lg p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                title={article.active ? "Hide article" : "Show article"}
+              >
+                {article.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={() => setEditing(article)}
+                className="rounded-lg p-2 text-slate-400 hover:text-trevio-600 dark:hover:text-trevio-400 transition"
+                title="Edit article"
+              >
+                <Edit3 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Delete "${article.title}"? This cannot be undone.`)) {
+                    deleteMutation.mutate(article.articleId);
+                  }
+                }}
+                className="rounded-lg p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition"
+                title="Delete article"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Article Editor
+// ═══════════════════════════════════════════════════════════════════
+
+function ArticleEditor({
+  article,
+  onClose,
+  onSaved,
+}: {
+  article: HelpArticle | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { support } = useServices();
+  const [title, setTitle] = useState(article?.title ?? "");
+  const [content, setContent] = useState(article?.content ?? "");
+  const [category, setCategory] = useState<string>(article?.category ?? "general");
+  const [tags, setTags] = useState(article?.tags.join(", ") ?? "");
+  const [order, setOrder] = useState(article?.order ?? 99);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
+    if (!content.trim()) {
+      setError("Content is required");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const tagsList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+      if (article) {
+        await support.updateHelpArticle(article.articleId, {
+          title: title.trim(),
+          content: content.trim(),
+          category: category as HelpArticle["category"],
+          tags: tagsList,
+          order,
+        });
+      } else {
+        await support.createHelpArticle({
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          tags: tagsList,
+          order,
+        });
+      }
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save article");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          {article ? "Edit Article" : "New Help Article"}
+        </h2>
+        <button
+          onClick={onClose}
+          className="rounded-lg p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Article title"
+            maxLength={200}
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+            >
+              <option value="general">General</option>
+              <option value="calculation">Calculation</option>
+              <option value="settlement">Settlement</option>
+              <option value="expense">Expense</option>
+              <option value="group_access">Group Access</option>
+              <option value="payment_info">Payment Info</option>
+              <option value="account">Account</option>
+              <option value="bug">Bug</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Display Order</label>
+            <input
+              type="number"
+              value={order}
+              onChange={(e) => setOrder(parseInt(e.target.value) || 0)}
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Tags (comma-separated)
+          </label>
+          <input
+            type="text"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="balance, calculation, split"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Content (HTML supported)
+          </label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="<h3>Title</h3><p>Content here...</p>"
+            rows={12}
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none font-mono"
+          />
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Supports HTML tags: &lt;h3&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;strong&gt;
+          </p>
+        </div>
+
+        {/* Preview */}
+        {content && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Preview</label>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 max-h-48 overflow-y-auto">
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 [&_h3]:text-slate-900 dark:[&_h3]:text-slate-100 [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
+              />
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-trevio-600 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? "Saving..." : "Save Article"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

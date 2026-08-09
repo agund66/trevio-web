@@ -13,5 +13,5 @@ export interface SettlementService {
 
   getSimplifiedDebts(groupId: string): Promise<SimplifiedDebt[]>;
   getGroupBalances(groupId: string): Promise<Member[]>;
-  getSettlementHistory(groupId: string): Promise<Settlement[]>;
+  getSettlementHistory(groupId: string, pageSize?: number, lastSettlementId?: string): Promise<{ settlements: Settlement[]; hasMore: boolean; lastSettlementId: string | null }>;
 }

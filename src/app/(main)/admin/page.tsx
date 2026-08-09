@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { Shield, Megaphone } from "lucide-react";
+import { Shield, Megaphone, LifeBuoy } from "lucide-react";
 import { UsersTab } from "./users-tab";
 import { BroadcastsTab } from "./broadcasts-tab";
+import { SupportTab } from "./support-tab";
 import { cn } from "@/lib/utils";
 
 type AdminTab = {
@@ -16,6 +17,7 @@ type AdminTab = {
 const adminTabs: AdminTab[] = [
   { id: "users", label: "Users", icon: Shield },
   { id: "broadcasts", label: "Broadcasts", icon: Megaphone },
+  { id: "support", label: "Support", icon: LifeBuoy },
 ];
 
 export default function AdminDashboardPage() {
@@ -73,6 +75,7 @@ export default function AdminDashboardPage() {
       {/* Tab content */}
       {activeTab === "users" && <UsersTab />}
       {activeTab === "broadcasts" && <BroadcastsTab />}
+      {activeTab === "support" && <SupportTab />}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import type { AdminService } from "./interfaces/admin-service";
 import type { BroadcastService } from "./interfaces/broadcast-service";
 import type { AnalyticsService } from "./interfaces/analytics-service";
 import type { TripService } from "./interfaces/trip-service";
+import type { SupportService } from "./interfaces/support-service";
 import { FirebaseAuthService } from "./firebase/firebase-auth-service";
 import { FirebaseUserService } from "./firebase/firebase-user-service";
 import { FirebaseGroupService } from "./firebase/firebase-group-service";
@@ -23,6 +24,7 @@ import { FirebaseAdminService } from "./firebase/firebase-admin-service";
 import { FirebaseBroadcastService } from "./firebase/firebase-broadcast-service";
 import { FirebaseAnalyticsService } from "./firebase/firebase-analytics-service";
 import { FirebaseTripService } from "./firebase/firebase-trip-service";
+import { FirebaseSupportService } from "./firebase/firebase-support-service";
 
 interface Services {
   auth: AuthService;
@@ -36,6 +38,7 @@ interface Services {
   broadcast: BroadcastService;
   analytics: AnalyticsService;
   trip: TripService;
+  support: SupportService;
 }
 
 const firebaseServices: Services = {
@@ -50,6 +53,7 @@ const firebaseServices: Services = {
   broadcast: new FirebaseBroadcastService(),
   analytics: new FirebaseAnalyticsService(),
   trip: new FirebaseTripService(),
+  support: new FirebaseSupportService(),
 };
 
 const ServiceContext = createContext<Services>(firebaseServices);

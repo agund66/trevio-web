@@ -7,23 +7,31 @@ import {
   orderBy,
   query,
   limit,
+  startAfter,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { AdminService } from "../interfaces/admin-service";
 import type { User, UserRole } from "../../types";
 
 export class FirebaseAdminService implements AdminService {
-  async getAllUsers(): Promise<User[]> {
+  async getAllUsers(pageSize: number = 50, lastUserUid?: string): Promise<{ users: User[]; hasMore: boolean; lastUserUid: string | null }> {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) throw new Error("User not authenticated");
     const currentUserDoc = await getDoc(doc(db, "users", currentUid));
     const currentRole = (currentUserDoc.data()?.role as string) ?? "user";
     if (currentRole !== "superadmin") throw new Error("Access denied");
 
-    const snapshot = await getDocs(
-      query(collection(db, "users"), orderBy("createdAt", "desc"), limit(500))
-    );
-    return snapshot.docs.map((d) => {
+    let q = query(collection(db, "users"), orderBy("createdAt", "desc"), limit(pageSize));
+
+    if (lastUserUid) {
+      const lastDoc = await getDoc(doc(db, "users", lastUserUid));
+      if (lastDoc.exists()) {
+        q = query(collection(db, "users"), orderBy("createdAt", "desc"), startAfter(lastDoc), limit(pageSize));
+      }
+    }
+
+    const snapshot = await getDocs(q);
+    const users = snapshot.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
       return {
         uid: d.id,
@@ -42,6 +50,11 @@ export class FirebaseAdminService implements AdminService {
         countryCode: (data.countryCode as string) || "",
       } as User;
     });
+    return {
+      users,
+      hasMore: snapshot.size === pageSize,
+      lastUserUid: snapshot.size > 0 ? snapshot.docs[snapshot.size - 1].id : null,
+    };
   }
 
   private async requireSuperadmin(): Promise<void> {

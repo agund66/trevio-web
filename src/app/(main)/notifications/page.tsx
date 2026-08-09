@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { LoadMoreButton } from "@/components/load-more-button";
 import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus } from "lucide-react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
@@ -49,10 +51,17 @@ export default function NotificationsPage() {
   const [invitationAction, setInvitationAction] = useState<string | null>(null);
   const [invitationResult, setInvitationResult] = useState<Record<string, "accepted" | "declined">>({});
 
-  const { data, isLoading, error } = useQuery({
+  const notificationsPagination = usePaginatedQuery({
     queryKey: ["notifications"],
-    queryFn: () => notification.getNotifications(50),
+    queryFn: (pageSize, lastId) => notification.getNotifications(pageSize, lastId),
+    pageSize: 20,
+    extractItems: (r) => r.notifications,
+    extractHasMore: (r) => r.hasMore,
+    extractLastId: (r) => r.lastNotificationId,
   });
+  const notifications = notificationsPagination.items;
+  const isLoading = notificationsPagination.isLoading;
+  const error = notificationsPagination.error;
 
   useEffect(() => {
     if (!user) return;
@@ -64,18 +73,18 @@ export default function NotificationsPage() {
 
   const markAllMutation = useMutation({
     mutationFn: () => notification.markAllNotificationsRead(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => notificationsPagination.refresh(),
   });
 
   const markReadMutation = useMutation({
     mutationFn: (notificationId: string) => notification.markNotificationRead(notificationId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => notificationsPagination.refresh(),
   });
 
   const acceptInvitationMutation = useMutation({
     mutationFn: (invitationId: string) => group.acceptInvitation(invitationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      notificationsPagination.refresh();
       queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
   });
@@ -83,7 +92,7 @@ export default function NotificationsPage() {
   const declineInvitationMutation = useMutation({
     mutationFn: (invitationId: string) => group.declineInvitation(invitationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      notificationsPagination.refresh();
       queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
   });
@@ -99,7 +108,7 @@ export default function NotificationsPage() {
         } catch {
           // ignore notification update errors
         }
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        notificationsPagination.refresh();
       },
       onError: () => setInvitationAction(null),
     });
@@ -116,13 +125,12 @@ export default function NotificationsPage() {
         } catch {
           // ignore notification update errors
         }
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        notificationsPagination.refresh();
       },
       onError: () => setInvitationAction(null),
     });
   };
 
-  const notifications = data?.notifications || [];
   const hasUnread = notifications.some((n) => !n.read);
 
   const toggleExpand = (id: string) => {
@@ -150,7 +158,7 @@ export default function NotificationsPage() {
             <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Failed to load notifications</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{(error as Error).message}</p>
             <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["notifications"] })}
+              onClick={() => notificationsPagination.refresh()}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
             >
               Try Again
@@ -302,6 +310,12 @@ export default function NotificationsPage() {
               <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">No notifications yet</p>
             </div>
           )}
+
+          <LoadMoreButton
+            onClick={notificationsPagination.loadMore}
+            loading={notificationsPagination.loadingMore}
+            hasMore={notificationsPagination.hasMore}
+          />
         </div>
       )}
     </div>

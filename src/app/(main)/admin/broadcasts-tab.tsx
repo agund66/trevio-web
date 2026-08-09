@@ -282,7 +282,7 @@ function BroadcastForm({
   const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    admin.getAllUsers().then(setAllUsers).catch(() => {});
+    admin.getAllUsers().then((r) => setAllUsers(r.users)).catch(() => {});
   }, [admin]);
 
   useEffect(() => {
@@ -687,8 +687,8 @@ function BroadcastDetail({
     Promise.all([
       admin.getAllUsers(),
       broadcastService.getBroadcastReads(broadcast.id),
-    ]).then(([users, readData]) => {
-      setAllUsers(users);
+    ]).then(([usersResult, readData]) => {
+      setAllUsers(usersResult.users);
       setReads(readData);
       setLoading(false);
     }).catch(() => setLoading(false));

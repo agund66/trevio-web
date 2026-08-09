@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
+import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { LoadMoreButton } from "@/components/load-more-button";
 import type { User } from "@/lib/types";
 import { Ban, CheckCircle, Crown, Search, AlertCircle, Shield, X } from "lucide-react";
 import { Avatar } from "@/components/avatar";
@@ -17,37 +19,29 @@ const confirmMessages: Record<string, { title: string; body: string; confirm: st
 export function UsersTab() {
   const { user: currentUser } = useAuth();
   const { admin } = useServices();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ uid: string; type: string; userName: string } | null>(null);
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const allUsers = await admin.getAllUsers();
-      setUsers(allUsers);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  }, [admin]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+  const usersPagination = usePaginatedQuery({
+    queryKey: ["adminUsers"],
+    queryFn: (pageSize, lastId) => admin.getAllUsers(pageSize, lastId),
+    pageSize: 20,
+    extractItems: (r) => r.users,
+    extractHasMore: (r) => r.hasMore,
+    extractLastId: (r) => r.lastUserUid,
+  });
+  const users = usersPagination.items;
+  const loading = usersPagination.isLoading;
+  const error = usersPagination.error instanceof Error ? usersPagination.error.message : null;
 
   const handleBlock = async (uid: string) => {
     setActionLoading(uid);
     try {
       await admin.blockUser(uid);
-      await loadUsers();
+      usersPagination.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to block user");
+      console.error(e);
     } finally {
       setActionLoading(null);
     }
@@ -57,9 +51,9 @@ export function UsersTab() {
     setActionLoading(uid);
     try {
       await admin.unblockUser(uid);
-      await loadUsers();
+      usersPagination.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to unblock user");
+      console.error(e);
     } finally {
       setActionLoading(null);
     }
@@ -69,9 +63,9 @@ export function UsersTab() {
     setActionLoading(uid);
     try {
       await admin.promoteToSuperAdmin(uid);
-      await loadUsers();
+      usersPagination.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to promote user");
+      console.error(e);
     } finally {
       setActionLoading(null);
     }
@@ -81,9 +75,9 @@ export function UsersTab() {
     setActionLoading(uid);
     try {
       await admin.demoteToUser(uid);
-      await loadUsers();
+      usersPagination.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to demote user");
+      console.error(e);
     } finally {
       setActionLoading(null);
     }
@@ -233,6 +227,11 @@ export function UsersTab() {
               No users found.
             </div>
           )}
+          <LoadMoreButton
+            onClick={usersPagination.loadMore}
+            loading={usersPagination.loadingMore}
+            hasMore={usersPagination.hasMore}
+          />
         </div>
       )}
 

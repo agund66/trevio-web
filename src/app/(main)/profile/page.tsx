@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor, LogOut } from "lucide-react";
+import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor, LogOut, LifeBuoy } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { TermsDialog } from "@/components/terms-dialog";
 import { Avatar } from "@/components/avatar";
@@ -102,7 +103,7 @@ export default function ProfilePage() {
   const hasPhone = !!(user.phoneNumber && user.phoneNumber.trim());
 
   return (
-    <div className="mx-auto max-w-md p-4 md:p-6">
+    <div className="mx-auto max-w-4xl p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Profile</h1>
         {!editing && (
@@ -116,15 +117,8 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <div className="flex flex-col items-center mb-8">
-        <Avatar photoURL={user.photoURL} displayName={user.displayName} className="h-24 w-24" textClassName="text-3xl" />
-        <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-slate-100">{user.displayName}</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
-        <p className="text-xs text-slate-400 dark:text-slate-500">{user.email}</p>
-      </div>
-
       {editing ? (
-        <div className="space-y-4">
+        <div className="mx-auto max-w-xl space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Display Name</label>
             <input
@@ -303,104 +297,129 @@ export default function ProfilePage() {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-            <ProfileRow label="Username" value={`@${user.username}`} />
-            <ProfileRow label="Email" value={user.email} />
-            <ProfileRow label="Currency" value={`${currencies.find((c) => c.code === user.defaultCurrency)?.symbol || ""} ${user.defaultCurrency}`} />
-            <ProfileRow
-              label="Mobile"
-              value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : "Not set"}
-              action={!hasPhone ? { label: "Add", onClick: startEdit } : undefined}
-            />
-            <ProfileRow
-              label="UPI ID"
-              value={hasUpiId ? user.upiId! : "Not set"}
-              action={!hasUpiId ? { label: "Add", onClick: startEdit } : undefined}
-            />
-          </div>
-
-          {/* Payment info card */}
-          <div className="rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-              <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">Payment Info</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left column — identity & settings */}
+          <div className="space-y-4">
+            <div className="flex flex-col items-center rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
+              <Avatar photoURL={user.photoURL} displayName={user.displayName} className="h-24 w-24" textClassName="text-3xl" />
+              <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-slate-100">{user.displayName}</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">{user.email}</p>
             </div>
-            {hasUpiId ? (
-              <>
-                <p className="text-sm text-trevio-600 dark:text-trevio-400">{user.upiId}</p>
-                <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">Friends can pay you via UPI ID</p>
-              </>
-            ) : hasPhone ? (
-              <>
-                <p className="text-sm text-trevio-600 dark:text-trevio-400">{country.dialCode} {user.phoneNumber}</p>
-                <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">Friends can pay you via mobile number</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-trevio-600 dark:text-trevio-400">No payment info set</p>
-                <button
-                  onClick={startEdit}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
-                >
-                  <Plus className="h-3 w-3" />
-                  Set up payment info
-                </button>
-              </>
-            )}
-          </div>
 
-          {/* Appearance */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Sun className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Appearance</span>
+            {/* Payment info card */}
+            <div className="rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
+                <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">Payment Info</span>
+              </div>
+              {hasUpiId ? (
+                <>
+                  <p className="text-sm text-trevio-600 dark:text-trevio-400">{user.upiId}</p>
+                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">Friends can pay you via UPI ID</p>
+                </>
+              ) : hasPhone ? (
+                <>
+                  <p className="text-sm text-trevio-600 dark:text-trevio-400">{country.dialCode} {user.phoneNumber}</p>
+                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">Friends can pay you via mobile number</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-trevio-600 dark:text-trevio-400">No payment info set</p>
+                  <button
+                    onClick={startEdit}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Set up payment info
+                  </button>
+                </>
+              )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { value: "light", label: "Light", icon: Sun },
-                { value: "dark", label: "Dark", icon: Moon },
-                { value: "system", label: "Device", icon: Monitor },
-              ] as { value: ThemeMode; label: string; icon: typeof Sun }[]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setThemeMode(opt.value)}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-medium transition ${
-                    mode === opt.value
-                      ? "border-trevio-500 bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300"
-                      : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/40"
-                  }`}
-                >
-                  <opt.icon className="h-5 w-5" />
-                  {opt.label}
-                </button>
-              ))}
+
+            {/* Appearance */}
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sun className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Appearance</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { value: "light", label: "Light", icon: Sun },
+                  { value: "dark", label: "Dark", icon: Moon },
+                  { value: "system", label: "Device", icon: Monitor },
+                ] as { value: ThemeMode; label: string; icon: typeof Sun }[]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setThemeMode(opt.value)}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-medium transition ${
+                      mode === opt.value
+                        ? "border-trevio-500 bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300"
+                        : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/40"
+                    }`}
+                  >
+                    <opt.icon className="h-5 w-5" />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={() => setShowTerms(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            <FileText className="h-4 w-4" />
-            Terms & Conditions
-          </button>
+          {/* Right column — details & actions */}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+              <ProfileRow label="Username" value={`@${user.username}`} />
+              <ProfileRow label="Email" value={user.email} />
+              <ProfileRow label="Currency" value={`${currencies.find((c) => c.code === user.defaultCurrency)?.symbol || ""} ${user.defaultCurrency}`} />
+              <ProfileRow
+                label="Mobile"
+                value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : "Not set"}
+                action={!hasPhone ? { label: "Add", onClick: startEdit } : undefined}
+              />
+              <ProfileRow
+                label="UPI ID"
+                value={hasUpiId ? user.upiId! : "Not set"}
+                action={!hasUpiId ? { label: "Add", onClick: startEdit } : undefined}
+              />
+            </div>
 
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete Account
-          </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowTerms(true)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <FileText className="h-4 w-4" />
+                Terms
+              </button>
 
-          <button
-            onClick={signOut}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 md:hidden"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </button>
+              <Link
+                href="/support"
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <LifeBuoy className="h-4 w-4" />
+                Help & Support
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Account
+              </button>
+
+              <button
+                onClick={signOut}
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 md:hidden"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

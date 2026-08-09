@@ -160,7 +160,7 @@ export function ItemizedSplitEditor({
           <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
             <Receipt className="h-8 w-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
             <p className="text-sm text-slate-400 dark:text-slate-500">
-              No items added yet. Tap "Add Item" to start splitting your bill item by item.
+              No items added yet. Tap &ldquo;Add Item&rdquo; to start splitting your bill item by item.
             </p>
           </div>
         )}

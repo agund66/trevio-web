@@ -10,6 +10,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   collectionGroup,
   writeBatch,
   Timestamp,
@@ -392,7 +393,7 @@ export class FirebaseGroupService implements GroupService {
     };
   }
 
-  async getGroupActivities(groupId: string, pageSize: number = 50): Promise<Activity[]> {
+  async getGroupActivities(groupId: string, pageSize: number = 50, lastActivityId?: string): Promise<{ activities: Activity[]; hasMore: boolean; lastActivityId: string | null }> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
     if (!groupId) throw new Error("Group ID is required");
@@ -401,13 +402,25 @@ export class FirebaseGroupService implements GroupService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    const snapshot = await getDocs(
-      firestoreQuery(
-        collection(groupRef, "activities"),
-        orderBy("createdAt", "desc"),
-        limit(pageSize)
-      )
+    let q = firestoreQuery(
+      collection(groupRef, "activities"),
+      orderBy("createdAt", "desc"),
+      limit(pageSize)
     );
+
+    if (lastActivityId) {
+      const lastDoc = await getDoc(doc(groupRef, "activities", lastActivityId));
+      if (lastDoc.exists()) {
+        q = firestoreQuery(
+          collection(groupRef, "activities"),
+          orderBy("createdAt", "desc"),
+          startAfter(lastDoc),
+          limit(pageSize)
+        );
+      }
+    }
+
+    const snapshot = await getDocs(q);
 
     const activities: Activity[] = [];
 
@@ -436,7 +449,11 @@ export class FirebaseGroupService implements GroupService {
         createdAt: toMillis(data.createdAt),
       });
     }
-    return activities;
+    return {
+      activities,
+      hasMore: snapshot.size === pageSize,
+      lastActivityId: snapshot.size > 0 ? snapshot.docs[snapshot.size - 1].id : null,
+    };
   }
 
   async archiveGroup(groupId: string): Promise<void> {

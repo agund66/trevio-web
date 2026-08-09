@@ -171,7 +171,7 @@ export default function CreateGroupPage() {
                 <UserPlus className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               </div>
               <p className="text-sm font-medium text-trevio-600 dark:text-trevio-400">
-                Add "{searchQuery}" as offline member
+                Add &ldquo;{searchQuery}&rdquo; as offline member
               </p>
             </button>
           )}

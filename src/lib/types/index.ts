@@ -263,3 +263,72 @@ export interface TripData {
   itinerary: TripItineraryItem[];
   locations: TripLocation[];
 }
+
+// ─── Support System ──────────────────────────────────────────────
+
+export type SupportCategory =
+  | "calculation"
+  | "settlement"
+  | "expense"
+  | "group_access"
+  | "payment_info"
+  | "account"
+  | "bug"
+  | "other";
+
+export type SupportPriority = "low" | "medium" | "high" | "urgent";
+
+export type SupportStatus = "open" | "in_progress" | "waiting_user" | "resolved" | "closed";
+
+export type SupportMessageRole = "user" | "superadmin";
+
+export interface SupportTicketContext {
+  groupId?: string;
+  groupName?: string;
+  expenseId?: string;
+  screen?: string;
+}
+
+export interface SupportTicket {
+  ticketId: string;
+  userId: string;
+  userEmail: string;
+  userDisplayName: string;
+  userUsername: string;
+  subject: string;
+  description: string;
+  category: SupportCategory;
+  priority: SupportPriority;
+  status: SupportStatus;
+  context: SupportTicketContext;
+  createdAt: number;
+  updatedAt: number;
+  resolvedAt: number | null;
+  resolvedBy: string | null;
+  lastMessageAt: number;
+  lastMessageBy: SupportMessageRole | null;
+  unreadByUser: boolean;
+  unreadByAdmin: boolean;
+}
+
+export interface SupportMessage {
+  messageId: string;
+  fromUid: string;
+  fromName: string;
+  fromRole: SupportMessageRole;
+  body: string;
+  createdAt: number;
+}
+
+export interface HelpArticle {
+  articleId: string;
+  title: string;
+  content: string;
+  category: SupportCategory | "general";
+  tags: string[];
+  order: number;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string;
+}

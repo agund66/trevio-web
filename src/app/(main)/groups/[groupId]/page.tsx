@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +14,8 @@ import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { TripView } from "@/components/trip-view";
 import { Avatar } from "@/components/avatar";
+import { LoadMoreButton } from "@/components/load-more-button";
+import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
 
 const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
   food: { icon: Utensils, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20" },
@@ -61,10 +63,16 @@ export default function GroupDetailPage() {
     queryFn: () => group.getGroupInfo(groupId),
   });
 
-  const { data: expensesData, isLoading: expensesLoading } = useQuery({
+  const expensesPagination = usePaginatedQuery({
     queryKey: ["expenses", groupId],
-    queryFn: () => expense.getGroupExpenses(groupId, 50),
+    queryFn: (pageSize, lastId) => expense.getGroupExpenses(groupId, pageSize, lastId),
+    pageSize: 20,
+    extractItems: (r) => r.expenses,
+    extractHasMore: (r) => r.hasMore,
+    extractLastId: (r) => r.lastExpenseId,
   });
+  const expensesData = { expenses: expensesPagination.items };
+  const expensesLoading = expensesPagination.isLoading;
 
   const { data: members } = useQuery({
     queryKey: ["balances", groupId],
@@ -90,32 +98,45 @@ export default function GroupDetailPage() {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: ["debts", groupId] });
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
+      expensesPagination.refresh();
+      activitiesPagination.refresh();
+      settlementsPagination.refresh();
     },
     onError: (e: Error) => setActionError(e.message),
   });
 
-  const { data: activities, isLoading: activitiesLoading } = useQuery({
+  const activitiesPagination = usePaginatedQuery({
     queryKey: ["activities", groupId],
-    queryFn: () => group.getGroupActivities(groupId, 50),
+    queryFn: (pageSize, lastId) => group.getGroupActivities(groupId, pageSize, lastId),
+    pageSize: 20,
     enabled: tab === "activity",
+    extractItems: (r) => r.activities,
+    extractHasMore: (r) => r.hasMore,
+    extractLastId: (r) => r.lastActivityId,
   });
+  const activities = activitiesPagination.items;
+  const activitiesLoading = activitiesPagination.isLoading;
 
-  const { data: settlementHistory, isLoading: historyLoading } = useQuery({
+  const settlementsPagination = usePaginatedQuery({
     queryKey: ["settlementHistory", groupId],
-    queryFn: () => settlement.getSettlementHistory(groupId),
+    queryFn: (pageSize, lastId) => settlement.getSettlementHistory(groupId, pageSize, lastId),
+    pageSize: 20,
     enabled: tab === "activity" && activityFilter === "settlements",
+    extractItems: (r) => r.settlements,
+    extractHasMore: (r) => r.hasMore,
+    extractLastId: (r) => r.lastSettlementId,
   });
+  const settlementHistory = settlementsPagination.items;
+  const historyLoading = settlementsPagination.isLoading;
 
   const inviteMutation = useMutation({
     mutationFn: (username: string) => group.sendGroupInvitation(groupId, username),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
+      activitiesPagination.refresh();
       setSearchQuery("");
       setSearchResults([]);
       setInviteError(null);
@@ -128,9 +149,9 @@ export default function GroupDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
-      setOfflineName("");
+      activitiesPagination.refresh();
       setShowAddOffline(false);
+      setOfflineName("");
       setInviteError(null);
     },
     onError: (e: Error) => setInviteError(e.message),
@@ -152,12 +173,12 @@ export default function GroupDetailPage() {
     onSuccess: () => {
       setActionError(null);
       setDeleteExpenseId(null);
-      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["debts", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
+      expensesPagination.refresh();
+      activitiesPagination.refresh();
     },
     onError: (e: Error) => setActionError(e.message),
   });
@@ -578,12 +599,19 @@ export default function GroupDetailPage() {
               <AlertCircle className="h-10 w-10 text-red-400" />
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load expenses</p>
               <button
-                onClick={() => queryClient.invalidateQueries({ queryKey: ["expenses", groupId] })}
+                onClick={() => expensesPagination.refresh()}
                 className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
               >
                 Try Again
               </button>
             </div>
+          )}
+          {expensesPagination.hasMore && !expenseSearch && expenseCategoryFilter === "all" && (
+            <LoadMoreButton
+              onClick={expensesPagination.loadMore}
+              loading={expensesPagination.loadingMore}
+              hasMore={expensesPagination.hasMore}
+            />
           )}
           {deleteExpenseId && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -765,7 +793,8 @@ export default function GroupDetailPage() {
           </div>
 
           {activityFilter === "settlements" ? (
-            historyLoading ? (
+            <>
+            {historyLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
               </div>
@@ -803,12 +832,20 @@ export default function GroupDetailPage() {
                 <AlertCircle className="h-10 w-10 text-red-400" />
                 <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load settlement history</p>
               </div>
-            )
-          ) : activitiesLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
-            </div>
-          ) : activities && activities.length > 0 ? (
+            )}
+            <LoadMoreButton
+              onClick={settlementsPagination.loadMore}
+              loading={settlementsPagination.loadingMore}
+              hasMore={settlementsPagination.hasMore}
+            />
+            </>
+          ) : (
+            <>
+            {activitiesLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
+              </div>
+            ) : activities && activities.length > 0 ? (
             activities.map((a) => {
               const Icon = activityIcon(a.type);
               return (
@@ -840,12 +877,19 @@ export default function GroupDetailPage() {
               <AlertCircle className="h-10 w-10 text-red-400" />
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load activity</p>
               <button
-                onClick={() => queryClient.invalidateQueries({ queryKey: ["activities", groupId] })}
+                onClick={() => activitiesPagination.refresh()}
                 className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
               >
                 Try Again
               </button>
             </div>
+          )}
+          <LoadMoreButton
+            onClick={activitiesPagination.loadMore}
+            loading={activitiesPagination.loadingMore}
+            hasMore={activitiesPagination.hasMore}
+          />
+          </>
           )}
         </div>
       )}
@@ -898,7 +942,7 @@ export default function GroupDetailPage() {
 
           {showAddOffline && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3">
-              <p className="text-sm text-slate-600 dark:text-slate-400">Add someone who isn't on the app yet. They can claim their profile later.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Add someone who isn&apos;t on the app yet. They can claim their profile later.</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />

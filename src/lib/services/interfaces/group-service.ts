@@ -27,7 +27,7 @@ export interface GroupService {
   transferAdminRole(groupId: string, newAdminUid: string): Promise<void>;
   getUserGroups(): Promise<Group[]>;
   getGroupInfo(groupId: string): Promise<GroupInfo>;
-  getGroupActivities(groupId: string, pageSize?: number): Promise<Activity[]>;
+  getGroupActivities(groupId: string, pageSize?: number, lastActivityId?: string): Promise<{ activities: Activity[]; hasMore: boolean; lastActivityId: string | null }>;
   addOfflineMember(groupId: string, displayName: string): Promise<string>;
   claimOfflineMember(groupId: string, memberDocId: string): Promise<void>;
   linkOfflineMember(groupId: string, memberDocId: string, realUid: string): Promise<void>;

@@ -8,6 +8,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   writeBatch,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
@@ -276,7 +277,7 @@ export class FirebaseSettlementService implements SettlementService {
     return members;
   }
 
-  async getSettlementHistory(groupId: string): Promise<Settlement[]> {
+  async getSettlementHistory(groupId: string, pageSize: number = 50, lastSettlementId?: string): Promise<{ settlements: Settlement[]; hasMore: boolean; lastSettlementId: string | null }> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
     if (!groupId) throw new Error("Group ID is required");
@@ -285,13 +286,25 @@ export class FirebaseSettlementService implements SettlementService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    const snapshot = await getDocs(
-      firestoreQuery(
-        collection(groupRef, "settlements"),
-        orderBy("date", "desc"),
-        limit(50)
-      )
+    let q = firestoreQuery(
+      collection(groupRef, "settlements"),
+      orderBy("date", "desc"),
+      limit(pageSize)
     );
+
+    if (lastSettlementId) {
+      const lastDoc = await getDoc(doc(groupRef, "settlements", lastSettlementId));
+      if (lastDoc.exists()) {
+        q = firestoreQuery(
+          collection(groupRef, "settlements"),
+          orderBy("date", "desc"),
+          startAfter(lastDoc),
+          limit(pageSize)
+        );
+      }
+    }
+
+    const snapshot = await getDocs(q);
 
     const allUids = snapshot.docs.flatMap((d) => {
       const data = d.data() as Record<string, unknown>;
@@ -352,7 +365,11 @@ export class FirebaseSettlementService implements SettlementService {
       } as Settlement;
     });
 
-    return settlements;
+    return {
+      settlements,
+      hasMore: snapshot.size === pageSize,
+      lastSettlementId: snapshot.size > 0 ? snapshot.docs[snapshot.size - 1].id : null,
+    };
   }
 
   private async calculateSimplifiedDebts(groupId: string): Promise<Array<{ fromUid: string; toUid: string; amount: number }>> {
