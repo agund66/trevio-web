@@ -9,6 +9,11 @@ export class FirebaseAnalyticsService implements AnalyticsService {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
     if (!groupId) throw new Error("Group ID is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
     const expensesRef = collection(db, "groups", groupId, "expenses");
     const q = firestoreQuery(expensesRef, orderBy("date", "desc"), limit(500));
     const snapshot = await getDocs(q);

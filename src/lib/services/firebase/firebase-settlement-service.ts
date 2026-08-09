@@ -40,6 +40,9 @@ export class FirebaseSettlementService implements SettlementService {
       throw new Error("Settlement amount must be greater than 0");
     }
     if (params.fromUid === params.toUid) throw new Error("Cannot settle with yourself");
+    if (uid !== params.fromUid && uid !== params.toUid) {
+      throw new Error("You can only record settlements involving yourself");
+    }
 
     const groupRef = doc(db, "groups", params.groupId);
     const groupDoc = await getDoc(groupRef);
@@ -47,6 +50,14 @@ export class FirebaseSettlementService implements SettlementService {
 
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
+    const [fromMember, toMember] = await Promise.all([
+      getDoc(doc(groupRef, "members", params.fromUid)),
+      getDoc(doc(groupRef, "members", params.toUid)),
+    ]);
+    if (!fromMember.exists() || !toMember.exists()) {
+      throw new Error("Both parties must be group members");
+    }
 
     const rateToBase = await this.exchangeRateService.getRateToBase(params.currency);
     const amountInBase = Math.round((params.amount * rateToBase) * 100) / 100;

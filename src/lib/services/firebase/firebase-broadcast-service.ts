@@ -70,6 +70,7 @@ export class FirebaseBroadcastService implements BroadcastService {
   }
 
   async getAllBroadcasts(): Promise<BroadcastMessage[]> {
+    await this.requireSuperadmin();
     const snapshot = await getDocs(
       query(collection(db, "broadcasts"), orderBy("createdAt", "desc"), limit(100))
     );

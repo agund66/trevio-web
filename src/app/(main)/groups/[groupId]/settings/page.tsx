@@ -105,9 +105,55 @@ export default function GroupSettingsPage() {
         <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
-        <div className="flex flex-col items-center py-12 text-center">
-          <Settings className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Only group admins can access group settings.</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Group Settings</h1>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5 mb-6">
+          <div className="flex items-center gap-3">
+            <Settings className="h-5 w-5 text-slate-400" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">Only group admins can edit group settings. Contact an admin if you need changes.</p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-300">Leave Group</h2>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">You will no longer have access to this group&apos;s expenses and activity.</p>
+          </div>
+          {!showLeaveConfirm ? (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 dark:border-amber-700 px-4 py-2.5 text-sm font-semibold text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
+            >
+              <LogOut className="h-4 w-4" />
+              Leave Group
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Are you sure you want to leave this group?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => leaveMutation.mutate()}
+                  disabled={leaveMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {leaveMutation.isPending ? "Leaving..." : "Yes, Leave Group"}
+                </button>
+                <button
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -162,6 +162,9 @@ export class FirebaseExpenseService implements ExpenseService {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
     if (!params.groupId || !params.expenseId) throw new Error("Group ID and Expense ID are required");
+    if (params.amount !== undefined && params.amount <= 0) {
+      throw new Error("Amount must be greater than 0");
+    }
 
     const groupRef = doc(db, "groups", params.groupId);
     const expenseRef = doc(groupRef, "expenses", params.expenseId);

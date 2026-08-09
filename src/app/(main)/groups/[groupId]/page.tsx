@@ -680,7 +680,7 @@ export default function GroupDetailPage() {
                 const fromFirstName = d.fromName.split(" ")[0] || d.fromName;
                 const toFirstName = d.toName.split(" ")[0] || d.toName;
                 return (
-                  <div key={i} className={`flex items-center gap-3 rounded-2xl border p-4 flex-wrap sm:flex-nowrap ${isCurrentUserDebtor ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : isCurrentUserCreditor ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"}`}>
+                  <div key={`${d.fromUid}-${d.toUid}`} className={`flex items-center gap-3 rounded-2xl border p-4 flex-wrap sm:flex-nowrap ${isCurrentUserDebtor ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : isCurrentUserCreditor ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-900 dark:text-slate-100">
                         {isCurrentUserDebtor ? (

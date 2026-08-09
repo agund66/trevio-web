@@ -10,6 +10,39 @@ import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat, Receipt } from 
 import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem } from "@/lib/types";
 import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
 
+function evaluateMathExpression(tokens: string[]): number {
+  const output: (number | string)[] = [];
+  const operators: string[] = [];
+  const precedence: Record<string, number> = { "+": 1, "-": 1, "*": 2, "/": 2 };
+  for (const token of tokens) {
+    if (/^\d+\.?\d*$/.test(token)) {
+      output.push(parseFloat(token));
+    } else if (token in precedence) {
+      while (operators.length && precedence[operators[operators.length - 1]] >= precedence[token]) {
+        output.push(operators.pop()!);
+      }
+      operators.push(token);
+    }
+  }
+  while (operators.length) output.push(operators.pop()!);
+  const stack: number[] = [];
+  for (const item of output) {
+    if (typeof item === "number") {
+      stack.push(item);
+    } else {
+      const b = stack.pop() ?? 0;
+      const a = stack.pop() ?? 0;
+      switch (item) {
+        case "+": stack.push(a + b); break;
+        case "-": stack.push(a - b); break;
+        case "*": stack.push(a * b); break;
+        case "/": stack.push(b !== 0 ? a / b : 0); break;
+      }
+    }
+  }
+  return stack[0] ?? 0;
+}
+
 export default function AddExpensePage() {
   const params = useParams();
   const router = useRouter();
@@ -56,7 +89,11 @@ export default function AddExpensePage() {
     const cleaned = amount.replace(/[^0-9.+\-*/]/g, "");
     if (!cleaned) return 0;
     try {
-      const result = Function(`"use strict"; return (${cleaned})`)();
+      // Safe expression evaluator - only allows numbers and + - * / operators
+      const tokens = cleaned.match(/(\d+\.?\d*|[+\-*/])/g);
+      if (!tokens) return parseFloat(cleaned) || 0;
+      // Evaluate using shunting-yard approach (no Function() for security)
+      const result = evaluateMathExpression(tokens);
       return typeof result === "number" && isFinite(result) ? result : 0;
     } catch {
       return parseFloat(cleaned) || 0;
