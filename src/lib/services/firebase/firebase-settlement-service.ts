@@ -36,6 +36,9 @@ export class FirebaseSettlementService implements SettlementService {
     if (!params.groupId || !params.fromUid || !params.toUid || !params.amount) {
       throw new Error("Missing required fields");
     }
+    if (params.amount <= 0) {
+      throw new Error("Settlement amount must be greater than 0");
+    }
     if (params.fromUid === params.toUid) throw new Error("Cannot settle with yourself");
 
     const groupRef = doc(db, "groups", params.groupId);

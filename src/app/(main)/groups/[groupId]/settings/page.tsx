@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check } from "lucide-react";
+import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check, LogOut } from "lucide-react";
 
 export default function GroupSettingsPage() {
   const params = useParams();
@@ -22,6 +22,7 @@ export default function GroupSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const { data: groupInfo } = useQuery({
     queryKey: ["groupInfo", groupId],
@@ -70,6 +71,15 @@ export default function GroupSettingsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: () => group.deleteGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      router.push("/dashboard");
+    },
+    onError: (e: Error) => { setError(e.message); },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: () => group.leaveGroup(groupId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       router.push("/dashboard");
@@ -238,6 +248,44 @@ export default function GroupSettingsPage() {
             </div>
           )}
         </div>
+
+        {!isAdmin && (
+          <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-300">Leave Group</h2>
+              <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">You will no longer have access to this group&apos;s expenses and activity.</p>
+            </div>
+            {!showLeaveConfirm ? (
+              <button
+                onClick={() => setShowLeaveConfirm(true)}
+                className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 dark:border-amber-700 px-4 py-2.5 text-sm font-semibold text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
+              >
+                <LogOut className="h-4 w-4" />
+                Leave Group
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Are you sure you want to leave this group?</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => leaveMutation.mutate()}
+                    disabled={leaveMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {leaveMutation.isPending ? "Leaving..." : "Yes, Leave Group"}
+                  </button>
+                  <button
+                    onClick={() => setShowLeaveConfirm(false)}
+                    className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -43,6 +43,9 @@ export class FirebaseExpenseService implements ExpenseService {
     if (!params.groupId || !params.description || !params.amount || !params.paidBy) {
       throw new Error("Missing required fields");
     }
+    if (params.amount <= 0) {
+      throw new Error("Amount must be greater than 0");
+    }
 
     const groupRef = doc(db, "groups", params.groupId);
     const groupDoc = await getDoc(groupRef);

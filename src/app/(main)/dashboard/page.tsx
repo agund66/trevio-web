@@ -18,6 +18,8 @@ export default function DashboardPage() {
   const { data: groups, isLoading, error } = useQuery({
     queryKey: ["groups"],
     queryFn: () => group.getUserGroups(),
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const totalOwed = groups?.filter((g) => g.yourBalance > 0).reduce((sum, g) => sum + g.yourBalance, 0) ?? 0;

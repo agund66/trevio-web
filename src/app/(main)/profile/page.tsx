@@ -54,6 +54,10 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setUpiTouched(true);
     setPhoneTouched(true);
+    if (!displayName.trim()) {
+      setError("Display name cannot be empty");
+      return;
+    }
     if (!phoneValidation.valid) {
       setError(phoneValidation.error || "Invalid phone number");
       return;
@@ -288,7 +292,7 @@ export default function ProfilePage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !phoneValidation.valid}
+              disabled={saving || !phoneValidation.valid || !displayName.trim()}
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check className="h-4 w-4" />
