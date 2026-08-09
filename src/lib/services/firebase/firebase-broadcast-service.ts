@@ -14,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { BroadcastService } from "../interfaces/broadcast-service";
-import type { BroadcastMessage } from "../../types";
+import type { BroadcastMessage, BroadcastPriority, BroadcastTargetType } from "../../types";
 
 function toMillis(value: unknown): number {
   if (value instanceof Timestamp) return value.toMillis();
@@ -44,8 +44,8 @@ export class FirebaseBroadcastService implements BroadcastService {
   async createBroadcast(data: {
     title: string;
     htmlContent: string;
-    priority: string;
-    targetType: string;
+    priority: BroadcastPriority;
+    targetType: BroadcastTargetType;
     targetUids: string[];
     startAt: number;
     endAt: number | null;

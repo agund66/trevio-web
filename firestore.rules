@@ -162,14 +162,19 @@ service cloud.firestore {
 
       // ─── Activities (subcollection) ─────────────────────────────
       // Only active group members can read activities.
-      // Any authenticated user can create activities (needed for group creation
-      // and join flows where membership is established in the same batch).
-      // Service code validates membership before creating activities.
-      // Activities are immutable. Admin can delete (for group deletion).
+      // Activities are immutable. Active members can read.
+      // Create: must be auth'd AND (active member OR group creator).
+      // The creator OR condition handles group creation/join batches where
+      // membership is established in the same batch as the activity.
+      // Admin can delete (for group deletion).
       match /activities/{activityId} {
         allow read: if request.auth != null
           && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow create: if request.auth != null;
+        allow create: if request.auth != null
+          && (
+            get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active"
+            || get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid
+          );
         allow update: if false; // activities are immutable
         allow delete: if request.auth != null
           && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == "admin";
