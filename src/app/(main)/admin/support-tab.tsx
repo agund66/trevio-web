@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils/date";
 import type {
   SupportTicket,
   SupportStatus,
@@ -70,18 +71,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function formatTime(ts: number): string {
-  if (!ts) return "";
-  const date = new Date(ts);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatRelativeTime(ts);
 }
 
 function formatDateTime(ts: number): string {

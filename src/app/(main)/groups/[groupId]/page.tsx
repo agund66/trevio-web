@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,14 +8,17 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, CloudOff, BarChart3, Plane } from "lucide-react";
-import type { UserSearchResult, Activity, Settlement, SplitType } from "@/lib/types";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, UserX, CloudOff, BarChart3, Plane, Home, CalendarDays, TrendingUp } from "lucide-react";
+import type { UserSearchResult, Activity, Settlement, SplitType, Expense, TransactionType } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { TripView } from "@/components/trip-view";
 import { Avatar } from "@/components/avatar";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { computeGamification } from "@/lib/utils/household-analytics";
+import { formatRelativeTime, formatShortDate } from "@/lib/utils/date";
+import { DailyTab, MonthlyReportTab, EditEntrySheet, EntryDetailSheet } from "@/components/household";
 
 const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
   food: { icon: Utensils, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20" },
@@ -40,9 +43,9 @@ export default function GroupDetailPage() {
   const groupId = params.groupId as string;
   const { expense, settlement, group, user: userService } = useServices();
   const { user: currentUser } = useAuth();
-  const { formatBase, formatOriginal, formatDate: formatDateFn } = useCurrencyDisplay();
+  const { formatBase, formatOriginal, formatDate: formatDateFn, userCurrency, rates, convertToUserCurrency, convertBase, isLoading: ratesLoading } = useCurrencyDisplay();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"expenses" | "balances" | "analytics" | "trip" | "members" | "activity">("expenses");
+  const [tab, setTab] = useState<"expenses" | "balances" | "analytics" | "trip" | "members" | "activity" | "today" | "monthly">("expenses");
   const [activityFilter, setActivityFilter] = useState<"all" | "settlements">("all");
   const [showInvite, setShowInvite] = useState(false);
   const [showAddOffline, setShowAddOffline] = useState(false);
@@ -57,11 +60,33 @@ export default function GroupDetailPage() {
   const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>("all");
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<number>(Date.now());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [householdQuickSaving, setHouseholdQuickSaving] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Expense | null>(null);
+  const [viewingEntry, setViewingEntry] = useState<Expense | null>(null);
+  const [removingMember, setRemovingMember] = useState<{ uid: string; name: string } | null>(null);
 
   const { data: groupInfo, isLoading: groupInfoLoading, error: groupInfoError } = useQuery({
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
   });
+
+  const isHousehold = groupInfo?.template === "household";
+
+  // Switch to "today" tab when a household group loads
+  const initialTabSwitchDone = useRef(false);
+  useEffect(() => {
+    // Reset ref when groupId changes (navigating to a different group)
+    initialTabSwitchDone.current = false;
+  }, [groupId]);
+  useEffect(() => {
+    if (isHousehold && !initialTabSwitchDone.current && tab === "expenses") {
+      setTab("today");
+      initialTabSwitchDone.current = true;
+    }
+  }, [isHousehold, tab]);
 
   const expensesPagination = usePaginatedQuery({
     queryKey: ["expenses", groupId],
@@ -183,6 +208,58 @@ export default function GroupDetailPage() {
     onError: (e: Error) => setActionError(e.message),
   });
 
+  const removeMemberMutation = useMutation({
+    mutationFn: (memberUid: string) => group.removeMember(groupId, memberUid),
+    onSuccess: () => {
+      setRemovingMember(null);
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
+      activitiesPagination.softRefresh();
+    },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const allExpenses: Expense[] = expensesData?.expenses ?? [];
+  const householdMembers = members ?? [];
+
+  // Convert all household expenses to the viewer's currency for display & calculation.
+  // When rates aren't loaded yet, fall back to INR to avoid showing wrong amounts with wrong symbols.
+  const displayCurrency = rates ? userCurrency : "INR";
+  const convertedExpenses = useMemo(
+    () => rates
+      ? allExpenses.map((e) => ({ ...e, amount: convertToUserCurrency(e.amount, e.currency || "INR") }))
+      : allExpenses,
+    [allExpenses, userCurrency, rates]
+  );
+
+  // Budget is stored in INR (base) on the group; convert to user's currency for display.
+  // When rates aren't loaded, keep as raw INR.
+  const budgetInUserCurrency = groupInfo?.monthlyBudget != null
+    ? (rates ? convertBase(groupInfo.monthlyBudget) : groupInfo.monthlyBudget)
+    : undefined;
+
+  const monthlySpent = useMemo(() => {
+    if (!convertedExpenses || convertedExpenses.length === 0) return 0;
+    return convertedExpenses
+      .filter((e) => {
+        if (!e.date) return false;
+        const d = new Date(e.date);
+        return (
+          d.getFullYear() === selectedYear &&
+          d.getMonth() === selectedMonth &&
+          (e.transactionType ?? "expense") === "expense"
+        );
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+  }, [convertedExpenses, selectedYear, selectedMonth]);
+
+  const gamification = useMemo(
+    () => computeGamification(convertedExpenses, householdMembers, budgetInUserCurrency, monthlySpent, displayCurrency),
+    [convertedExpenses, householdMembers, budgetInUserCurrency, monthlySpent, displayCurrency]
+  );
+
   const isAdmin = currentUser?.uid === groupInfo?.createdBy ||
     members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
 
@@ -202,9 +279,10 @@ export default function GroupDetailPage() {
 
   const copyInviteCode = () => {
     if (groupInfo?.inviteCode) {
-      navigator.clipboard.writeText(groupInfo.inviteCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard?.writeText(groupInfo.inviteCode).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {});
     }
   };
 
@@ -220,9 +298,10 @@ export default function GroupDetailPage() {
         });
       } catch {}
     } else {
-      navigator.clipboard.writeText(url);
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      navigator.clipboard?.writeText(url).then(() => {
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }).catch(() => {});
     }
   };
 
@@ -242,20 +321,7 @@ export default function GroupDetailPage() {
     if (link) window.location.href = link;
   };
 
-  const formatActivityTime = (createdAt: number) => {
-    if (!createdAt) return "";
-    const date = new Date(createdAt);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return formatDateFn(createdAt);
-  };
+  const formatActivityTime = (createdAt: number) => formatRelativeTime(createdAt, displayCurrency);
 
   const filteredExpenses = useMemo(() => {
     if (!expensesData?.expenses) return [];
@@ -271,7 +337,7 @@ export default function GroupDetailPage() {
     const header = "Date,Description,Amount,Currency,Category,Paid By,Split Type,Note\n";
     const rows = expensesData.expenses.map((e) => {
       const payer = members?.find((m) => m.uid === e.paidBy)?.displayName || "Unknown";
-      const date = e.date ? new Date(e.date).toLocaleDateString() : "";
+      const date = e.date ? formatShortDate(e.date) : "";
       const desc = `"${e.description.replace(/"/g, '\\"')}"`;
       const note = e.note ? `"${e.note.replace(/"/g, '\\"')}"` : "";
       return `${date},${desc},${e.amount},${e.currency},${e.category},${payer},${e.splitType},${note}`;
@@ -291,9 +357,13 @@ export default function GroupDetailPage() {
       case "expense_added": return Receipt;
       case "expense_updated": return Receipt;
       case "expense_deleted": return Receipt;
+      case "income_added": return TrendingUp;
+      case "income_updated": return TrendingUp;
+      case "income_deleted": return TrendingUp;
       case "settlement_added": return Wallet;
       case "member_joined": return UserPlus;
       case "member_left": return Users;
+      case "member_removed": return UserX;
       case "group_created": return ActivityIcon;
       default: return ActivityIcon;
     }
@@ -368,7 +438,7 @@ export default function GroupDetailPage() {
             title={groupInfo?.archived ? "Unarchive group to add expenses" : ""}
           >
             <Plus className="h-4 w-4" />
-            Add Expense
+            {isHousehold ? "Add Entry" : "Add Expense"}
           </button>
         </div>
       </div>
@@ -412,14 +482,23 @@ export default function GroupDetailPage() {
       </div>
 
       <div className="flex gap-2 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
-        {([
-          { key: "expenses", label: "Expenses", icon: Receipt },
-          { key: "balances", label: "Balances", icon: Wallet },
-          { key: "analytics", label: "Insights", icon: BarChart3 },
-          ...(groupInfo?.template === "trip" ? [{ key: "trip" as const, label: "Trip", icon: Plane }] : []),
-          { key: "members", label: "Members", icon: Users },
-          { key: "activity", label: "Activity", icon: ActivityIcon },
-        ] as const).map((t) => (
+        {(isHousehold
+          ? [
+              { key: "today" as const, label: "Today", icon: Home },
+              { key: "monthly" as const, label: "Monthly", icon: CalendarDays },
+              { key: "analytics" as const, label: "Insights", icon: BarChart3 },
+              { key: "members" as const, label: "Members", icon: Users },
+              { key: "activity" as const, label: "Activity", icon: ActivityIcon },
+            ]
+          : [
+              { key: "expenses" as const, label: "Expenses", icon: Receipt },
+              { key: "balances" as const, label: "Balances", icon: Wallet },
+              { key: "analytics" as const, label: "Insights", icon: BarChart3 },
+              ...(groupInfo?.template === "trip" ? [{ key: "trip" as const, label: "Trip", icon: Plane }] : []),
+              { key: "members" as const, label: "Members", icon: Users },
+              { key: "activity" as const, label: "Activity", icon: ActivityIcon },
+            ]
+        ).map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -432,6 +511,124 @@ export default function GroupDetailPage() {
           </button>
         ))}
       </div>
+
+      {tab === "today" && isHousehold && (
+        <DailyTab
+          expenses={convertedExpenses}
+          members={householdMembers}
+          selectedDate={selectedDate}
+          monthlyBudget={budgetInUserCurrency}
+          userCurrency={displayCurrency}
+          onPreviousDay={() => {
+            const prev = new Date(selectedDate);
+            prev.setDate(prev.getDate() - 1);
+            setSelectedDate(prev.getTime());
+            setViewingEntry(null);
+            setEditingEntry(null);
+          }}
+          onNextDay={() => {
+            const next = new Date(selectedDate);
+            next.setDate(next.getDate() + 1);
+            setSelectedDate(next.getTime());
+            setViewingEntry(null);
+            setEditingEntry(null);
+          }}
+          onGoToToday={() => {
+            setSelectedDate(Date.now());
+            setViewingEntry(null);
+            setEditingEntry(null);
+          }}
+          onViewEntry={(entry) => setViewingEntry(entry)}
+          onEditEntry={(entry) => setEditingEntry(entry)}
+          onDeleteEntry={(expenseId) => deleteExpenseMutation.mutate(expenseId)}
+          isSaving={householdQuickSaving}
+        />
+      )}
+
+      {tab === "monthly" && isHousehold && (
+        <MonthlyReportTab
+          expenses={convertedExpenses}
+          members={householdMembers}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          monthlyBudget={budgetInUserCurrency}
+          userCurrency={displayCurrency}
+          gamificationInsight={gamification?.insightMessage}
+          onPreviousMonth={() => {
+            const prev = new Date(selectedYear, selectedMonth, 1);
+            prev.setMonth(prev.getMonth() - 1);
+            setSelectedYear(prev.getFullYear());
+            setSelectedMonth(prev.getMonth());
+          }}
+          onNextMonth={() => {
+            const next = new Date(selectedYear, selectedMonth, 1);
+            next.setMonth(next.getMonth() + 1);
+            setSelectedYear(next.getFullYear());
+            setSelectedMonth(next.getMonth());
+          }}
+        />
+      )}
+
+      {editingEntry && (
+        <EditEntrySheet
+          entry={editingEntry}
+          members={householdMembers}
+          isSaving={householdQuickSaving}
+          userCurrency={displayCurrency}
+          onUpdate={(expenseId: string, amount: number, description: string, category: string, paidBy: string, date: number, note: string, transactionType: TransactionType) => {
+            setHouseholdQuickSaving(true);
+            expense.updateExpense({
+              groupId, expenseId, description, amount,
+              currency: displayCurrency,
+              paidBy, splitType: "equal", splits: {},
+              memberUids: members?.filter((m) => m.status === "active").map((m) => m.uid) ?? [],
+              category, note, transactionType,
+            }).then(() => {
+              setHouseholdQuickSaving(false);
+              setEditingEntry(null);
+              expensesPagination.softRefresh();
+              queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+              queryClient.invalidateQueries({ queryKey: ["groups"] });
+            }).catch((e) => {
+              setHouseholdQuickSaving(false);
+              setActionError(e.message);
+            });
+          }}
+          onDelete={(expenseId: string) => {
+            setHouseholdQuickSaving(true);
+            expense.deleteExpense(groupId, expenseId).then(() => {
+              setHouseholdQuickSaving(false);
+              setEditingEntry(null);
+              expensesPagination.softRefresh();
+              queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+              queryClient.invalidateQueries({ queryKey: ["groups"] });
+            }).catch((e) => {
+              setHouseholdQuickSaving(false);
+              setActionError(e.message);
+            });
+          }}
+          onClose={() => setEditingEntry(null)}
+        />
+      )}
+
+      {viewingEntry && (
+        <EntryDetailSheet
+          entry={viewingEntry}
+          members={householdMembers}
+          userCurrency={displayCurrency}
+          onEdit={() => {
+            const entry = viewingEntry;
+            setViewingEntry(null);
+            setEditingEntry(entry);
+          }}
+          onDelete={() => {
+            const expenseId = viewingEntry.expenseId;
+            setViewingEntry(null);
+            deleteExpenseMutation.mutate(expenseId);
+          }}
+          onClose={() => setViewingEntry(null)}
+        />
+      )}
 
       {tab === "expenses" && (
         <div className="space-y-3">
@@ -636,6 +833,34 @@ export default function GroupDetailPage() {
               </div>
             </div>
           )}
+          {removingMember && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4" onClick={() => setRemovingMember(null)}>
+              <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-800 p-6" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Member</h3>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                  Remove {removingMember.name} from this group? If they have any entries, they&apos;ll be converted to an offline member to preserve transaction history.
+                </p>
+                {removeMemberMutation.isError && (
+                  <p className="mt-2 text-sm text-red-500 dark:text-red-400">{removeMemberMutation.error instanceof Error ? removeMemberMutation.error.message : "Failed to remove member"}</p>
+                )}
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => setRemovingMember(null)}
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => removeMemberMutation.mutate(removingMember.uid)}
+                    disabled={removeMemberMutation.isPending}
+                    className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
+                  >
+                    {removeMemberMutation.isPending ? "Removing..." : "Remove"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -747,16 +972,18 @@ export default function GroupDetailPage() {
                       <Clock className="h-3 w-3" />
                       pending
                     </span>
-                  ) : m.balance > 0.01 ? (
-                    <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-1 text-sm font-semibold text-green-600 dark:text-green-400">
-                      {isMe ? "you'll get" : "gets"} {formatBase(m.balance)}
-                    </span>
-                  ) : m.balance < -0.01 ? (
-                    <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-1 text-sm font-semibold text-red-500 dark:text-red-400">
-                      {isMe ? "you'll pay" : "owes"} {formatBase(Math.abs(m.balance))}
-                    </span>
-                  ) : (
-                    <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400 dark:text-slate-500">settled</span>
+                  ) : !isHousehold && (
+                    m.balance > 0.01 ? (
+                      <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-1 text-sm font-semibold text-green-600 dark:text-green-400">
+                        {isMe ? "you'll get" : "gets"} {formatBase(m.balance)}
+                      </span>
+                    ) : m.balance < -0.01 ? (
+                      <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-1 text-sm font-semibold text-red-500 dark:text-red-400">
+                        {isMe ? "you'll pay" : "owes"} {formatBase(Math.abs(m.balance))}
+                      </span>
+                    ) : (
+                      <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400 dark:text-slate-500">settled</span>
+                    )
                   )}
                 </Link>
                 );
@@ -780,16 +1007,18 @@ export default function GroupDetailPage() {
             >
               All
             </button>
-            <button
-              onClick={() => setActivityFilter("settlements")}
-              className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
-                activityFilter === "settlements"
-                  ? "bg-trevio-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-              }`}
-            >
-              Settlements
-            </button>
+            {!isHousehold && (
+              <button
+                onClick={() => setActivityFilter("settlements")}
+                className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                  activityFilter === "settlements"
+                    ? "bg-trevio-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                Settlements
+              </button>
+            )}
           </div>
 
           {activityFilter === "settlements" ? (
@@ -1028,8 +1257,12 @@ export default function GroupDetailPage() {
                         <CloudOff className="h-3 w-3" />
                         offline
                       </span>
-                      {m.role === "admin" && (
-                        <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                      {isHousehold ? (
+                        <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">Member</span>
+                      ) : (
+                        m.role === "admin" && (
+                          <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                        )
                       )}
                     </>
                   ) : (
@@ -1039,14 +1272,33 @@ export default function GroupDetailPage() {
                         <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
                       </div>
-                      {m.status === "pending" && (
-                        <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                          <Clock className="h-3 w-3" />
-                          pending
-                        </span>
+                      {isHousehold ? (
+                        <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">Member</span>
+                      ) : (
+                        <>
+                          {m.status === "pending" && (
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                              <Clock className="h-3 w-3" />
+                              pending
+                            </span>
+                          )}
+                          {m.role === "admin" && (
+                            <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                          )}
+                        </>
                       )}
-                      {m.role === "admin" && (
-                        <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                      {isAdmin && m.uid !== currentUser?.uid && m.role !== "admin" && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setRemovingMember({ uid: m.uid, name: m.displayName });
+                          }}
+                          className="ml-2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400"
+                          title="Remove member"
+                        >
+                          <UserX className="h-4 w-4" />
+                        </button>
                       )}
                     </Link>
                   )}

@@ -1,6 +1,7 @@
 export type SplitType = "equal" | "exact" | "percent" | "shares" | "itemized";
-export type GroupTemplate = "trip" | "turf" | "casual";
+export type GroupTemplate = "trip" | "turf" | "casual" | "household";
 export type SettlementMethod = "upi" | "cash" | "other";
+export type TransactionType = "expense" | "income";
 
 export type UserRole = "user" | "superadmin";
 
@@ -34,6 +35,8 @@ export interface Group {
   yourBalance: number;
   yourRole: string;
   archived: boolean;
+  monthlyBudget?: number;
+  budgetCategories?: Record<string, number>;
 }
 
 export interface Member {
@@ -82,6 +85,7 @@ export interface Expense {
   note?: string;
   recurring?: RecurringConfig;
   itemizedData?: ItemizedSplitData;
+  transactionType?: TransactionType;
 }
 
 export type RecurringFrequency = "weekly" | "monthly";
@@ -331,4 +335,69 @@ export interface HelpArticle {
   createdAt: number;
   updatedAt: number;
   createdBy: string;
+}
+
+// ─── Household Analytics ─────────────────────────────────────────
+
+export interface DailySummary {
+  date: number;
+  dateLabel: string;
+  totalSpent: number;
+  totalReceived: number;
+  netAmount: number;
+  entryCount: number;
+  entries: Expense[];
+}
+
+export interface MemberContribution {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  totalSpent: number;
+  totalReceived: number;
+  entryCount: number;
+  spentPercentage: number;
+  rank: number;
+}
+
+export interface DailyTrend {
+  day: number;
+  date: number;
+  totalSpent: number;
+  totalReceived: number;
+}
+
+export interface MonthComparison {
+  lastMonthSpent: number;
+  spentChange: number;
+  spentChangePercent: number;
+  lastMonthReceived: number;
+  receivedChange: number;
+}
+
+export interface MonthlyReport {
+  month: string;
+  monthLabel: string;
+  totalSpent: number;
+  totalReceived: number;
+  netAmount: number;
+  entryCount: number;
+  spentByCategory: CategoryBreakdown[];
+  receivedByCategory: CategoryBreakdown[];
+  memberContributions: MemberContribution[];
+  dailyTrend: DailyTrend[];
+  budget?: number;
+  budgetProgress: number;
+  budgetRemaining: number;
+  comparisonWithLastMonth?: MonthComparison;
+}
+
+export interface HouseholdGamification {
+  loggingStreak: number;
+  streakStartDate?: number;
+  monthlyBadge?: string;
+  participationToday: number;
+  membersLoggedToday: number;
+  totalMembers: number;
+  insightMessage?: string;
 }

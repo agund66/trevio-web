@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check, LogOut } from "lucide-react";
+import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
+import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check, LogOut, Wallet } from "lucide-react";
 
 export default function GroupSettingsPage() {
   const params = useParams();
@@ -13,6 +15,7 @@ export default function GroupSettingsPage() {
   const groupId = params.groupId as string;
   const { group, settlement } = useServices();
   const { user: currentUser } = useAuth();
+  const { userCurrency, rates, convertBase, formatBase } = useCurrencyDisplay();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
@@ -23,6 +26,15 @@ export default function GroupSettingsPage() {
   const [transferTarget, setTransferTarget] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [budget, setBudget] = useState("");
+  const [budgetLoaded, setBudgetLoaded] = useState(false);
+  const successTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
 
   const { data: groupInfo } = useQuery({
     queryKey: ["groupInfo", groupId],
@@ -43,6 +55,15 @@ export default function GroupSettingsPage() {
     setLoaded(true);
   }
 
+  if (groupInfo && !budgetLoaded) {
+    // Budget is stored in INR (base); convert to user's currency for display
+    const displayBudget = groupInfo.monthlyBudget != null ? String(convertBase(groupInfo.monthlyBudget)) : "";
+    setBudget(displayBudget);
+    setBudgetLoaded(true);
+  }
+
+  const isHousehold = groupInfo?.template === "household";
+
   const updateMutation = useMutation({
     mutationFn: () => group.updateGroup(groupId, name, description),
     onSuccess: () => {
@@ -50,7 +71,36 @@ export default function GroupSettingsPage() {
       setSuccess("Group settings updated");
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      setTimeout(() => setSuccess(null), 3000);
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (e: Error) => { setError(e.message); setSuccess(null); },
+  });
+
+  const updateBudgetMutation = useMutation({
+    mutationFn: () => {
+      const budgetNum = budget.trim() ? parseFloat(budget) : null;
+      // Only call updateGroupBudget if budget is empty (to clear it) or a positive value
+      if (budgetNum !== null && (isNaN(budgetNum) || budgetNum <= 0)) {
+        throw new Error("Budget must be a positive number");
+      }
+      // Block saving if user has non-INR currency and rates haven't loaded yet
+      if (budgetNum !== null && userCurrency !== "INR" && !rates) {
+        throw new Error("Loading exchange rates... Please wait a moment and try again.");
+      }
+      // Convert from user's currency to INR (base) for storage
+      const budgetInBase = budgetNum !== null && rates
+        ? convertCurrency(budgetNum, userCurrency, "INR", rates)
+        : budgetNum;
+      return group.updateGroupBudget(groupId, budgetInBase, null);
+    },
+    onSuccess: () => {
+      setError(null);
+      setSuccess("Budget updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSuccess(null), 3000);
     },
     onError: (e: Error) => { setError(e.message); setSuccess(null); },
   });
@@ -64,7 +114,8 @@ export default function GroupSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
-      setTimeout(() => setSuccess(null), 3000);
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSuccess(null), 3000);
     },
     onError: (e: Error) => { setError(e.message); setSuccess(null); },
   });
@@ -214,6 +265,47 @@ export default function GroupSettingsPage() {
           </button>
         </div>
 
+        {isHousehold && (
+          <div className="rounded-2xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10 p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Monthly Budget</h2>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Set a monthly budget to track spending progress. Leave empty to remove the budget.</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Monthly Budget Amount ({userCurrency})</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                  {getCurrencySymbol(userCurrency)}
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder="e.g., 50000"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+              {groupInfo?.monthlyBudget != null && groupInfo.monthlyBudget > 0 && (
+                <p className="mt-1.5 text-xs text-teal-600 dark:text-teal-400">
+                  Current budget: {formatBase(groupInfo.monthlyBudget)}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => updateBudgetMutation.mutate()}
+              disabled={updateBudgetMutation.isPending}
+              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
+            >
+              {updateBudgetMutation.isPending ? "Saving..." : "Save Budget"}
+            </button>
+          </div>
+        )}
+
+        {!isHousehold && (
+        <>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Transfer Admin Role</h2>
@@ -294,6 +386,8 @@ export default function GroupSettingsPage() {
             </div>
           )}
         </div>
+        </>
+        )}
 
         {!isAdmin && (
           <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5 space-y-4">

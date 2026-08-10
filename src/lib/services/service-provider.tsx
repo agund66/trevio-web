@@ -25,6 +25,7 @@ import { FirebaseBroadcastService } from "./firebase/firebase-broadcast-service"
 import { FirebaseAnalyticsService } from "./firebase/firebase-analytics-service";
 import { FirebaseTripService } from "./firebase/firebase-trip-service";
 import { FirebaseSupportService } from "./firebase/firebase-support-service";
+import { withNetworkErrorMapping } from "@/lib/utils/error-mapper";
 
 interface Services {
   auth: AuthService;
@@ -42,18 +43,18 @@ interface Services {
 }
 
 const firebaseServices: Services = {
-  auth: new FirebaseAuthService(),
-  user: new FirebaseUserService(),
-  group: new FirebaseGroupService(),
-  expense: new FirebaseExpenseService(),
-  settlement: new FirebaseSettlementService(),
-  notification: new FirebaseNotificationService(),
-  exchangeRate: new FirebaseExchangeRateService(),
-  admin: new FirebaseAdminService(),
-  broadcast: new FirebaseBroadcastService(),
-  analytics: new FirebaseAnalyticsService(),
-  trip: new FirebaseTripService(),
-  support: new FirebaseSupportService(),
+  auth: withNetworkErrorMapping(new FirebaseAuthService()),
+  user: withNetworkErrorMapping(new FirebaseUserService()),
+  group: withNetworkErrorMapping(new FirebaseGroupService()),
+  expense: withNetworkErrorMapping(new FirebaseExpenseService()),
+  settlement: withNetworkErrorMapping(new FirebaseSettlementService()),
+  notification: withNetworkErrorMapping(new FirebaseNotificationService()),
+  exchangeRate: withNetworkErrorMapping(new FirebaseExchangeRateService()),
+  admin: withNetworkErrorMapping(new FirebaseAdminService()),
+  broadcast: withNetworkErrorMapping(new FirebaseBroadcastService()),
+  analytics: withNetworkErrorMapping(new FirebaseAnalyticsService()),
+  trip: withNetworkErrorMapping(new FirebaseTripService()),
+  support: withNetworkErrorMapping(new FirebaseSupportService()),
 };
 
 const ServiceContext = createContext<Services>(firebaseServices);

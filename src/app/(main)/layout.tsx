@@ -12,6 +12,7 @@ import { Home, Bell, User, LogOut, Users, Shield, Moon, Sun } from "lucide-react
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { useFcmNotifications } from "@/lib/hooks/use-fcm-notifications";
+import { OfflineBanner } from "@/components/offline-banner";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut, refreshUser } = useAuth();
@@ -117,6 +118,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto pb-16 md:pb-0 bg-slate-50 dark:bg-slate-950">
+        <OfflineBanner />
         {children}
 
         {/* Bottom navigation - mobile */}

@@ -6,9 +6,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat, Receipt } from "lucide-react";
-import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem } from "@/lib/types";
+import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat, Receipt, TrendingDown, TrendingUp } from "lucide-react";
+import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem, TransactionType } from "@/lib/types";
 import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
+import { getCategories, getCategoryLabel } from "@/lib/utils/household-categories";
+import { getCurrencySymbol } from "@/lib/utils/currency";
+import { formatDateToISO } from "@/lib/utils/date";
 
 function evaluateMathExpression(tokens: string[]): number {
   const output: (number | string)[] = [];
@@ -58,13 +61,15 @@ export default function AddExpensePage() {
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [paidByUid, setPaidByUid] = useState("");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
-  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [expenseDate, setExpenseDate] = useState(() => formatDateToISO(Date.now()));
   const [excludedMembers, setExcludedMembers] = useState<Set<string>>(new Set());
   const [saveAndAddAnother, setSaveAndAddAnother] = useState(false);
   const [note, setNote] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringFreq, setRecurringFreq] = useState<RecurringFrequency>("monthly");
   const [itemizedData, setItemizedData] = useState<ItemizedSplitData>({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
+  const [transactionType, setTransactionType] = useState<TransactionType>("expense");
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   const { data: members } = useQuery({
@@ -76,6 +81,8 @@ export default function AddExpensePage() {
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
   });
+
+  const isHousehold = groupInfo?.template === "household";
 
   const activeMembers = useMemo(
     () => members?.filter((m) => m.status === "active") ?? [],
@@ -123,10 +130,7 @@ export default function AddExpensePage() {
     return null;
   }, [splitType, splitValues, includedMembers, numericAmount, currency]);
 
-  const currencySymbol = (curr: string) => {
-    const symbols: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£", JPY: "¥", AUD: "A$", CAD: "C$", SGD: "S$", AED: "د.إ" };
-    return symbols[curr] || curr;
-  };
+  const currencySymbol = (curr: string) => getCurrencySymbol(curr) || curr;
 
   const isSplitValid = useMemo(() => {
     if (splitType === "equal") return includedMembers.length > 0;
@@ -166,15 +170,20 @@ export default function AddExpensePage() {
     setSplitType("equal");
     setSplitValues({});
     setExcludedMembers(new Set());
-    setExpenseDate(new Date().toISOString().split("T")[0]);
+    setExpenseDate(formatDateToISO(Date.now()));
     setNote("");
     setIsRecurring(false);
     setItemizedData({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
+    setTransactionType("expense");
   };
 
   const addMutation = useMutation({
-    mutationFn: () =>
-      expense.addExpense({
+    mutationFn: () => {
+      const dateMs = new Date(expenseDate).getTime();
+      if (isNaN(dateMs)) {
+        throw new Error("Please select a valid date");
+      }
+      return expense.addExpense({
         groupId,
         description,
         amount: numericAmount,
@@ -184,11 +193,13 @@ export default function AddExpensePage() {
         splits: buildSplits(),
         memberUids: includedMembers.map((m) => m.uid),
         category,
-        date: new Date(expenseDate).getTime(),
+        date: dateMs,
         note: note.trim() || undefined,
         recurring: isRecurring ? { frequency: recurringFreq } : undefined,
         itemizedData: splitType === "itemized" ? itemizedData : undefined,
-      }),
+        transactionType: isHousehold ? transactionType : undefined,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
@@ -205,7 +216,19 @@ export default function AddExpensePage() {
     },
   });
 
-  const categories = ["food", "transport", "shopping", "turf", "accommodation", "other"];
+  const handleSave = () => {
+    const dateMs = new Date(expenseDate).getTime();
+    if (isNaN(dateMs)) {
+      setError("Please select a valid date");
+      return;
+    }
+    setError(null);
+    addMutation.mutate();
+  };
+
+  const categories = isHousehold
+    ? getCategories(transactionType === "income").map((c) => c.key)
+    : ["food", "transport", "shopping", "turf", "accommodation", "other"];
   const splitTypes: SplitType[] = ["equal", "exact", "percent", "shares", "itemized"];
 
   const toggleExclude = (uid: string) => {
@@ -244,7 +267,7 @@ export default function AddExpensePage() {
         Back
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add Expense</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{isHousehold ? "Add Entry" : "Add Expense"}</h1>
 
       <div className="space-y-5">
         <div>
@@ -292,13 +315,50 @@ export default function AddExpensePage() {
           </div>
         </div>
 
+        {isHousehold && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Transaction Type</label>
+            <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <button
+                onClick={() => {
+                  setTransactionType("expense");
+                  setCategory(getCategories(false)[0]?.key ?? "other");
+                }}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition ${
+                  transactionType === "expense"
+                    ? "bg-red-500 text-white"
+                    : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
+              >
+                <TrendingDown className="h-4 w-4" />
+                Spent
+              </button>
+              <button
+                onClick={() => {
+                  setTransactionType("income");
+                  setCategory(getCategories(true)[0]?.key ?? "other_income");
+                }}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition ${
+                  transactionType === "income"
+                    ? "bg-green-500 text-white"
+                    : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
+              >
+                <TrendingUp className="h-4 w-4" />
+                Received
+              </button>
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g., Dinner at restaurant"
+            maxLength={500}
+            placeholder={isHousehold ? "e.g., Groceries from Big Bazaar" : "e.g., Dinner at restaurant"}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
         </div>
@@ -311,7 +371,7 @@ export default function AddExpensePage() {
               type="date"
               value={expenseDate}
               onChange={(e) => setExpenseDate(e.target.value)}
-              max={new Date().toISOString().split("T")[0]}
+              max={formatDateToISO(Date.now())}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-10 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
@@ -324,11 +384,11 @@ export default function AddExpensePage() {
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`rounded-xl px-3 py-1.5 text-sm font-medium capitalize transition ${
+                className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
                   category === cat ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
-                {cat}
+                {isHousehold ? getCategoryLabel(cat) : cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
             ))}
           </div>
@@ -365,6 +425,8 @@ export default function AddExpensePage() {
           </div>
         ) : null}
 
+        {!isHousehold && (
+        <>
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Split method</label>
           <div className="flex flex-wrap gap-2">
@@ -498,6 +560,7 @@ export default function AddExpensePage() {
             )}
           </div>
         )}
+        </>)}
 
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
@@ -507,6 +570,7 @@ export default function AddExpensePage() {
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            maxLength={500}
             placeholder="Add a note about this expense..."
             rows={2}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
@@ -546,8 +610,8 @@ export default function AddExpensePage() {
           )}
         </div>
 
-        {addMutation.isError && (
-          <p className="text-sm text-red-500 dark:text-red-400">{addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense"}</p>
+        {(error || addMutation.isError) && (
+          <p className="text-sm text-red-500 dark:text-red-400">{error ?? (addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense")}</p>
         )}
 
         {!isSplitValid && numericAmount > 0 && splitType !== "equal" && splitType !== "itemized" && includedMembers.length > 0 && (
@@ -560,8 +624,8 @@ export default function AddExpensePage() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => addMutation.mutate()}
-            disabled={!description.trim() || !amount || !isSplitValid || addMutation.isPending}
+            onClick={handleSave}
+            disabled={(!description.trim() && !isHousehold) || !amount || (!isSplitValid && !isHousehold) || addMutation.isPending}
             className="flex-1 rounded-xl bg-trevio-600 py-4 text-base font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {addMutation.isPending ? (
@@ -570,15 +634,15 @@ export default function AddExpensePage() {
                 Saving...
               </span>
             ) : (
-              "Save Expense"
+              isHousehold ? "Save Entry" : "Save Expense"
             )}
           </button>
           <button
             onClick={() => {
               setSaveAndAddAnother(true);
-              addMutation.mutate();
+              handleSave();
             }}
-            disabled={!description.trim() || !amount || !isSplitValid || addMutation.isPending}
+            disabled={(!description.trim() && !isHousehold) || !amount || (!isSplitValid && !isHousehold) || addMutation.isPending}
             className="flex-1 rounded-xl border-2 border-trevio-600 py-4 text-base font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="flex items-center justify-center gap-2">

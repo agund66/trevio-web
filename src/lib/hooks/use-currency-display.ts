@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { convertFromBase, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
+import { convertCurrency, convertFromBase, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
 
 export function useCurrencyDisplay() {
   const { exchangeRate, user: userService } = useServices();
@@ -33,12 +33,18 @@ export function useCurrencyDisplay() {
     return convertFromBase(amountInBase, userCurrency, rateMap);
   };
 
+  const convertToUserCurrency = (amount: number, fromCurrency: string): number => {
+    if (!rateMap) return amount;
+    return convertCurrency(amount, fromCurrency, userCurrency, rateMap);
+  };
+
   return {
     userCurrency,
     rates: rateMap,
     formatBase,
     formatOriginal,
     convertBase,
+    convertToUserCurrency,
     formatDate: (timestamp: number, includeTime: boolean = false) =>
       formatDate(timestamp, userCurrency, includeTime),
     isLoading: !rates,

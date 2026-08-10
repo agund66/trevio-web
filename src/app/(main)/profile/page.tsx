@@ -10,6 +10,7 @@ import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { TermsDialog } from "@/components/terms-dialog";
 import { Avatar } from "@/components/avatar";
 import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber } from "@/lib/utils";
+import { SUPPORTED_CURRENCIES } from "@/lib/utils/currency";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -90,17 +91,7 @@ export default function ProfilePage() {
     }
   };
 
-  const currencies = [
-    { code: "INR", symbol: "₹", name: "Indian Rupee" },
-    { code: "USD", symbol: "$", name: "US Dollar" },
-    { code: "EUR", symbol: "€", name: "Euro" },
-    { code: "GBP", symbol: "£", name: "British Pound" },
-    { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
-    { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
-    { code: "AUD", symbol: "A$", name: "Australian Dollar" },
-    { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
-    { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  ];
+  const currencies = SUPPORTED_CURRENCIES;
 
   const country = getCountryByCode(user.countryCode || "IN");
   const hasUpiId = !!(user.upiId && user.upiId.trim());

@@ -29,7 +29,8 @@ export default function LoginPage() {
   }, [user, loading, router]);
 
   const redirectToApp = () => {
-    const pendingInvite = sessionStorage.getItem("pendingInviteCode");
+    let pendingInvite: string | null = null;
+    try { pendingInvite = sessionStorage.getItem("pendingInviteCode"); } catch {}
     if (pendingInvite) {
       router.push(`/join/${pendingInvite}`);
     } else {

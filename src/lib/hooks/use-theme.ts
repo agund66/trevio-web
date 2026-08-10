@@ -10,8 +10,13 @@ export function useTheme() {
   const [theme, setTheme] = useState<ResolvedTheme>("light");
 
   useEffect(() => {
-    const stored = (localStorage.getItem("trevio-theme") as ThemeMode | null) || "system";
-    setMode(stored);
+    try {
+      const stored = (localStorage.getItem("trevio-theme") as ThemeMode | null) || "system";
+      setMode(stored);
+    } catch {
+      // Safari private browsing mode throws SecurityError on localStorage access.
+      // Fall back to the default "system" theme.
+    }
   }, []);
 
   useEffect(() => {
@@ -33,13 +38,21 @@ export function useTheme() {
 
   const setThemeMode = useCallback((next: ThemeMode) => {
     setMode(next);
-    localStorage.setItem("trevio-theme", next);
+    try {
+      localStorage.setItem("trevio-theme", next);
+    } catch {
+      // Ignore storage errors in private browsing mode.
+    }
   }, []);
 
   const toggleTheme = useCallback(() => {
     setMode((prev) => {
       const next: ThemeMode = prev === "light" ? "dark" : prev === "dark" ? "system" : "light";
-      localStorage.setItem("trevio-theme", next);
+      try {
+        localStorage.setItem("trevio-theme", next);
+      } catch {
+        // Ignore storage errors in private browsing mode.
+      }
       return next;
     });
   }, []);

@@ -13,32 +13,17 @@ import {
   startAfter,
   collectionGroup,
   writeBatch,
-  Timestamp,
   increment,
+  deleteField,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { GroupService, GroupInfo } from "../interfaces/group-service";
 import type { Group, GroupTemplate, Activity, SplitEntry } from "../../types";
 import { generateInviteCode, calculateBalances } from "../../utils/calculations";
-
-function toMillis(value: unknown): number {
-  if (value instanceof Timestamp) return value.toMillis();
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = new Date(value).getTime();
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  if (value && typeof value === "object") {
-    const seconds = (value as { _seconds?: number; seconds?: number })._seconds ?? (value as { seconds?: number }).seconds;
-    const nanoseconds = (value as { _nanoseconds?: number; nanoseconds?: number })._nanoseconds ?? (value as { nanoseconds?: number }).nanoseconds;
-    if (typeof seconds === "number") return seconds * 1000 + (typeof nanoseconds === "number" ? nanoseconds / 1_000_000 : 0);
-  }
-  return 0;
-}
+import { toMillis } from "../../utils/date";
 
 export class FirebaseGroupService implements GroupService {
-  async createGroup(name: string, description: string, template: GroupTemplate, memberUids: string[]): Promise<{ groupId: string; inviteCode: string }> {
+  async createGroup(name: string, description: string, template: GroupTemplate, memberUids: string[], monthlyBudget?: number): Promise<{ groupId: string; inviteCode: string }> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
     if (!name || name.trim().length === 0) throw new Error("Group name is required");
@@ -51,8 +36,7 @@ export class FirebaseGroupService implements GroupService {
     const groupRef = doc(collection(db, "groups"));
     const groupId = groupRef.id;
 
-    const batch = writeBatch(db);
-    batch.set(groupRef, {
+    const groupData: Record<string, unknown> = {
       name: name.trim(),
       description: description?.trim() ?? "",
       template,
@@ -63,7 +47,13 @@ export class FirebaseGroupService implements GroupService {
       totalExpenses: 0,
       createdAt: now,
       updatedAt: now,
-    });
+    };
+    if (template === "household" && monthlyBudget && monthlyBudget > 0) {
+      groupData.monthlyBudget = monthlyBudget;
+    }
+
+    const batch = writeBatch(db);
+    batch.set(groupRef, groupData);
     batch.set(doc(groupRef, "members", uid), {
       uid,
       role: "admin",
@@ -361,6 +351,8 @@ export class FirebaseGroupService implements GroupService {
           yourBalance: memberData.balance as number ?? 0,
           yourRole: memberData.role as string ?? "member",
           archived: (data.archived as boolean) ?? false,
+          monthlyBudget: (data.monthlyBudget as number) ?? undefined,
+          budgetCategories: (data.budgetCategories as Record<string, number>) ?? undefined,
         });
       }
     });
@@ -390,6 +382,8 @@ export class FirebaseGroupService implements GroupService {
       memberCount: data.memberCount as number,
       totalExpenses: data.totalExpenses as number,
       archived: (data.archived as boolean) ?? false,
+      monthlyBudget: (data.monthlyBudget as number) ?? undefined,
+      budgetCategories: (data.budgetCategories as Record<string, number>) ?? undefined,
     };
   }
 
@@ -540,6 +534,33 @@ export class FirebaseGroupService implements GroupService {
       description: description?.trim() ?? "",
       updatedAt: Date.now(),
     });
+  }
+
+  async updateGroupBudget(groupId: string, monthlyBudget: number | null, budgetCategories: Record<string, number> | null): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId) throw new Error("Group ID is required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+    if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can update budget settings");
+
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    // Only set monthlyBudget if it's > 0, otherwise clear it
+    if (monthlyBudget !== null && monthlyBudget > 0) {
+      updates.monthlyBudget = monthlyBudget;
+    } else {
+      updates.monthlyBudget = deleteField();
+    }
+    // Only set budgetCategories if it's non-empty, otherwise clear it
+    if (budgetCategories !== null && Object.keys(budgetCategories).length > 0) {
+      updates.budgetCategories = budgetCategories;
+    } else {
+      updates.budgetCategories = deleteField();
+    }
+
+    await updateDoc(groupRef, updates);
   }
 
   async transferAdminRole(groupId: string, newAdminUid: string): Promise<void> {
@@ -696,6 +717,61 @@ export class FirebaseGroupService implements GroupService {
 
     await this.migrateMemberReferences(groupId, memberDocId, realUid);
     await this.recalculateBalances(groupId);
+  }
+
+  async removeMember(groupId: string, memberUid: string): Promise<void> {
+    const callerUid = auth.currentUser?.uid;
+    if (!callerUid) throw new Error("User not authenticated");
+    if (callerUid === memberUid) throw new Error("Use leave group to remove yourself");
+
+    const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    const callerDoc = await getDoc(doc(groupRef, "members", callerUid));
+    if (!callerDoc.exists() || callerDoc.data()?.role !== "admin") {
+      throw new Error("Only admins can remove members");
+    }
+
+    const memberDoc = await getDoc(doc(groupRef, "members", memberUid));
+    if (!memberDoc.exists()) throw new Error("Member not found");
+    const memberData = memberDoc.data() as Record<string, unknown>;
+    if (memberData.role === "admin") throw new Error("Cannot remove another admin");
+
+    // Check if member has any expenses
+    const expensesQuery = firestoreQuery(collection(groupRef, "expenses"), where("paidBy", "==", memberUid), limit(1));
+    const expensesSnapshot = await getDocs(expensesQuery);
+    const hasExpenses = !expensesSnapshot.empty;
+
+    const now = Date.now();
+    const batch = writeBatch(db);
+
+    if (hasExpenses) {
+      // Convert to offline member to preserve transaction history
+      batch.update(doc(groupRef, "members", memberUid), {
+        uid: "",
+        isOffline: true,
+        status: "removed",
+        updatedAt: now,
+      });
+    } else {
+      // No expenses, safe to fully remove
+      batch.delete(doc(groupRef, "members", memberUid));
+      batch.update(groupRef, {
+        memberCount: increment(-1),
+        updatedAt: now,
+      });
+    }
+
+    batch.set(doc(collection(groupRef, "activities")), {
+      type: "member_removed",
+      description: `Removed member "${memberData.displayName}"`,
+      userId: callerUid,
+      data: { removedUid: memberUid, memberName: memberData.displayName, convertedToOffline: hasExpenses },
+      createdAt: now,
+    });
+
+    await batch.commit();
   }
 
   private async migrateMemberReferences(groupId: string, oldId: string, newId: string): Promise<void> {

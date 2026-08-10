@@ -7,8 +7,8 @@ import type {
   GroupAnalytics,
   UserAnalytics,
 } from "../types";
-
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+import { MONTH_LABELS } from "./date";
+import { round2 } from "./math";
 
 export function computeCategoryBreakdown(expenses: Expense[]): CategoryBreakdown[] {
   const map = new Map<string, { total: number; count: number }>();
@@ -24,9 +24,9 @@ export function computeCategoryBreakdown(expenses: Expense[]): CategoryBreakdown
   for (const [category, { total, count }] of Array.from(map.entries())) {
     result.push({
       category,
-      totalAmount: Math.round(total * 100) / 100,
+      totalAmount: round2(total),
       expenseCount: count,
-      percentage: grandTotal > 0 ? Math.round((total / grandTotal) * 10000) / 100 : 0,
+      percentage: grandTotal > 0 ? round2((total / grandTotal) * 100) : 0,
     });
   }
   return result.sort((a, b) => b.totalAmount - a.totalAmount);
@@ -56,7 +56,7 @@ export function computeMonthlyTrends(expenses: Expense[], months = 6): MonthlyTr
     }
   }
   for (const t of trends) {
-    t.totalAmount = Math.round(t.totalAmount * 100) / 100;
+    t.totalAmount = round2(t.totalAmount);
   }
   return trends;
 }
@@ -95,8 +95,8 @@ export function computeMemberSpending(
   }
   const result = Array.from(map.values());
   for (const m of result) {
-    m.totalPaid = Math.round(m.totalPaid * 100) / 100;
-    m.totalShare = Math.round(m.totalShare * 100) / 100;
+    m.totalPaid = round2(m.totalPaid);
+    m.totalShare = round2(m.totalShare);
   }
   return result.sort((a, b) => b.totalPaid - a.totalPaid);
 }
@@ -108,9 +108,9 @@ export function computeGroupAnalytics(
   members: Member[],
   currentUserId: string
 ): GroupAnalytics {
-  const totalExpenses = Math.round(expenses.reduce((s, e) => s + e.amount, 0) * 100) / 100;
+  const totalExpenses = round2(expenses.reduce((s, e) => s + e.amount, 0));
   const expenseCount = expenses.length;
-  const avgExpenseAmount = expenseCount > 0 ? Math.round((totalExpenses / expenseCount) * 100) / 100 : 0;
+  const avgExpenseAmount = expenseCount > 0 ? round2(totalExpenses / expenseCount) : 0;
 
   let highestExpense: GroupAnalytics["highestExpense"] = null;
   if (expenses.length > 0) {
@@ -125,7 +125,7 @@ export function computeGroupAnalytics(
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
   const recentExpenses = expenses.filter((e) => (e.date || 0) >= thirtyDaysAgo);
-  const recentActivityRate = expenseCount > 0 ? Math.round((recentExpenses.length / expenseCount) * 10000) / 100 : 0;
+  const recentActivityRate = expenseCount > 0 ? round2((recentExpenses.length / expenseCount) * 100) : 0;
 
   return {
     groupId,
@@ -167,7 +167,7 @@ export function computeUserAnalytics(
     groupSpendingMap.set(g.groupId, {
       groupId: g.groupId,
       groupName: g.groupName,
-      totalSpent: Math.round(groupTotal * 100) / 100,
+      totalSpent: round2(groupTotal),
       expenseCount: expenses.length,
     });
   }
@@ -180,11 +180,11 @@ export function computeUserAnalytics(
     .slice(0, 5);
 
   return {
-    totalSpent: Math.round(totalSpent * 100) / 100,
-    totalPaid: Math.round(totalPaid * 100) / 100,
-    totalOwed: Math.round(totalOwed * 100) / 100,
-    totalOwing: Math.round(totalOwing * 100) / 100,
-    netBalance: Math.round((totalOwed - totalOwing) * 100) / 100,
+    totalSpent: round2(totalSpent),
+    totalPaid: round2(totalPaid),
+    totalOwed: round2(totalOwed),
+    totalOwing: round2(totalOwing),
+    netBalance: round2(totalOwed - totalOwing),
     groupCount: groups.filter((g) => !g.archived).length,
     expenseCount,
     categoryBreakdown: computeCategoryBreakdown(allExpenses),

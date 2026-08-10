@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useNotificationPermission } from "@/lib/hooks/use-fcm-notifications";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus } from "lucide-react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils/date";
 import type { BroadcastMessage, BroadcastPriority } from "@/lib/types";
 
 const broadcastIcon: Record<BroadcastPriority, React.ComponentType<{ className?: string }>> = {
@@ -25,27 +27,15 @@ const broadcastColors: Record<BroadcastPriority, { border: string; bg: string; i
   info: { border: "border-blue-200 dark:border-blue-800", bg: "bg-blue-50 dark:bg-blue-900/20", iconBg: "bg-blue-100 dark:bg-blue-900/40", icon: "text-blue-600 dark:text-blue-400" },
 };
 
-const formatNotificationTime = (createdAt: number, formatDate: (ts: number) => string) => {
-  if (!createdAt) return "";
-  const date = new Date(createdAt);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatDate(createdAt);
-};
-
 export default function NotificationsPage() {
   const { notification, broadcast, group } = useServices();
   const { user } = useAuth();
-  const { formatDate: formatDateFn } = useCurrencyDisplay();
+  const { userCurrency } = useCurrencyDisplay();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Lazily request notification permission when the user opens this page.
+  useNotificationPermission();
   const [activeBroadcasts, setActiveBroadcasts] = useState<BroadcastMessage[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [invitationAction, setInvitationAction] = useState<string | null>(null);
@@ -244,7 +234,7 @@ export default function NotificationsPage() {
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{n.title}</p>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{n.body}</p>
                     {n.createdAt > 0 && (
-                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{formatNotificationTime(n.createdAt, formatDateFn)}</p>
+                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{formatRelativeTime(n.createdAt, userCurrency)}</p>
                     )}
                   </div>
                   {!n.read && <div className="mt-1 h-2 w-2 rounded-full bg-trevio-500" />}

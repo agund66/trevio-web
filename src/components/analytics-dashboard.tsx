@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Expense, Member } from "@/lib/types";
 import { computeGroupAnalytics } from "@/lib/utils/analytics";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { formatFullDate } from "@/lib/utils/date";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Avatar } from "@/components/avatar";
 import {
@@ -200,11 +201,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
                 {analytics.highestExpense.date
-                  ? new Date(analytics.highestExpense.date).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })
+                  ? formatFullDate(analytics.highestExpense.date)
                   : ""}
               </p>
             </div>

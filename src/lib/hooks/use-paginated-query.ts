@@ -21,6 +21,7 @@ interface UsePaginatedQueryReturn<T> {
   loadingMore: boolean;
   loadMore: () => void;
   refresh: () => void;
+  softRefresh: () => Promise<void>;
 }
 
 export function usePaginatedQuery<T, R>(
@@ -100,5 +101,20 @@ export function usePaginatedQuery<T, R>(
     fetchPage(true);
   }, [fetchPage, queryClient, queryKey]);
 
-  return { items, isLoading, error, hasMore, loadingMore, loadMore, refresh };
+  const softRefresh = useCallback(async () => {
+    if (!enabled) return;
+    lastIdRef.current = null;
+    queryClient.invalidateQueries({ queryKey });
+    try {
+      const result = await queryFn(pageSize, undefined);
+      const newItems = extractItems(result);
+      setItems(newItems);
+      setHasMore(extractHasMore(result));
+      lastIdRef.current = extractLastId(result);
+    } catch {
+      // silently fail - keep existing items
+    }
+  }, [enabled, queryFn, pageSize, extractItems, extractHasMore, extractLastId, queryClient, queryKey]);
+
+  return { items, isLoading, error, hasMore, loadingMore, loadMore, refresh, softRefresh };
 }

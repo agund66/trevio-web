@@ -6,9 +6,44 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { ArrowLeft, Calendar, Loader2, Trash2, StickyNote, Receipt } from "lucide-react";
-import type { SplitType, SplitEntry, ItemizedSplitData } from "@/lib/types";
+import { ArrowLeft, Calendar, Loader2, Trash2, StickyNote, Receipt, TrendingDown, TrendingUp } from "lucide-react";
+import type { SplitType, SplitEntry, ItemizedSplitData, TransactionType } from "@/lib/types";
 import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
+import { getCategories, getCategoryLabel } from "@/lib/utils/household-categories";
+import { getCurrencySymbol } from "@/lib/utils/currency";
+
+function evaluateMathExpression(tokens: string[]): number {
+  const output: (number | string)[] = [];
+  const operators: string[] = [];
+  const precedence: Record<string, number> = { "+": 1, "-": 1, "*": 2, "/": 2 };
+  for (const token of tokens) {
+    if (/^\d+\.?\d*$/.test(token)) {
+      output.push(parseFloat(token));
+    } else if (token in precedence) {
+      while (operators.length && precedence[operators[operators.length - 1]] >= precedence[token]) {
+        output.push(operators.pop()!);
+      }
+      operators.push(token);
+    }
+  }
+  while (operators.length) output.push(operators.pop()!);
+  const stack: number[] = [];
+  for (const item of output) {
+    if (typeof item === "number") {
+      stack.push(item);
+    } else {
+      const b = stack.pop() ?? 0;
+      const a = stack.pop() ?? 0;
+      switch (item) {
+        case "+": stack.push(a + b); break;
+        case "-": stack.push(a - b); break;
+        case "*": stack.push(a * b); break;
+        case "/": stack.push(b !== 0 ? a / b : 0); break;
+      }
+    }
+  }
+  return stack[0] ?? 0;
+}
 
 export default function EditExpensePage() {
   const params = useParams();
@@ -31,6 +66,7 @@ export default function EditExpensePage() {
   const [note, setNote] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [itemizedData, setItemizedData] = useState<ItemizedSplitData>({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
+  const [transactionType, setTransactionType] = useState<TransactionType>("expense");
 
   const { data: members } = useQuery({
     queryKey: ["balances", groupId],
@@ -41,6 +77,13 @@ export default function EditExpensePage() {
     queryKey: ["expenses", groupId],
     queryFn: () => expense.getGroupExpenses(groupId, 50),
   });
+
+  const { data: groupInfo } = useQuery({
+    queryKey: ["groupInfo", groupId],
+    queryFn: () => group.getGroupInfo(groupId),
+  });
+
+  const isHousehold = groupInfo?.template === "household";
 
   const activeMembers = useMemo(
     () => members?.filter((m) => m.status === "active") ?? [],
@@ -59,7 +102,8 @@ export default function EditExpensePage() {
   }, [existingExpense, user, members]);
 
   useEffect(() => {
-    if (existingExpense && !loaded) {
+    setLoaded(false);
+    if (existingExpense) {
       setDescription(existingExpense.description);
       setAmount(String(existingExpense.amount));
       setCurrency(existingExpense.currency);
@@ -77,9 +121,10 @@ export default function EditExpensePage() {
       if (existingExpense.itemizedData) {
         setItemizedData(existingExpense.itemizedData);
       }
+      setTransactionType(existingExpense.transactionType ?? "expense");
       setLoaded(true);
     }
-  }, [existingExpense, loaded]);
+  }, [existingExpense, expenseId]);
 
   const includedMembers = useMemo(
     () => activeMembers.filter((m) => !excludedMembers.has(m.uid)),
@@ -90,7 +135,9 @@ export default function EditExpensePage() {
     const cleaned = amount.replace(/[^0-9.+\-*/]/g, "");
     if (!cleaned) return 0;
     try {
-      const result = Function(`"use strict"; return (${cleaned})`)();
+      const tokens = cleaned.match(/(\d+\.?\d*|[+\-*/])/g);
+      if (!tokens) return parseFloat(cleaned) || 0;
+      const result = evaluateMathExpression(tokens);
       return typeof result === "number" && isFinite(result) ? result : 0;
     } catch {
       return parseFloat(cleaned) || 0;
@@ -122,10 +169,7 @@ export default function EditExpensePage() {
     return Math.abs(splitSummary.entered - splitSummary.expected) < 0.01;
   }, [splitType, splitValues, includedMembers, numericAmount, splitSummary, itemizedData]);
 
-  const currencySymbol = (curr: string) => {
-    const symbols: Record<string, string> = { INR: "\u20B9", USD: "$", EUR: "\u20AC", GBP: "\u00A3", JPY: "\u00A5", AUD: "A$", CAD: "C$", SGD: "S$", AED: "\u062F.\u0625" };
-    return symbols[curr] || curr;
-  };
+  const currencySymbol = (curr: string) => getCurrencySymbol(curr) || curr;
 
   const buildSplits = (): Record<string, SplitEntry> => {
     if (splitType === "equal" || splitType === "itemized") return {};
@@ -148,7 +192,9 @@ export default function EditExpensePage() {
     });
   };
 
-  const categories = ["food", "transport", "shopping", "turf", "accommodation", "other"];
+  const categories = isHousehold
+    ? getCategories(transactionType === "income").map((c) => c.key)
+    : ["food", "transport", "shopping", "turf", "accommodation", "other"];
   const splitTypes: SplitType[] = ["equal", "exact", "percent", "shares", "itemized"];
 
   const splitLabel = (st: SplitType) => {
@@ -186,6 +232,7 @@ export default function EditExpensePage() {
         category,
         note,
         itemizedData: splitType === "itemized" ? itemizedData : undefined,
+        transactionType: isHousehold ? transactionType : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
@@ -240,7 +287,7 @@ export default function EditExpensePage() {
         Back
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Edit Expense</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{isHousehold ? "Edit Entry" : "Edit Expense"}</h1>
 
       {!loaded ? (
         <div className="flex items-center justify-center py-12">
@@ -263,13 +310,50 @@ export default function EditExpensePage() {
             </div>
           </div>
 
+          {isHousehold && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Transaction Type</label>
+              <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setTransactionType("expense");
+                    setCategory(getCategories(false)[0]?.key ?? "other");
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition ${
+                    transactionType === "expense"
+                      ? "bg-red-500 text-white"
+                      : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <TrendingDown className="h-4 w-4" />
+                  Spent
+                </button>
+                <button
+                  onClick={() => {
+                    setTransactionType("income");
+                    setCategory(getCategories(true)[0]?.key ?? "other_income");
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition ${
+                    transactionType === "income"
+                      ? "bg-green-500 text-white"
+                      : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  Received
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., Dinner at restaurant"
+              maxLength={500}
+              placeholder={isHousehold ? "e.g., Groceries from Big Bazaar" : "e.g., Dinner at restaurant"}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
@@ -285,7 +369,7 @@ export default function EditExpensePage() {
                     category === cat ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                   }`}
                 >
-                  {cat}
+                  {isHousehold ? getCategoryLabel(cat) : cat.charAt(0).toUpperCase() + cat.slice(1)}
                 </button>
               ))}
             </div>
@@ -299,6 +383,7 @@ export default function EditExpensePage() {
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              maxLength={500}
               placeholder="Add a note about this expense..."
               rows={2}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
@@ -327,6 +412,8 @@ export default function EditExpensePage() {
             </div>
           )}
 
+          {!isHousehold && (
+          <>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Split method</label>
             <div className="flex flex-wrap gap-2">
@@ -396,6 +483,8 @@ export default function EditExpensePage() {
               </div>
             </div>
           )}
+          </>
+          )}
 
           {updateMutation.isError && (
             <p className="text-sm text-red-500 dark:text-red-400">{updateMutation.error instanceof Error ? updateMutation.error.message : "Failed to update expense"}</p>
@@ -404,7 +493,7 @@ export default function EditExpensePage() {
           <div className="flex gap-3">
             <button
               onClick={() => updateMutation.mutate()}
-              disabled={!description.trim() || !amount || !isSplitValid || updateMutation.isPending}
+              disabled={(!description.trim() && !isHousehold) || !amount || (!isSplitValid && !isHousehold) || updateMutation.isPending}
               className="flex-1 rounded-xl bg-trevio-600 py-4 text-base font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {updateMutation.isPending ? (
@@ -413,7 +502,7 @@ export default function EditExpensePage() {
                   Saving...
                 </span>
               ) : (
-                "Save Changes"
+                isHousehold ? "Save Entry" : "Save Changes"
               )}
             </button>
             <button

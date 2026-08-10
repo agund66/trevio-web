@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { JoinGroupDialog } from "@/components/join-group-dialog";
-import { Plus, Users, Plane, Dumbbell, Coffee, TrendingUp, TrendingDown, Wallet, ArrowRight, AlertCircle, LogIn } from "lucide-react";
+import { Plus, Users, Plane, Dumbbell, Coffee, Home, TrendingUp, TrendingDown, Wallet, ArrowRight, AlertCircle, LogIn } from "lucide-react";
 import type { GroupTemplate } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -32,6 +32,7 @@ export default function DashboardPage() {
     switch (template) {
       case "trip": return Plane;
       case "turf": return Dumbbell;
+      case "household": return Home;
       default: return Coffee;
     }
   };
@@ -133,36 +134,81 @@ export default function DashboardPage() {
           {groups.map((g) => {
             const Icon = templateIcon(g.template);
             const balance = g.yourBalance;
+            const isHouseholdGroup = g.template === "household";
+            const budgetProgress = isHouseholdGroup && g.monthlyBudget && g.monthlyBudget > 0
+              ? Math.min((g.totalExpenses / g.monthlyBudget) * 100, 100)
+              : 0;
             return (
               <Link
                 key={g.groupId}
                 href={`/groups/${g.groupId}`}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 dark:hover:border-trevio-700 hover:shadow-sm"
+                className={`block rounded-2xl border p-3 md:p-4 transition hover:shadow-sm ${
+                  isHouseholdGroup
+                    ? "border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10 hover:border-teal-300 dark:hover:border-teal-700"
+                    : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-trevio-300 dark:hover:border-trevio-700"
+                }`}
               >
-                <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-trevio-50 dark:bg-trevio-900/30 shrink-0">
-                  <Icon className="h-5 w-5 md:h-6 md:w-6 text-trevio-600 dark:text-trevio-400" />
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className={`flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl shrink-0 ${
+                    isHouseholdGroup
+                      ? "bg-teal-100 dark:bg-teal-900/30"
+                      : "bg-trevio-50 dark:bg-trevio-900/30"
+                  }`}>
+                    <Icon className={`h-5 w-5 md:h-6 md:w-6 ${
+                      isHouseholdGroup
+                        ? "text-teal-600 dark:text-teal-400"
+                        : "text-trevio-600 dark:text-trevio-400"
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{g.name}</p>
+                    <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
+                      {g.memberCount} members · {formatBase(g.totalExpenses)} total
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {isHouseholdGroup ? (
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-medium text-teal-600 dark:text-teal-400">
+                          {formatBase(g.totalExpenses)}
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500">spent</p>
+                      </div>
+                    ) : balance > 0.01 ? (
+                      <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-green-600 dark:text-green-400">
+                        you&apos;ll get {formatBase(balance)}
+                      </span>
+                    ) : balance < -0.01 ? (
+                      <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-red-500 dark:text-red-400">
+                        you&apos;ll pay {formatBase(Math.abs(balance))}
+                      </span>
+                    ) : (
+                      <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-2 md:px-3 py-1 text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500">
+                        settled up
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{g.name}</p>
-                  <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
-                    {g.memberCount} members · {formatBase(g.totalExpenses)} total
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  {balance > 0.01 ? (
-                    <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-green-600 dark:text-green-400">
-                      you&apos;ll get {formatBase(balance)}
-                    </span>
-                  ) : balance < -0.01 ? (
-                    <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-red-500 dark:text-red-400">
-                      you&apos;ll pay {formatBase(Math.abs(balance))}
-                    </span>
-                  ) : (
-                    <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-2 md:px-3 py-1 text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500">
-                      settled up
-                    </span>
-                  )}
-                </div>
+                {isHouseholdGroup && g.monthlyBudget && g.monthlyBudget > 0 && (
+                  <div className="mt-2.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">Budget</span>
+                      <span className={`text-[10px] font-semibold ${
+                        budgetProgress >= 100 ? "text-red-500" : budgetProgress >= 80 ? "text-amber-500" : "text-teal-600 dark:text-teal-400"
+                      }`}>
+                        {formatBase(g.totalExpenses)} / {formatBase(g.monthlyBudget)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          budgetProgress >= 100 ? "bg-red-500" : budgetProgress >= 80 ? "bg-amber-500" : "bg-teal-500"
+                        }`}
+                        style={{ width: `${budgetProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </Link>
             );
           })}

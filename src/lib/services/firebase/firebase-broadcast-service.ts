@@ -10,27 +10,11 @@ import {
   orderBy,
   limit,
   getDoc,
-  Timestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { BroadcastService } from "../interfaces/broadcast-service";
 import type { BroadcastMessage, BroadcastPriority, BroadcastTargetType } from "../../types";
-
-function toMillis(value: unknown): number {
-  if (value instanceof Timestamp) return value.toMillis();
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = new Date(value).getTime();
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  if (value && typeof value === "object") {
-    const seconds = (value as { _seconds?: number; seconds?: number })._seconds ?? (value as { seconds?: number }).seconds;
-    const nanoseconds = (value as { _nanoseconds?: number; nanoseconds?: number })._nanoseconds ?? (value as { nanoseconds?: number }).nanoseconds;
-    if (typeof seconds === "number") return seconds * 1000 + (typeof nanoseconds === "number" ? nanoseconds / 1_000_000 : 0);
-  }
-  return 0;
-}
+import { toMillis } from "../../utils/date";
 
 export class FirebaseBroadcastService implements BroadcastService {
   private async requireSuperadmin(): Promise<void> {

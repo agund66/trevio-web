@@ -31,6 +31,12 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
         setStarting(true);
         setError(null);
 
+        // Feature detection: some older browsers and non-HTTPS contexts
+        // don't support navigator.mediaDevices.getUserMedia.
+        if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("NotSupported");
+        }
+
         const reader = new BrowserMultiFormatReader();
 
         const controls = await reader.decodeFromVideoDevice(
@@ -55,13 +61,28 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
         }
       } catch (e) {
         if (!cancelled) {
-          setError(
-            e instanceof Error
-              ? e.message.includes("Permission")
-                ? "Camera permission denied. Please allow camera access to scan QR codes."
-                : e.message
-              : "Failed to access camera"
-          );
+          const message = e instanceof Error ? e.message : String(e);
+          let friendlyError: string;
+
+          if (message.includes("Permission") || message.includes("NotAllowed")) {
+            friendlyError = "Camera permission denied. Please allow camera access in your browser settings to scan QR codes.";
+          } else if (message.includes("NotFound") || message.includes("DevicesNotFoundError")) {
+            friendlyError = "No camera found on this device. Try entering the invite code manually instead.";
+          } else if (message.includes("NotReadable") || message.includes("TrackStartError")) {
+            friendlyError = "Camera is already in use by another app. Close it and try again.";
+          } else if (message.includes("NotSupported") || message.includes("TypeError")) {
+            friendlyError = "QR scanning is not supported in this browser. Try entering the invite code manually.";
+          } else if (
+            typeof window !== "undefined" &&
+            window.location.protocol !== "https:" &&
+            window.location.hostname !== "localhost"
+          ) {
+            friendlyError = "Camera access requires HTTPS. Try entering the invite code manually instead.";
+          } else {
+            friendlyError = "Failed to start camera. Try entering the invite code manually instead.";
+          }
+
+          setError(friendlyError);
           setStarting(false);
         }
       }

@@ -1,40 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { Plane, Dumbbell, Coffee, Search, UserPlus, X, User, Plus } from "lucide-react";
+import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
+import { Plane, Dumbbell, Coffee, Home, Search, UserPlus, X, User, Plus, Wallet } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
 
 export default function CreateGroupPage() {
   const { group, user } = useServices();
   const { user: currentUser } = useAuth();
+  const { userCurrency, rates } = useCurrencyDisplay();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [template, setTemplate] = useState<GroupTemplate>("casual");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<UserSearchResult[]>([]);
   const [offlineMembers, setOfflineMembers] = useState<string[]>([]);
   const [offlineName, setOfflineName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [monthlyBudget, setMonthlyBudget] = useState("");
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (query.trim().length < 1) {
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedQuery.trim().length < 1) {
       setSearchResults([]);
       return;
     }
-    try {
-      const results = await user.searchUsers(query);
-      setSearchResults(results.filter((r) => !selectedMembers.some((m) => m.uid === r.uid)));
-    } catch {
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await user.searchUsers(debouncedQuery);
+        if (!cancelled) {
+          setSearchResults(results.filter((r) => !selectedMembers.some((m) => m.uid === r.uid)));
+        }
+      } catch {
+        if (!cancelled) setSearchResults([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [debouncedQuery, selectedMembers, user]);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim().length < 1) {
       setSearchResults([]);
     }
   };
@@ -63,10 +85,20 @@ export default function CreateGroupPage() {
 
   const handleCreate = async () => {
     if (!name.trim()) return;
+    // If user has non-INR currency and rates haven't loaded, block to prevent wrong budget storage
+    if (monthlyBudget.trim() && userCurrency !== "INR" && !rates) {
+      setError("Loading exchange rates... Please wait a moment and try again.");
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
-      const result = await group.createGroup(name, description, template, selectedMembers.map((m) => m.uid));
+      const budgetNum = monthlyBudget.trim() ? parseFloat(monthlyBudget) : undefined;
+      // Convert budget from user's currency to INR (base) for storage
+      const budgetInBase = budgetNum && budgetNum > 0 && rates
+        ? convertCurrency(budgetNum, userCurrency, "INR", rates)
+        : budgetNum && budgetNum > 0 ? budgetNum : undefined;
+      const result = await group.createGroup(name, description, template, selectedMembers.map((m) => m.uid), budgetInBase);
       for (const offlineName of offlineMembers) {
         await group.addOfflineMember(result.groupId, offlineName);
       }
@@ -82,6 +114,7 @@ export default function CreateGroupPage() {
     { id: "trip" as GroupTemplate, label: "Trip", icon: Plane, desc: "Travel & vacations" },
     { id: "turf" as GroupTemplate, label: "Turf", icon: Dumbbell, desc: "Recurring sports" },
     { id: "casual" as GroupTemplate, label: "Casual", icon: Coffee, desc: "Everyday splits" },
+    { id: "household" as GroupTemplate, label: "Household", icon: Home, desc: "Track daily family expenses & income" },
   ];
 
   return (
@@ -91,19 +124,28 @@ export default function CreateGroupPage() {
       <div className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Choose a template</label>
-          <div className="grid grid-cols-3 gap-3">
-            {templates.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTemplate(t.id)}
-                className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 transition ${
-                  template === t.id ? "border-trevio-500 dark:border-trevio-500 bg-trevio-50 dark:bg-trevio-900/30" : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
-                }`}
-              >
-                <t.icon className={`h-7 w-7 ${template === t.id ? "text-trevio-600 dark:text-trevio-400" : "text-slate-400 dark:text-slate-500"}`} />
-                <span className={`text-sm font-medium ${template === t.id ? "text-trevio-700 dark:text-trevio-300" : "text-slate-600 dark:text-slate-400"}`}>{t.label}</span>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {templates.map((t) => {
+              const isHousehold = t.id === "household";
+              const activeColor = isHousehold
+                ? "border-teal-500 dark:border-teal-500 bg-teal-50 dark:bg-teal-900/30"
+                : "border-trevio-500 dark:border-trevio-500 bg-trevio-50 dark:bg-trevio-900/30";
+              const activeIcon = isHousehold ? "text-teal-600 dark:text-teal-400" : "text-trevio-600 dark:text-trevio-400";
+              const activeText = isHousehold ? "text-teal-700 dark:text-teal-300" : "text-trevio-700 dark:text-trevio-300";
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTemplate(t.id)}
+                  className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 transition ${
+                    template === t.id ? activeColor : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                  }`}
+                >
+                  <t.icon className={`h-7 w-7 ${template === t.id ? activeIcon : "text-slate-400 dark:text-slate-500"}`} />
+                  <span className={`text-sm font-medium ${template === t.id ? activeText : "text-slate-600 dark:text-slate-400"}`}>{t.label}</span>
+                  <span className={`text-xs text-center ${template === t.id ? (isHousehold ? "text-teal-600/70 dark:text-teal-400/70" : "text-trevio-600/70 dark:text-trevio-400/70") : "text-slate-400 dark:text-slate-500"}`}>{t.desc}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -128,6 +170,30 @@ export default function CreateGroupPage() {
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
           />
         </div>
+
+        {template === "household" && (
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              <Wallet className="h-4 w-4 text-teal-500" />
+              Monthly Budget (optional)
+            </label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                {getCurrencySymbol(userCurrency)}
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={monthlyBudget}
+                onChange={(e) => setMonthlyBudget(e.target.value.replace(/[^0-9.]/g, ""))}
+                placeholder="e.g., 50000"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">Set a monthly spending limit to track your budget progress (in {userCurrency})</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Add members</label>

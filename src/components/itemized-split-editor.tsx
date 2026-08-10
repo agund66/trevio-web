@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Plus, Trash2, Receipt, Users, Copy } from "lucide-react";
 import type { BillItem, ItemizedSplitData, Member } from "@/lib/types";
+import { getCurrencySymbol } from "@/lib/utils/currency";
 
 interface ItemizedSplitEditorProps {
   members: Member[];
@@ -17,13 +18,7 @@ export function ItemizedSplitEditor({
   itemizedData,
   onChange,
 }: ItemizedSplitEditorProps) {
-  const currencySymbol = (curr: string) => {
-    const symbols: Record<string, string> = {
-      INR: "₹", USD: "$", EUR: "€", GBP: "£", JPY: "¥",
-      AUD: "A$", CAD: "C$", SGD: "S$", AED: "د.إ",
-    };
-    return symbols[curr] || curr;
-  };
+  const currencySymbol = (curr: string) => getCurrencySymbol(curr) || curr;
 
   const activeMembers = useMemo(
     () => members.filter((m) => m.status === "active"),

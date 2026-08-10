@@ -14,9 +14,12 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
-import type { Expense, SplitEntry, SplitType, RecurringConfig, ItemizedSplitData } from "../../types";
+import type { Expense, SplitEntry, SplitType, RecurringConfig, ItemizedSplitData, TransactionType, GroupTemplate } from "../../types";
 import { calculateSplits, calculateBalances } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
+import { toMillis } from "../../utils/date";
+
+const FIRESTORE_BATCH_LIMIT = 400;
 
 type SplitMap = Record<string, SplitEntry>;
 
@@ -37,6 +40,7 @@ export class FirebaseExpenseService implements ExpenseService {
     note?: string;
     recurring?: RecurringConfig;
     itemizedData?: ItemizedSplitData;
+    transactionType?: TransactionType;
   }): Promise<string> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -66,6 +70,7 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const now = params.date ?? Date.now();
     const expenseRef = doc(collection(groupRef, "expenses"));
+    const transactionType: TransactionType = params.transactionType ?? "expense";
 
     const batch = writeBatch(db);
     batch.set(expenseRef, {
@@ -80,6 +85,7 @@ export class FirebaseExpenseService implements ExpenseService {
       createdBy: uid,
       createdAt: now,
       exchangeRateToBase,
+      transactionType,
       ...(params.note ? { note: params.note } : {}),
       ...(params.recurring ? { recurring: params.recurring } : {}),
       ...(params.itemizedData ? { itemizedData: params.itemizedData } : {}),
@@ -87,21 +93,36 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const amountInBase = params.amount * exchangeRateToBase;
 
+    const activityType = transactionType === "income" ? "income_added" : "expense_added";
+    const activityDesc = transactionType === "income"
+      ? `Added income: ${params.description} (${params.currency} ${params.amount})`
+      : `Added expense: ${params.description} (${params.currency} ${params.amount})`;
+
     batch.set(doc(collection(groupRef, "activities")), {
-      type: "expense_added",
-      description: `Added expense: ${params.description} (${params.currency} ${params.amount})`,
+      type: activityType,
+      description: activityDesc,
       userId: uid,
       data: { expenseId: expenseRef.id, amount: params.amount, description: params.description },
       createdAt: now,
     });
 
-    batch.update(groupRef, {
-      totalExpenses: increment(amountInBase),
-      updatedAt: now,
-    });
+    // Only update totalExpenses for EXPENSE type (not INCOME)
+    if (transactionType === "expense") {
+      batch.update(groupRef, {
+        totalExpenses: increment(amountInBase),
+        updatedAt: now,
+      });
+    } else {
+      batch.update(groupRef, { updatedAt: now });
+    }
 
     await batch.commit();
-    await this.recalculateBalances(params.groupId);
+
+    // Skip recalculateBalances for household groups (they don't track balances)
+    const groupTemplate = (groupDoc.data()?.template as GroupTemplate) ?? "casual";
+    if (groupTemplate !== "household") {
+      await this.recalculateBalances(params.groupId);
+    }
 
     // Notify all active group members except the creator (non-blocking — don't fail expense creation if notifications fail)
     try {
@@ -116,26 +137,32 @@ export class FirebaseExpenseService implements ExpenseService {
       for (const memberDoc of membersSnapshot.docs) {
         const memberUid = memberDoc.id;
         if (memberUid === uid) continue;
+        const notifType = transactionType === "income" ? "income_added" : "expense_added";
+        const notifTitle = transactionType === "income" ? "New Income Added" : "New Expense Added";
+        const notifBody = transactionType === "income"
+          ? `${creatorName} added income "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`
+          : `${creatorName} added "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`;
+
         notifyBatch.set(doc(collection(db, "users", memberUid, "notifications")), {
-          type: "expense_added",
-          title: "New Expense Added",
-          body: `${creatorName} added "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`,
+          type: notifType,
+          title: notifTitle,
+          body: notifBody,
           data: {
             groupId: params.groupId,
             groupName,
             expenseId: expenseRef.id,
-            type: "expense_added",
+            type: notifType,
           },
           read: false,
           createdAt: now,
         });
         count++;
-        if (count % 400 === 0) {
+        if (count % FIRESTORE_BATCH_LIMIT === 0) {
           await notifyBatch.commit();
           notifyBatch = writeBatch(db);
         }
       }
-      if (count % 400 !== 0) {
+      if (count % FIRESTORE_BATCH_LIMIT !== 0) {
         await notifyBatch.commit();
       }
     } catch (notifError) {
@@ -158,6 +185,7 @@ export class FirebaseExpenseService implements ExpenseService {
     category: string;
     note?: string;
     itemizedData?: ItemizedSplitData;
+    transactionType?: TransactionType;
   }): Promise<void> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -189,6 +217,7 @@ export class FirebaseExpenseService implements ExpenseService {
     if (params.paidBy) updateData.paidBy = params.paidBy;
     if (params.category) updateData.category = params.category;
     if (params.note !== undefined) updateData.note = params.note;
+    if (params.transactionType !== undefined) updateData.transactionType = params.transactionType;
 
     const oldCurrency = oldExpense.currency as string;
     const newCurrency = params.currency || oldCurrency;
@@ -220,26 +249,64 @@ export class FirebaseExpenseService implements ExpenseService {
     const newAmountInBase = newAmount * newRate;
     const amountDiffInBase = newAmountInBase - oldAmountInBase;
 
+    // Determine old and new transaction types (default to "expense")
+    const oldTransactionType = (oldExpense.transactionType as TransactionType) ?? "expense";
+    const newTransactionType = params.transactionType ?? oldTransactionType;
+
     const batch = writeBatch(db);
     batch.update(expenseRef, updateData);
 
-    if (amountDiffInBase !== 0) {
+    // Update totalExpenses based on transaction type and amount changes.
+    // Type changes must be handled independently of amount changes so that
+    // switching type without changing amount still updates totalExpenses.
+    if (oldTransactionType === "expense" && newTransactionType === "expense") {
+      // Same type expense — adjust by diff if amount changed, otherwise just touch updatedAt
+      if (amountDiffInBase !== 0) {
+        batch.update(groupRef, {
+          totalExpenses: increment(amountDiffInBase),
+          updatedAt: now,
+        });
+      } else {
+        batch.update(groupRef, { updatedAt: now });
+      }
+    } else if (oldTransactionType === "expense" && newTransactionType === "income") {
+      // Was expense, now income — remove old amount from totalExpenses
       batch.update(groupRef, {
-        totalExpenses: increment(amountDiffInBase),
+        totalExpenses: increment(-oldAmountInBase),
         updatedAt: now,
       });
+    } else if (oldTransactionType === "income" && newTransactionType === "expense") {
+      // Was income, now expense — add full new amount to totalExpenses
+      batch.update(groupRef, {
+        totalExpenses: increment(newAmountInBase),
+        updatedAt: now,
+      });
+    } else {
+      // Same type income (or no type change) — no totalExpenses change, just touch updatedAt
+      batch.update(groupRef, { updatedAt: now });
     }
 
+    const updateActivityType = newTransactionType === "income" ? "income_updated" : "expense_updated";
+    const updateActivityDesc = newTransactionType === "income"
+      ? `Updated income: ${params.description ?? oldExpense.description}`
+      : `Updated expense: ${params.description ?? oldExpense.description}`;
+
     batch.set(doc(collection(groupRef, "activities")), {
-      type: "expense_updated",
-      description: `Updated expense: ${params.description ?? oldExpense.description}`,
+      type: updateActivityType,
+      description: updateActivityDesc,
       userId: uid,
       data: { expenseId: params.expenseId, groupId: params.groupId },
       createdAt: now,
     });
 
     await batch.commit();
-    await this.recalculateBalances(params.groupId);
+
+    // Skip recalculateBalances for household groups (they don't track balances)
+    const groupData = (await getDoc(groupRef)).data() as Record<string, unknown> | undefined;
+    const groupTemplate = (groupData?.template as GroupTemplate) ?? "casual";
+    if (groupTemplate !== "household") {
+      await this.recalculateBalances(params.groupId);
+    }
   }
 
   async deleteExpense(groupId: string, expenseId: string): Promise<void> {
@@ -268,22 +335,39 @@ export class FirebaseExpenseService implements ExpenseService {
     const expenseAmount = expenseData.amount as number;
     const expenseRate = (expenseData.exchangeRateToBase as number) ?? 1;
     const amountInBase = expenseAmount * expenseRate;
+    const expenseTransactionType = (expenseData.transactionType as TransactionType) ?? "expense";
 
-    batch.update(groupRef, {
-      totalExpenses: increment(-amountInBase),
-      updatedAt: now,
-    });
+    // Only decrement totalExpenses for EXPENSE type (not INCOME)
+    if (expenseTransactionType === "expense") {
+      batch.update(groupRef, {
+        totalExpenses: increment(-amountInBase),
+        updatedAt: now,
+      });
+    } else {
+      batch.update(groupRef, { updatedAt: now });
+    }
+
+    const deleteActivityType = expenseTransactionType === "income" ? "income_deleted" : "expense_deleted";
+    const deleteActivityDesc = expenseTransactionType === "income"
+      ? `Deleted income: ${expenseData.description}`
+      : `Deleted expense: ${expenseData.description}`;
 
     batch.set(doc(collection(groupRef, "activities")), {
-      type: "expense_deleted",
-      description: `Deleted expense: ${expenseData.description}`,
+      type: deleteActivityType,
+      description: deleteActivityDesc,
       userId: uid,
       data: { expenseId, groupId, amount: expenseData.amount },
       createdAt: now,
     });
 
     await batch.commit();
-    await this.recalculateBalances(groupId);
+
+    // Skip recalculateBalances for household groups (they don't track balances)
+    const groupData = (await getDoc(groupRef)).data() as Record<string, unknown> | undefined;
+    const groupTemplate = (groupData?.template as GroupTemplate) ?? "casual";
+    if (groupTemplate !== "household") {
+      await this.recalculateBalances(groupId);
+    }
   }
 
   async getGroupExpenses(groupId: string, pageSize: number, lastExpenseId?: string): Promise<{ expenses: Expense[]; hasMore: boolean; lastExpenseId: string | null }> {
@@ -327,10 +411,11 @@ export class FirebaseExpenseService implements ExpenseService {
         category: (data.category as string) ?? "other",
         createdBy: (data.createdBy as string) ?? "",
         exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
-        date: (data.date as number) ?? 0,
+        date: toMillis(data.date),
         note: (data.note as string) ?? "",
         recurring: (data.recurring as RecurringConfig) ?? undefined,
         itemizedData: (data.itemizedData as ItemizedSplitData) ?? undefined,
+        transactionType: (data.transactionType as TransactionType) ?? "expense",
       };
     });
 
@@ -374,7 +459,7 @@ export class FirebaseExpenseService implements ExpenseService {
     const balances = calculateBalances(expenses, settlements, memberUids);
 
     const balanceEntries = Array.from(balances.entries());
-    const BATCH_SIZE = 400;
+    const BATCH_SIZE = FIRESTORE_BATCH_LIMIT;
     for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
       const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
       const batch = writeBatch(db);

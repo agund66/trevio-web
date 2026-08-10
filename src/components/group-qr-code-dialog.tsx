@@ -60,9 +60,10 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
   if (!open) return null;
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(inviteCode).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard?.writeText(inviteCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
   };
 
   const handleShareLink = async () => {
@@ -75,9 +76,10 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
         });
       } catch { /* user cancelled share */ }
     } else {
-      navigator.clipboard.writeText(joinUrl).catch(() => {});
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      navigator.clipboard?.writeText(joinUrl).then(() => {
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }).catch(() => {});
     }
   };
 

@@ -17,6 +17,10 @@ export function LoadMoreButton({ onClick, loading, hasMore }: LoadMoreButtonProp
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
+    // IntersectionObserver is supported on all modern browsers (iOS Safari 12.2+).
+    // Fall back to the manual "Load More" button if unavailable.
+    if (typeof IntersectionObserver === "undefined") return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache } from "firebase/firestore";
 import { getMessaging, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -17,7 +17,22 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const firebaseApp = app;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-export const db = getFirestore(app);
+
+// Enable offline persistence (IndexedDB) so cached data remains accessible
+// and writes queue when the browser loses connectivity.
+// initializeFirestore must be called before getFirestore and only once.
+// In Next.js dev mode with HMR, the module may re-evaluate, so we guard
+// against double-initialization with a try/catch fallback to getFirestore.
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({ cacheSizeBytes: 50 * 1024 * 1024 }),
+  });
+} catch {
+  // Already initialized (HMR) — fall back to the existing instance.
+  dbInstance = getFirestore(app);
+}
+export const db = dbInstance;
 
 export let messaging: ReturnType<typeof getMessaging> | null = null;
 isSupported().then((supported) => {

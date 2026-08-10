@@ -26,13 +26,13 @@ export default function JoinGroupPage() {
     if (loading) return;
 
     if (!user) {
-      sessionStorage.setItem("pendingInviteCode", inviteCode);
+      try { sessionStorage.setItem("pendingInviteCode", inviteCode); } catch {}
       router.push("/login");
       return;
     }
 
     if (!user.acceptedTnC) {
-      sessionStorage.setItem("pendingInviteCode", inviteCode);
+      try { sessionStorage.setItem("pendingInviteCode", inviteCode); } catch {}
       router.push("/login");
       return;
     }
@@ -44,7 +44,7 @@ export default function JoinGroupPage() {
       setStatus("joining");
       try {
         const result = await group.joinGroupViaCode(inviteCode);
-        sessionStorage.removeItem("pendingInviteCode");
+        try { sessionStorage.removeItem("pendingInviteCode"); } catch {}
         setGroupId(result.groupId);
         try {
           const members = await settlement.getGroupBalances(result.groupId);

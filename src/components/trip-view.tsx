@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { formatShortDate } from "@/lib/utils/date";
 import { Avatar } from "@/components/avatar";
 import type { TripItineraryItem, TripLocation, Member } from "@/lib/types";
 import {
@@ -200,7 +201,7 @@ export function TripView({ groupId, members }: TripViewProps) {
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-2 w-2 rounded-full bg-trevio-500" />
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {dayKey === "No date" ? "Unscheduled" : new Date(dayKey).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                    {dayKey === "No date" ? "Unscheduled" : formatShortDate(new Date(dayKey).getTime())}
                   </span>
                   <span className="text-xs text-slate-400">
                     {formatBase(items.reduce((s, i) => s + i.estimatedCost, 0))}

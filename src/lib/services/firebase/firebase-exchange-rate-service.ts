@@ -1,13 +1,14 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import type { ExchangeRateService, ExchangeRates } from "../interfaces/exchange-rate-service";
+import { BASE_CURRENCY } from "../../utils/currency";
+import { formatDateToISO } from "../../utils/date";
 
-const BASE_CURRENCY = "INR";
 const CACHE_DOC_PATH = "config/exchangeRates";
 
 export class FirebaseExchangeRateService implements ExchangeRateService {
   async getRates(): Promise<ExchangeRates> {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = formatDateToISO(Date.now());
 
     const cachedDoc = await getDoc(doc(db, CACHE_DOC_PATH));
     if (cachedDoc.exists()) {
