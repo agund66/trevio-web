@@ -387,6 +387,32 @@ export default function AddExpensePage() {
           </div>
         )}
 
+        {/* Paid By / Received By — for household groups, shown right below
+            the Spent/Received toggle. Label changes based on selection. */}
+        {isHousehold && members !== undefined && activeMembers.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              {transactionType === "income" ? t('add.receivedBy') : t('add.paidBy')}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {activeMembers.map((m) => (
+                <button
+                  key={m.uid}
+                  onClick={() => setPaidByUid(m.uid)}
+                  className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                    (paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid) === m.uid
+                      ? "bg-trevio-600 text-white"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  {m.displayName.split(" ")[0]}
+                  {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('add.description')}</label>
           <input
@@ -430,36 +456,39 @@ export default function AddExpensePage() {
           </div>
         </div>
 
-        {members === undefined ? (
-          <div className="space-y-2">
-            <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
-            <div className="flex gap-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-9 w-20 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
-              ))}
+        {/* Paid By for non-household groups (shown after category) */}
+        {!isHousehold && (
+          members === undefined ? (
+            <div className="space-y-2">
+              <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+              <div className="flex gap-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-9 w-20 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                ))}
+              </div>
             </div>
-          </div>
-        ) : activeMembers.length > 0 ? (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.paidBy')}</label>
-            <div className="flex flex-wrap gap-2">
-              {activeMembers.map((m) => (
-                <button
-                  key={m.uid}
-                  onClick={() => setPaidByUid(m.uid)}
-                  className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
-                    (paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid) === m.uid
-                      ? "bg-trevio-600 text-white"
-                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-                  }`}
-                >
-                  {m.displayName.split(" ")[0]}
-                  {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
-                </button>
-              ))}
+          ) : activeMembers.length > 0 ? (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.paidBy')}</label>
+              <div className="flex flex-wrap gap-2">
+                {activeMembers.map((m) => (
+                  <button
+                    key={m.uid}
+                    onClick={() => setPaidByUid(m.uid)}
+                    className={`rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+                      (paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid) === m.uid
+                        ? "bg-trevio-600 text-white"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                    }`}
+                  >
+                    {m.displayName.split(" ")[0]}
+                    {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null
+        )}
 
         {!isHousehold && (
         <>
@@ -624,6 +653,7 @@ export default function AddExpensePage() {
             <Repeat className="h-4 w-4 text-slate-400" />
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('add.recurringLabel')}</span>
           </label>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{t('add.recurringDesc')}</p>
           {isRecurring && (
             <div className="mt-3 flex gap-2">
               <button

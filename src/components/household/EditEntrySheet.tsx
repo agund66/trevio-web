@@ -248,6 +248,35 @@ export function EditEntrySheet({
             </div>
           </div>
 
+          {/* Paid by / Received by — shown right below the toggle.
+              Label changes based on transaction type. */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+              {transactionType === "income" ? t('editEntry.receivedBy') : t('editEntry.paidBy')}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {activeMembers.map((m) => {
+                const selected = paidBy === m.uid;
+                return (
+                  <button
+                    key={m.uid}
+                    type="button"
+                    onClick={() => setPaidBy(m.uid)}
+                    disabled={isSaving}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium transition disabled:opacity-50 ${
+                      selected
+                        ? "border-trevio-500 bg-trevio-50 dark:bg-trevio-900/20 text-trevio-700 dark:text-trevio-300"
+                        : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-5 w-5" textClassName="text-[9px]" />
+                    {m.displayName.split(" ")[0]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Description */}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -288,34 +317,6 @@ export function EditEntrySheet({
                   >
                     <Icon className="h-3.5 w-3.5" />
                     {cat.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Paid by */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              {t('editEntry.paidBy')}
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {activeMembers.map((m) => {
-                const selected = paidBy === m.uid;
-                return (
-                  <button
-                    key={m.uid}
-                    type="button"
-                    onClick={() => setPaidBy(m.uid)}
-                    disabled={isSaving}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium transition disabled:opacity-50 ${
-                      selected
-                        ? "border-trevio-500 bg-trevio-50 dark:bg-trevio-900/20 text-trevio-700 dark:text-trevio-300"
-                        : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                    }`}
-                  >
-                    <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-5 w-5" textClassName="text-[9px]" />
-                    {m.displayName.split(" ")[0]}
                   </button>
                 );
               })}

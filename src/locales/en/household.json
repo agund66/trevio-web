@@ -75,6 +75,7 @@
     "deleteEntryAria": "Delete entry",
     "saveEntryAria": "Save entry",
     "paidBy": "Paid by",
+    "receivedBy": "Received by",
     "note": "Note",
     "deleteConfirm": "Delete this entry? This cannot be undone.",
     "spent": "Spent",

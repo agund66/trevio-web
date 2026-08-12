@@ -69,42 +69,30 @@ export default function GroupSettingsPage() {
   const isHousehold = groupInfo?.template === "household";
 
   const updateMutation = useMutation({
-    mutationFn: () => group.updateGroup(groupId, name, description),
-    onSuccess: () => {
-      setError(null);
-      setSuccess(t('settings.settingsUpdated'));
-      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
-      if (successTimerRef.current) clearTimeout(successTimerRef.current);
-      successTimerRef.current = setTimeout(() => setSuccess(null), 3000);
-    },
-    onError: (e: Error) => { setError(e.message); setSuccess(null); },
-  });
-
-  const updateBudgetMutation = useMutation({
-    mutationFn: () => {
-      const budgetNum = budget.trim() ? parseFloat(budget) : null;
-      // Only call updateGroupBudget if budget is empty (to clear it) or a positive value
-      if (budgetNum !== null && (isNaN(budgetNum) || budgetNum <= 0)) {
-        throw new Error(t('settings.budgetPositive'));
+    mutationFn: async () => {
+      // Step 1: update group name + description
+      await group.updateGroup(groupId, name, description);
+      // Step 2: update budget for household groups
+      if (isHousehold) {
+        const budgetNum = budget.trim() ? parseFloat(budget) : null;
+        if (budgetNum !== null && (isNaN(budgetNum) || budgetNum <= 0)) {
+          throw new Error(t('settings.budgetPositive'));
+        }
+        if (budgetNum !== null && userCurrency !== BASE_CURRENCY && !rates) {
+          throw new Error(t('settings.loadingRates'));
+        }
+        const budgetInBase = budgetNum !== null && rates
+          ? convertCurrency(budgetNum, userCurrency, BASE_CURRENCY, rates)
+          : budgetNum;
+        await group.updateGroupBudget(groupId, budgetInBase, null);
       }
-      // Block saving if user has non-INR currency and rates haven't loaded yet
-      if (budgetNum !== null && userCurrency !== BASE_CURRENCY && !rates) {
-        throw new Error(t('settings.loadingRates'));
-      }
-      // Convert from user's currency to INR (base) for storage
-      const budgetInBase = budgetNum !== null && rates
-        ? convertCurrency(budgetNum, userCurrency, BASE_CURRENCY, rates)
-        : budgetNum;
-      return group.updateGroupBudget(groupId, budgetInBase, null);
     },
     onSuccess: () => {
       setError(null);
-      setSuccess(t('settings.budgetUpdated'));
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      if (successTimerRef.current) clearTimeout(successTimerRef.current);
-      successTimerRef.current = setTimeout(() => setSuccess(null), 3000);
+      // Auto-navigate back on success
+      router.back();
     },
     onError: (e: Error) => { setError(e.message); setSuccess(null); },
   });
@@ -236,6 +224,7 @@ export default function GroupSettingsPage() {
       )}
 
       <div className="space-y-6">
+        {/* ── Group Details + Budget (single unified form) ── */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.groupDetails')}</h2>
 
@@ -260,6 +249,40 @@ export default function GroupSettingsPage() {
             />
           </div>
 
+          {/* Budget field for household groups — inside the same card */}
+          {isHousehold && (
+            <>
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('settings.monthlyBudget')}</h3>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{t('settings.budgetDesc')}</p>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('settings.monthlyBudgetAmount', { currency: userCurrency })}</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                    {getCurrencySymbol(userCurrency)}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder={t('create.monthlyBudgetPlaceholder')}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+                {groupInfo?.monthlyBudget != null && groupInfo.monthlyBudget > 0 && (
+                  <p className="mt-1.5 text-xs text-teal-600 dark:text-teal-400">
+                    Current budget: {formatBase(groupInfo.monthlyBudget)}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Single Save button for all fields */}
           <button
             onClick={() => updateMutation.mutate()}
             disabled={!name.trim() || updateMutation.isPending}
@@ -269,90 +292,48 @@ export default function GroupSettingsPage() {
           </button>
         </div>
 
-        {isHousehold && (
-          <div className="rounded-2xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.monthlyBudget')}</h2>
-            </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{t('settings.budgetDesc')}</p>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('settings.monthlyBudgetAmount', { currency: userCurrency })}</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                  {getCurrencySymbol(userCurrency)}
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder={t('create.monthlyBudgetPlaceholder')}
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                />
-              </div>
-              {groupInfo?.monthlyBudget != null && groupInfo.monthlyBudget > 0 && (
-                <p className="mt-1.5 text-xs text-teal-600 dark:text-teal-400">
-                  Current budget: {formatBase(groupInfo.monthlyBudget)}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => updateBudgetMutation.mutate()}
-              disabled={updateBudgetMutation.isPending}
-              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
-            >
-              {updateBudgetMutation.isPending ? t('settings.saving') : t('settings.saveBudget')}
-            </button>
-          </div>
-        )}
-
-        {!isHousehold && (
-        <>
+        {/* Transfer Admin Section — only for non-household groups with
+            other active members to transfer the role to. */}
+        {!isHousehold && activeMembers.length > 0 && (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.transferAdmin')}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('settings.transferDesc')}</p>
           </div>
 
-          {activeMembers.length > 0 ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {activeMembers.map((m) => (
-                  <button
-                    key={m.uid}
-                    onClick={() => setTransferTarget(m.uid)}
-                    className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                      transferTarget === m.uid
-                        ? "bg-trevio-600 text-white"
-                        : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-                    }`}
-                  >
-                    {m.displayName.split(" ")[0]}
-                  </button>
-                ))}
-              </div>
-              {transferTarget && (
-                <button
-                  onClick={() => {
-                    if (confirm(t('settings.transferAdminConfirm', { name: activeMembers.find((m) => m.uid === transferTarget)?.displayName }))) {
-                      transferMutation.mutate();
-                    }
-                  }}
-                  disabled={transferMutation.isPending}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-trevio-600 px-4 py-2.5 text-sm font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50"
-                >
-                  <Crown className="h-4 w-4" />
-                  {transferMutation.isPending ? t('settings.transferring') : t('settings.transferAdmin')}
-                </button>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500">{t('settings.noMembersToTransfer')}</p>
+          <div className="flex flex-wrap gap-2">
+            {activeMembers.map((m) => (
+              <button
+                key={m.uid}
+                onClick={() => setTransferTarget(m.uid)}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  transferTarget === m.uid
+                    ? "bg-trevio-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
+              >
+                {m.displayName.split(" ")[0]}
+              </button>
+            ))}
+          </div>
+          {transferTarget && (
+            <button
+              onClick={() => {
+                if (confirm(t('settings.transferAdminConfirm', { name: activeMembers.find((m) => m.uid === transferTarget)?.displayName }))) {
+                  transferMutation.mutate();
+                }
+              }}
+              disabled={transferMutation.isPending}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-trevio-600 px-4 py-2.5 text-sm font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50"
+            >
+              <Crown className="h-4 w-4" />
+              {transferMutation.isPending ? t('settings.transferring') : t('settings.transferAdmin')}
+            </button>
           )}
         </div>
+        )}
 
+        {/* Danger Zone — available for all admin groups (including household) */}
         <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-5 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-red-900 dark:text-red-300">{t('settings.dangerZone')}</h2>
@@ -390,8 +371,6 @@ export default function GroupSettingsPage() {
             </div>
           )}
         </div>
-        </>
-        )}
 
         {!isAdmin && (
           <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5 space-y-4">

@@ -10,7 +10,7 @@ import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { LoadMoreButton } from "@/components/load-more-button";
-import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus } from "lucide-react";
+import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus, ArrowLeft } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -133,6 +133,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="p-4 md:p-6">
+      <button
+        onClick={() => router.back()}
+        className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+      >
+        <ArrowLeft className="h-4 w-4" /> {tc('actions.back')}
+      </button>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
         {hasUnread && (
