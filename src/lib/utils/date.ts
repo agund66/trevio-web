@@ -1,5 +1,6 @@
 import { Timestamp } from "firebase/firestore";
 import { getLocaleForCurrency } from "./currency";
+import { BASE_CURRENCY } from "../constants/currency";
 
 // ─── Time constants ──────────────────────────────────────────────
 export const MS_PER_SECOND = 1000;
@@ -68,7 +69,7 @@ export function formatDateToISO(timestamp: number): string {
 // ─── Display formatters ──────────────────────────────────────────
 
 /** Formats a timestamp as a short date (e.g., "Mon, Jan 15"). */
-export function formatShortDate(timestamp: number, currency: string = "INR"): string {
+export function formatShortDate(timestamp: number, currency: string = BASE_CURRENCY): string {
   if (!timestamp) return "";
   return new Date(timestamp).toLocaleDateString(getLocaleForCurrency(currency), {
     weekday: "short",
@@ -78,7 +79,7 @@ export function formatShortDate(timestamp: number, currency: string = "INR"): st
 }
 
 /** Formats a timestamp as a full date with time (e.g., "Mon, Jan 15, 2024 · 3:45 PM"). */
-export function formatFullDate(timestamp: number, currency: string = "INR"): string {
+export function formatFullDate(timestamp: number, currency: string = BASE_CURRENCY): string {
   if (!timestamp) return "";
   return new Date(timestamp).toLocaleDateString(getLocaleForCurrency(currency), {
     weekday: "short",
@@ -91,7 +92,7 @@ export function formatFullDate(timestamp: number, currency: string = "INR"): str
 }
 
 /** Formats a timestamp as time only (e.g., "3:45 PM"). */
-export function formatTime(timestamp: number, currency: string = "INR"): string {
+export function formatTime(timestamp: number, currency: string = BASE_CURRENCY): string {
   if (!timestamp) return "";
   return new Date(timestamp).toLocaleTimeString(getLocaleForCurrency(currency), {
     hour: "numeric",
@@ -100,7 +101,7 @@ export function formatTime(timestamp: number, currency: string = "INR"): string 
 }
 
 /** Formats a timestamp as a relative time string (e.g., "just now", "5m ago", "3h ago", "2d ago"). */
-export function formatRelativeTime(timestamp: number, currency: string = "INR"): string {
+export function formatRelativeTime(timestamp: number, currency: string = BASE_CURRENCY): string {
   if (!timestamp) return "";
   const date = new Date(timestamp);
   const now = new Date();

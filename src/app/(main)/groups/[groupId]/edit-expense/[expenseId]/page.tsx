@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -54,6 +55,9 @@ export default function EditExpensePage() {
   const { userCurrency } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const t = useTranslations("expenses");
+  const tc = useTranslations("common");
+  const tg = useTranslations("groups");
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -73,9 +77,9 @@ export default function EditExpensePage() {
     queryFn: () => settlement.getGroupBalances(groupId),
   });
 
-  const { data: expensesData } = useQuery({
-    queryKey: ["expenses", groupId],
-    queryFn: () => expense.getGroupExpenses(groupId, 50),
+  const { data: existingExpense } = useQuery({
+    queryKey: ["expense", groupId, expenseId],
+    queryFn: () => expense.getExpenseById(groupId, expenseId),
   });
 
   const { data: groupInfo } = useQuery({
@@ -88,11 +92,6 @@ export default function EditExpensePage() {
   const activeMembers = useMemo(
     () => members?.filter((m) => m.status === "active") ?? [],
     [members]
-  );
-
-  const existingExpense = useMemo(
-    () => expensesData?.expenses.find((e) => e.expenseId === expenseId),
-    [expensesData, expenseId]
   );
 
   const canEdit = useMemo(() => {
@@ -161,7 +160,9 @@ export default function EditExpensePage() {
     if (splitType === "equal") return includedMembers.length > 0;
     if (splitType === "itemized") {
       if (itemizedData.items.length === 0) return false;
-      return itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0);
+      if (!itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0)) return false;
+      const itemTotal = itemizedData.items.reduce((sum, i) => sum + i.amount, 0);
+      return Math.abs(itemTotal - numericAmount) < 0.01;
     }
     if (!numericAmount || includedMembers.length === 0) return false;
     if (splitType === "shares") return Object.values(splitValues).some((v) => parseFloat(v) > 0);
@@ -199,19 +200,19 @@ export default function EditExpensePage() {
 
   const splitLabel = (st: SplitType) => {
     switch (st) {
-      case "equal": return "Equal";
-      case "exact": return "Exact Amount";
-      case "percent": return "Percentage";
-      case "shares": return "Shares";
-      case "itemized": return "Items";
+      case "equal": return t('add.equal');
+      case "exact": return t('add.exactAmount');
+      case "percent": return t('add.percentage');
+      case "shares": return t('add.shares');
+      case "itemized": return t('add.items');
     }
   };
 
   const splitPlaceholder = (st: SplitType) => {
     switch (st) {
-      case "exact": return "0.00";
-      case "percent": return "0";
-      case "shares": return "0";
+      case "exact": return t('add.splitPlaceholderExact');
+      case "percent": return t('add.splitPlaceholderPercent');
+      case "shares": return t('add.splitPlaceholderShares');
       case "itemized": return "";
       default: return "";
     }
@@ -261,9 +262,9 @@ export default function EditExpensePage() {
   if (!existingExpense && loaded) {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
-        <p className="text-sm text-slate-500 dark:text-slate-400">Expense not found.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('notFound')}</p>
         <button onClick={() => router.push(`/groups/${groupId}`)} className="mt-4 text-sm text-trevio-600 dark:text-trevio-400 hover:underline">
-          Back to group
+          {tg('details.backToGroup')}
         </button>
       </div>
     );
@@ -272,9 +273,9 @@ export default function EditExpensePage() {
   if (loaded && !canEdit) {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
-        <p className="text-sm text-slate-500 dark:text-slate-400">You can only edit expenses you created. Group admins can also edit any expense.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('editPermissionDenied')}</p>
         <button onClick={() => router.push(`/groups/${groupId}`)} className="mt-4 text-sm text-trevio-600 dark:text-trevio-400 hover:underline">
-          Back to group
+          {tg('details.backToGroup')}
         </button>
       </div>
     );
@@ -284,10 +285,10 @@ export default function EditExpensePage() {
     <div className="mx-auto max-w-2xl p-4 md:p-6">
       <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {tc('actions.back')}
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{isHousehold ? "Edit Entry" : "Edit Expense"}</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{isHousehold ? t('add.editEntryTitle') : t('add.editExpenseTitle')}</h1>
 
       {!loaded ? (
         <div className="flex items-center justify-center py-12">
@@ -304,7 +305,7 @@ export default function EditExpensePage() {
                 type="text"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value.replace(/[^0-9.+\-*/]/g, ""))}
-                placeholder="0.00"
+                placeholder={t('add.amountPlaceholder')}
                 className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
             </div>
@@ -312,7 +313,7 @@ export default function EditExpensePage() {
 
           {isHousehold && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Transaction Type</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.transactionType')}</label>
               <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <button
                   onClick={() => {
@@ -326,7 +327,7 @@ export default function EditExpensePage() {
                   }`}
                 >
                   <TrendingDown className="h-4 w-4" />
-                  Spent
+                  {t('add.spent')}
                 </button>
                 <button
                   onClick={() => {
@@ -340,26 +341,26 @@ export default function EditExpensePage() {
                   }`}
                 >
                   <TrendingUp className="h-4 w-4" />
-                  Received
+                  {t('add.received')}
                 </button>
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('add.description')}</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
-              placeholder={isHousehold ? "e.g., Groceries from Big Bazaar" : "e.g., Dinner at restaurant"}
+              placeholder={isHousehold ? t('add.descriptionPlaceholderHousehold') : t('add.descriptionPlaceholderExpense')}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Category</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.category')}</label>
             <div className="flex flex-wrap gap-2">
               {categories.map((cat) => (
                 <button
@@ -378,13 +379,13 @@ export default function EditExpensePage() {
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               <StickyNote className="h-4 w-4 text-slate-400" />
-              Note (optional)
+              {t('add.noteLabel')}
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={500}
-              placeholder="Add a note about this expense..."
+              placeholder={t('add.notePlaceholder')}
               rows={2}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
             />
@@ -392,7 +393,7 @@ export default function EditExpensePage() {
 
           {activeMembers.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Paid by</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.paidBy')}</label>
               <div className="flex flex-wrap gap-2">
                 {activeMembers.map((m) => (
                   <button
@@ -405,7 +406,7 @@ export default function EditExpensePage() {
                     }`}
                   >
                     {m.displayName.split(" ")[0]}
-                    {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">(You)</span>}
+                    {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
                   </button>
                 ))}
               </div>
@@ -415,7 +416,7 @@ export default function EditExpensePage() {
           {!isHousehold && (
           <>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Split method</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.splitMethod')}</label>
             <div className="flex flex-wrap gap-2">
               {splitTypes.map((st) => (
                 <button
@@ -436,7 +437,7 @@ export default function EditExpensePage() {
             <div className="mb-3 flex items-center gap-2">
               <Receipt className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Split bill by items
+                {t('add.splitByItems')}
               </span>
             </div>
             <ItemizedSplitEditor
@@ -452,13 +453,13 @@ export default function EditExpensePage() {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {splitType === "exact" && "Enter exact amount for each member"}
-                  {splitType === "percent" && "Enter percentage for each member"}
-                  {splitType === "shares" && "Enter shares for each member"}
+                  {splitType === "exact" && t('add.enterExactAmount')}
+                  {splitType === "percent" && t('add.enterPercentage')}
+                  {splitType === "shares" && t('add.enterShares')}
                 </span>
                 {splitSummary && splitType !== "shares" && (
                   <span className={`text-xs font-semibold ${isSplitValid ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
-                    {splitSummary.entered.toFixed(2)} / {splitSummary.expected.toFixed(2)} {splitSummary.label}
+                    {currencySymbol(currency)}{splitSummary.entered.toFixed(2)} / {currencySymbol(currency)}{splitSummary.expected.toFixed(2)} {splitSummary.label}
                   </span>
                 )}
               </div>
@@ -468,7 +469,7 @@ export default function EditExpensePage() {
                   return (
                     <div key={m.uid} className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">{tc('youLabel')}</span>}</p>
                       </div>
                       <input
                         type="text"
@@ -487,8 +488,17 @@ export default function EditExpensePage() {
           )}
 
           {updateMutation.isError && (
-            <p className="text-sm text-red-500 dark:text-red-400">{updateMutation.error instanceof Error ? updateMutation.error.message : "Failed to update expense"}</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{updateMutation.error instanceof Error ? updateMutation.error.message : t('failedToUpdateExpense')}</p>
           )}
+
+          {splitType === "itemized" && numericAmount > 0 && itemizedData.items.length > 0 && itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0) && (() => {
+            const itemTotal = itemizedData.items.reduce((sum, i) => sum + i.amount, 0);
+            return Math.abs(itemTotal - numericAmount) >= 0.01 ? (
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                {t('add.itemizedTotalMustMatch', { symbol: currencySymbol(currency), amount: numericAmount.toFixed(2) })}
+              </p>
+            ) : null;
+          })()}
 
           <div className="flex gap-3">
             <button
@@ -499,15 +509,15 @@ export default function EditExpensePage() {
               {updateMutation.isPending ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Saving...
+                  {tc('actions.saving')}
                 </span>
               ) : (
-                isHousehold ? "Save Entry" : "Save Changes"
+                isHousehold ? t('add.saveEntry') : t('saveChanges')
               )}
             </button>
             <button
               onClick={() => {
-                if (confirm("Delete this expense? This action cannot be undone.")) {
+                if (confirm(t('delete.confirmWithUndo'))) {
                   deleteMutation.mutate();
                 }
               }}

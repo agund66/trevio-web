@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Plus, Trash2, Receipt, Users, Copy } from "lucide-react";
 import type { BillItem, ItemizedSplitData, Member } from "@/lib/types";
 import { getCurrencySymbol } from "@/lib/utils/currency";
@@ -19,6 +20,8 @@ export function ItemizedSplitEditor({
   onChange,
 }: ItemizedSplitEditorProps) {
   const currencySymbol = (curr: string) => getCurrencySymbol(curr) || curr;
+  const t = useTranslations("expenses");
+  const tc = useTranslations("common");
 
   const activeMembers = useMemo(
     () => members.filter((m) => m.status === "active"),
@@ -155,7 +158,7 @@ export function ItemizedSplitEditor({
           <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
             <Receipt className="h-8 w-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
             <p className="text-sm text-slate-400 dark:text-slate-500">
-              No items added yet. Tap &ldquo;Add Item&rdquo; to start splitting your bill item by item.
+              {tc('itemized.emptyState')}
             </p>
           </div>
         )}
@@ -174,7 +177,7 @@ export function ItemizedSplitEditor({
                 type="text"
                 value={item.name}
                 onChange={(e) => updateItem(item.itemId, "name", e.target.value)}
-                placeholder={`Item ${index + 1} name`}
+                placeholder={tc('itemized.itemNamePlaceholder', { index: index + 1 })}
                 className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
               <div className="relative">
@@ -185,21 +188,21 @@ export function ItemizedSplitEditor({
                   type="text"
                   value={item.amount || ""}
                   onChange={(e) => updateItem(item.itemId, "amount", parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0)}
-                  placeholder="0.00"
+                  placeholder={t('itemized.amountPlaceholder')}
                   className="w-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-7 pr-2 py-2 text-sm text-slate-900 dark:text-slate-100 text-right focus:border-trevio-500 focus:outline-none"
                 />
               </div>
               <button
                 onClick={() => duplicateItem(item.itemId)}
                 className="rounded-lg p-2 text-slate-400 hover:text-trevio-600 hover:bg-trevio-50 dark:hover:bg-trevio-900/30 transition"
-                title="Duplicate item"
+                title={t('itemized.duplicateItem')}
               >
                 <Copy className="h-4 w-4" />
               </button>
               <button
                 onClick={() => removeItem(item.itemId)}
                 className="rounded-lg p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
-                title="Remove item"
+                title={t('itemized.removeItem')}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -209,13 +212,13 @@ export function ItemizedSplitEditor({
             <div className="flex flex-wrap items-center gap-1.5 pl-8">
               <span className="text-xs text-slate-400 dark:text-slate-500 mr-1 flex items-center gap-1">
                 <Users className="h-3 w-3" />
-                Split with:
+                {tc('itemized.splitWith')}
               </span>
               <button
                 onClick={() => assignAllToItem(item.itemId)}
                 className="rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-trevio-50 dark:hover:bg-trevio-900/30 hover:text-trevio-600 dark:hover:text-trevio-400 transition"
               >
-                All
+                {tc('itemized.all')}
               </button>
               {activeMembers.map((m) => {
                 const isAssigned = item.assignedTo.includes(m.uid);
@@ -238,8 +241,8 @@ export function ItemizedSplitEditor({
             {/* Per-person for this item */}
             {item.assignedTo.length > 0 && item.amount > 0 && (
               <p className="pl-8 text-xs text-slate-400 dark:text-slate-500">
-                {currencySymbol(currency)}{(item.amount / item.assignedTo.length).toFixed(2)} each
-                {item.assignedTo.length > 1 && ` × ${item.assignedTo.length} people`}
+                {currencySymbol(currency)}{(item.amount / item.assignedTo.length).toFixed(2)} {tc('itemized.each')}
+                {item.assignedTo.length > 1 && ` × ${item.assignedTo.length} ${tc('itemized.people')}`}
               </p>
             )}
           </div>
@@ -252,7 +255,7 @@ export function ItemizedSplitEditor({
         className="w-full rounded-2xl border-2 border-dashed border-trevio-300 dark:border-trevio-700 py-3 text-sm font-medium text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/20"
       >
         <Plus className="inline h-4 w-4 mr-1" />
-        Add Item
+        {t('itemized.addItem')}
       </button>
 
       {/* Tax & Tip */}
@@ -260,7 +263,7 @@ export function ItemizedSplitEditor({
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Tax</label>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t('itemized.tax')}</label>
               <div className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-slate-400">
                   {currencySymbol(currency)}
@@ -272,7 +275,7 @@ export function ItemizedSplitEditor({
                     ...itemizedData,
                     taxAmount: parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0,
                   })}
-                  placeholder="0.00"
+                  placeholder={t('itemized.amountPlaceholder')}
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-7 pr-2 py-2 text-sm text-slate-900 dark:text-slate-100 text-right focus:border-trevio-500 focus:outline-none"
                 />
               </div>
@@ -285,7 +288,7 @@ export function ItemizedSplitEditor({
                       : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                   }`}
                 >
-                  Proportional
+                  {t('itemized.splitMode.proportional')}
                 </button>
                 <button
                   onClick={() => onChange({ ...itemizedData, taxSplitMode: "equal" })}
@@ -295,12 +298,12 @@ export function ItemizedSplitEditor({
                       : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                   }`}
                 >
-                  Equal
+                  {t('itemized.splitMode.equal')}
                 </button>
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Tip</label>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t('itemized.tip')}</label>
               <div className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-slate-400">
                   {currencySymbol(currency)}
@@ -312,7 +315,7 @@ export function ItemizedSplitEditor({
                     ...itemizedData,
                     tipAmount: parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0,
                   })}
-                  placeholder="0.00"
+                  placeholder={t('itemized.amountPlaceholder')}
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-7 pr-2 py-2 text-sm text-slate-900 dark:text-slate-100 text-right focus:border-trevio-500 focus:outline-none"
                 />
               </div>
@@ -325,7 +328,7 @@ export function ItemizedSplitEditor({
                       : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                   }`}
                 >
-                  Proportional
+                  {t('itemized.splitMode.proportional')}
                 </button>
                 <button
                   onClick={() => onChange({ ...itemizedData, tipSplitMode: "equal" })}
@@ -335,7 +338,7 @@ export function ItemizedSplitEditor({
                       : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                   }`}
                 >
-                  Equal
+                  {t('itemized.splitMode.equal')}
                 </button>
               </div>
             </div>
@@ -347,14 +350,14 @@ export function ItemizedSplitEditor({
       {itemizedData.items.length > 0 && (
         <div className="rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4 space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-600 dark:text-slate-400">Items total</span>
+            <span className="text-slate-600 dark:text-slate-400">{t('itemized.itemsTotal')}</span>
             <span className="font-medium text-slate-900 dark:text-slate-100">
               {currencySymbol(currency)}{itemsTotal.toFixed(2)}
             </span>
           </div>
           {(itemizedData.taxAmount ?? 0) > 0 && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-400">Tax</span>
+              <span className="text-slate-600 dark:text-slate-400">{t('itemized.tax')}</span>
               <span className="font-medium text-slate-900 dark:text-slate-100">
                 {currencySymbol(currency)}{(itemizedData.taxAmount ?? 0).toFixed(2)}
               </span>
@@ -362,14 +365,14 @@ export function ItemizedSplitEditor({
           )}
           {(itemizedData.tipAmount ?? 0) > 0 && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-400">Tip</span>
+              <span className="text-slate-600 dark:text-slate-400">{t('itemized.tip')}</span>
               <span className="font-medium text-slate-900 dark:text-slate-100">
                 {currencySymbol(currency)}{(itemizedData.tipAmount ?? 0).toFixed(2)}
               </span>
             </div>
           )}
           <div className="border-t border-trevio-200 dark:border-trevio-700 pt-2 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Grand total</span>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('itemized.grandTotal')}</span>
             <span className="text-lg font-bold text-trevio-700 dark:text-trevio-300">
               {currencySymbol(currency)}{grandTotal.toFixed(2)}
             </span>
@@ -380,7 +383,7 @@ export function ItemizedSplitEditor({
       {/* Per-member breakdown */}
       {itemizedData.items.length > 0 && (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Per person breakdown</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('itemized.perPersonBreakdown')}</p>
           <div className="space-y-2">
             {activeMembers.map((m) => (
               <div key={m.uid} className="flex items-center justify-between">

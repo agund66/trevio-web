@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -53,6 +54,8 @@ export default function AddExpensePage() {
   const { expense, settlement, group } = useServices();
   const { userCurrency } = useCurrencyDisplay();
   const queryClient = useQueryClient();
+  const t = useTranslations("expenses");
+  const tc = useTranslations("common");
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -136,7 +139,9 @@ export default function AddExpensePage() {
     if (splitType === "equal") return includedMembers.length > 0;
     if (splitType === "itemized") {
       if (itemizedData.items.length === 0) return false;
-      return itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0);
+      if (!itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0)) return false;
+      const itemTotal = itemizedData.items.reduce((sum, i) => sum + i.amount, 0);
+      return Math.abs(itemTotal - numericAmount) < 0.01;
     }
     if (!numericAmount || includedMembers.length === 0) return false;
     if (splitType === "shares") {
@@ -181,7 +186,7 @@ export default function AddExpensePage() {
     mutationFn: () => {
       const dateMs = new Date(expenseDate).getTime();
       if (isNaN(dateMs)) {
-        throw new Error("Please select a valid date");
+        throw new Error(t('add.validDateRequired'));
       }
       return expense.addExpense({
         groupId,
@@ -219,7 +224,7 @@ export default function AddExpensePage() {
   const handleSave = () => {
     const dateMs = new Date(expenseDate).getTime();
     if (isNaN(dateMs)) {
-      setError("Please select a valid date");
+      setError(t('add.validDateRequired'));
       return;
     }
     setError(null);
@@ -242,19 +247,19 @@ export default function AddExpensePage() {
 
   const splitLabel = (st: SplitType) => {
     switch (st) {
-      case "equal": return "Equal";
-      case "exact": return "Exact Amount";
-      case "percent": return "Percentage";
-      case "shares": return "Shares";
-      case "itemized": return "Items";
+      case "equal": return t('add.equal');
+      case "exact": return t('add.exactAmount');
+      case "percent": return t('add.percentage');
+      case "shares": return t('add.shares');
+      case "itemized": return t('add.items');
     }
   };
 
   const splitPlaceholder = (st: SplitType) => {
     switch (st) {
-      case "exact": return "0.00";
-      case "percent": return "0";
-      case "shares": return "0";
+      case "exact": return t('add.splitPlaceholderExact');
+      case "percent": return t('add.splitPlaceholderPercent');
+      case "shares": return t('add.splitPlaceholderShares');
       case "itemized": return "";
       default: return "";
     }
@@ -264,10 +269,10 @@ export default function AddExpensePage() {
     <div className="mx-auto max-w-2xl p-4 md:p-6">
       <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {tc('actions.back')}
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{isHousehold ? "Add Entry" : "Add Expense"}</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{isHousehold ? t('add.entryTitle') : t('add.expenseTitle')}</h1>
 
       <div className="space-y-5">
         <div>
@@ -279,7 +284,7 @@ export default function AddExpensePage() {
               type="text"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.+\-*/]/g, ""))}
-              placeholder="0.00"
+              placeholder={t('add.amountPlaceholder')}
               className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-4 pl-12 text-3xl font-bold text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
@@ -289,7 +294,7 @@ export default function AddExpensePage() {
             </p>
           )}
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-slate-400 dark:text-slate-500">Quick calc:</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">{t('add.quickCalc')}</span>
             {[
               { label: "+", op: "+" },
               { label: "−", op: "-" },
@@ -309,7 +314,7 @@ export default function AddExpensePage() {
                 onClick={() => setAmount("")}
                 className="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-slate-400 dark:text-slate-500 transition hover:text-slate-600 dark:hover:text-slate-300"
               >
-                Clear
+                {t('add.clear')}
               </button>
             )}
           </div>
@@ -317,7 +322,7 @@ export default function AddExpensePage() {
 
         {isHousehold && (
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Transaction Type</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.transactionType')}</label>
             <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <button
                 onClick={() => {
@@ -331,7 +336,7 @@ export default function AddExpensePage() {
                 }`}
               >
                 <TrendingDown className="h-4 w-4" />
-                Spent
+                {t('add.spent')}
               </button>
               <button
                 onClick={() => {
@@ -345,26 +350,26 @@ export default function AddExpensePage() {
                 }`}
               >
                 <TrendingUp className="h-4 w-4" />
-                Received
+                {t('add.received')}
               </button>
             </div>
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('add.description')}</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={500}
-            placeholder={isHousehold ? "e.g., Groceries from Big Bazaar" : "e.g., Dinner at restaurant"}
+            placeholder={isHousehold ? t('add.descriptionPlaceholderHousehold') : t('add.descriptionPlaceholderExpense')}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Date</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.date')}</label>
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -378,7 +383,7 @@ export default function AddExpensePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Category</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.category')}</label>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
@@ -405,7 +410,7 @@ export default function AddExpensePage() {
           </div>
         ) : activeMembers.length > 0 ? (
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Paid by</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.paidBy')}</label>
             <div className="flex flex-wrap gap-2">
               {activeMembers.map((m) => (
                 <button
@@ -418,7 +423,7 @@ export default function AddExpensePage() {
                   }`}
                 >
                   {m.displayName.split(" ")[0]}
-                  {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">(You)</span>}
+                  {m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
                 </button>
               ))}
             </div>
@@ -428,7 +433,7 @@ export default function AddExpensePage() {
         {!isHousehold && (
         <>
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Split method</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('add.splitMethod')}</label>
           <div className="flex flex-wrap gap-2">
             {splitTypes.map((st) => (
               <button
@@ -448,9 +453,9 @@ export default function AddExpensePage() {
           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {currencySymbol(currency)}{equalPerPerson.toFixed(2)} per person
+                {t('add.perPerson', { symbol: currencySymbol(currency), amount: equalPerPerson.toFixed(2) })}
               </span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">{includedMembers.length} of {activeMembers.length} members</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">{t('add.membersIncluded', { included: includedMembers.length, total: activeMembers.length })}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {activeMembers.map((m) => {
@@ -465,7 +470,7 @@ export default function AddExpensePage() {
                         : "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300 border border-trevio-200 dark:border-trevio-700"
                     }`}
                   >
-                    {m.displayName.split(" ")[0]}{m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">(You)</span>}
+                    {m.displayName.split(" ")[0]}{m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
                   </button>
                 );
               })}
@@ -478,7 +483,7 @@ export default function AddExpensePage() {
             <div className="mb-3 flex items-center gap-2">
               <Receipt className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Split bill by items
+                {t('add.splitByItems')}
               </span>
             </div>
             <ItemizedSplitEditor
@@ -494,15 +499,15 @@ export default function AddExpensePage() {
           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {splitType === "exact" && "Enter exact amount for each member"}
-                {splitType === "percent" && "Enter percentage for each member"}
-                {splitType === "shares" && "Enter shares for each member"}
+                {splitType === "exact" && t('add.enterExactAmount')}
+                {splitType === "percent" && t('add.enterPercentage')}
+                {splitType === "shares" && t('add.enterShares')}
               </span>
               {splitSummary && splitType !== "shares" && (
                 <span className={`text-xs font-semibold ${
                   isSplitValid ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"
                 }`}>
-                  {splitSummary.entered.toFixed(2)} / {splitSummary.expected.toFixed(2)} {splitSummary.label}
+                  {currencySymbol(currency)}{splitSummary.entered.toFixed(2)} / {currencySymbol(currency)}{splitSummary.expected.toFixed(2)} {splitSummary.label}
                 </span>
               )}
             </div>
@@ -521,7 +526,7 @@ export default function AddExpensePage() {
                 return (
                   <div key={m.uid} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.displayName}{m.uid === user?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">{tc('youLabel')}</span>}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {displayAmount && (
@@ -541,7 +546,7 @@ export default function AddExpensePage() {
             </div>
             {includedMembers.length < activeMembers.length && (
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-                <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Excluded members (tap to include):</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">{t('add.excludedMembers')}</p>
                 <div className="flex flex-wrap gap-2">
                   {activeMembers.filter((m) => excludedMembers.has(m.uid)).map((m) => (
                     <button
@@ -549,14 +554,14 @@ export default function AddExpensePage() {
                       onClick={() => toggleExclude(m.uid)}
                       className="rounded-xl px-3 py-1.5 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
                     >
-                      {m.displayName.split(" ")[0]}{m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">(You)</span>}
+                      {m.displayName.split(" ")[0]}{m.uid === user?.uid && <span className="ml-1 text-xs opacity-70">{tc('youLabel')}</span>}
                     </button>
                   ))}
                 </div>
               </div>
             )}
             {splitType === "shares" && (
-              <p className="text-xs text-slate-400 dark:text-slate-500">Amounts are split proportionally based on share values.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">{t('add.proportionalHint')}</p>
             )}
           </div>
         )}
@@ -565,13 +570,13 @@ export default function AddExpensePage() {
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             <StickyNote className="h-4 w-4 text-slate-400" />
-            Note (optional)
+            {t('add.noteLabel')}
           </label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
-            placeholder="Add a note about this expense..."
+            placeholder={t('add.notePlaceholder')}
             rows={2}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
           />
@@ -586,7 +591,7 @@ export default function AddExpensePage() {
               className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-trevio-600 focus:ring-trevio-500"
             />
             <Repeat className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Make this a recurring expense</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('add.recurringLabel')}</span>
           </label>
           {isRecurring && (
             <div className="mt-3 flex gap-2">
@@ -596,7 +601,7 @@ export default function AddExpensePage() {
                   recurringFreq === "weekly" ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
-                Weekly
+                {t('add.weekly')}
               </button>
               <button
                 onClick={() => setRecurringFreq("monthly")}
@@ -604,23 +609,32 @@ export default function AddExpensePage() {
                   recurringFreq === "monthly" ? "bg-trevio-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               >
-                Monthly
+                {t('add.monthly')}
               </button>
             </div>
           )}
         </div>
 
         {(error || addMutation.isError) && (
-          <p className="text-sm text-red-500 dark:text-red-400">{error ?? (addMutation.error instanceof Error ? addMutation.error.message : "Failed to add expense")}</p>
+          <p className="text-sm text-red-500 dark:text-red-400">{error ?? (addMutation.error instanceof Error ? addMutation.error.message : t('failedToAddExpense'))}</p>
         )}
 
         {!isSplitValid && numericAmount > 0 && splitType !== "equal" && splitType !== "itemized" && includedMembers.length > 0 && (
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            {splitType === "percent" && `Total must be 100% (currently ${splitSummary?.entered ?? 0}%)`}
-            {splitType === "exact" && `Total must match ${currencySymbol(currency)}${numericAmount.toFixed(2)} (currently ${currencySymbol(currency)}${(splitSummary?.entered ?? 0).toFixed(2)})`}
-            {splitType === "shares" && "Enter at least one share value"}
+            {splitType === "percent" && t('add.totalMustBe100', { current: splitSummary?.entered ?? 0 })}
+            {splitType === "exact" && t('add.totalMustMatch', { symbol: currencySymbol(currency), amount: numericAmount.toFixed(2), current: (splitSummary?.entered ?? 0).toFixed(2) })}
+            {splitType === "shares" && t('add.enterShareValue')}
           </p>
         )}
+
+        {splitType === "itemized" && numericAmount > 0 && itemizedData.items.length > 0 && itemizedData.items.every((i) => i.name.trim() && i.amount > 0 && i.assignedTo.length > 0) && (() => {
+          const itemTotal = itemizedData.items.reduce((sum, i) => sum + i.amount, 0);
+          return Math.abs(itemTotal - numericAmount) >= 0.01 ? (
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              {t('add.itemizedTotalMustMatch', { symbol: currencySymbol(currency), amount: numericAmount.toFixed(2) })}
+            </p>
+          ) : null;
+        })()}
 
         <div className="flex gap-3">
           <button
@@ -631,10 +645,10 @@ export default function AddExpensePage() {
             {addMutation.isPending ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Saving...
+                {tc('actions.saving')}
               </span>
             ) : (
-              isHousehold ? "Save Entry" : "Save Expense"
+              isHousehold ? t('add.saveEntry') : t('add.saveExpense')
             )}
           </button>
           <button
@@ -647,7 +661,7 @@ export default function AddExpensePage() {
           >
             <span className="flex items-center justify-center gap-2">
               <Plus className="h-5 w-5" />
-              Save & Add Another
+              {t('add.saveAndAddAnother')}
             </span>
           </button>
         </div>

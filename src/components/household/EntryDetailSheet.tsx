@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   X, Pencil, Trash2, TrendingDown, TrendingUp, Calendar, User, StickyNote,
   ShoppingCart, Sprout, Zap, Home, Car, Stethoscope, GraduationCap,
@@ -12,6 +13,7 @@ import { getCategoryIcon, getCategoryColor, getCategoryLabel } from "@/lib/utils
 import { formatCurrencySymbol } from "@/lib/utils/currency";
 import { formatFullDate } from "@/lib/utils/date";
 import { Avatar } from "@/components/avatar";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
 
 const ICON_MAP: Record<string, typeof Package> = {
   ShoppingCart,
@@ -56,10 +58,11 @@ export function EntryDetailSheet({
   onEdit,
   onDelete,
   onClose,
-  userCurrency = "INR",
+  userCurrency = BASE_CURRENCY,
 }: EntryDetailSheetProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("household");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -120,10 +123,10 @@ export function EntryDetailSheet({
 
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Entry Details</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('entryDetail.title')}</h3>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('entryDetail.closeAria')}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200"
           >
             <X className="h-4 w-4" />
@@ -154,7 +157,7 @@ export function EntryDetailSheet({
             }`}
           >
             {isIncome ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {isIncome ? "Received" : "Spent"}
+            {isIncome ? t('entryDetail.received') : t('entryDetail.spent')}
           </span>
         </div>
 
@@ -164,7 +167,7 @@ export function EntryDetailSheet({
             <div className="flex items-start gap-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3">
               <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Description</p>
+                <p className="text-xs text-slate-400 mb-0.5">{t('entryDetail.description')}</p>
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{entry.description}</p>
               </div>
             </div>
@@ -175,7 +178,7 @@ export function EntryDetailSheet({
             <div className="flex items-center gap-2">
               {payer && <Avatar photoURL={payer.photoURL} displayName={payer.displayName} className="h-6 w-6" textClassName="text-xs" />}
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                {payer?.displayName ?? "Someone"}
+                {payer?.displayName ?? t('someone')}
               </p>
             </div>
           </div>
@@ -191,7 +194,7 @@ export function EntryDetailSheet({
             <div className="flex items-start gap-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3">
               <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Note</p>
+                <p className="text-xs text-slate-400 mb-0.5">{t('entryDetail.note')}</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300">{entry.note}</p>
               </div>
             </div>
@@ -202,22 +205,22 @@ export function EntryDetailSheet({
         {showDeleteConfirm ? (
           <div className="rounded-xl border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
             <p className="text-sm font-semibold text-red-900 dark:text-red-300 mb-3">
-              Delete this entry? This cannot be undone.
+              {t('entryDetail.deleteConfirm')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                aria-label="Cancel"
+                aria-label={t('entryDetail.cancelAria')}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-600 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-700"
               >
-                Cancel
+                {t('entryDetail.cancelAria')}
               </button>
               <button
                 onClick={onDelete}
-                aria-label="Delete entry"
+                aria-label={t('entryDetail.deleteEntryAria')}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
               >
-                Delete
+                {t('entryDetail.delete')}
               </button>
             </div>
           </div>
@@ -225,17 +228,17 @@ export function EntryDetailSheet({
           <div className="flex gap-3">
             <button
               onClick={onEdit}
-              aria-label="Edit entry"
+              aria-label={t('entryDetail.editEntryAria')}
               className="flex-1 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700"
             >
               <span className="flex items-center justify-center gap-2">
                 <Pencil className="h-4 w-4" />
-                Edit
+                {t('entryDetail.edit')}
               </span>
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              aria-label="Delete entry"
+              aria-label={t("entryDetail.deleteEntryAria")}
               className="rounded-xl border-2 border-red-200 dark:border-red-800 px-6 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <Trash2 className="h-4 w-4" />

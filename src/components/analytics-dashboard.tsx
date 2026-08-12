@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import type { Expense, Member } from "@/lib/types";
 import { computeGroupAnalytics } from "@/lib/utils/analytics";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
@@ -27,15 +28,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "bg-slate-400",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  food: "Food",
-  transport: "Transport",
-  shopping: "Shopping",
-  turf: "Turf",
-  accommodation: "Stay",
-  other: "Other",
-};
-
 interface AnalyticsDashboardProps {
   groupId: string;
   groupName: string;
@@ -46,6 +38,15 @@ interface AnalyticsDashboardProps {
 export function AnalyticsDashboard({ groupId, groupName, expenses, members }: AnalyticsDashboardProps) {
   const { user } = useAuth();
   const { formatBase } = useCurrencyDisplay();
+  const t = useTranslations("groups");
+  const CATEGORY_LABELS: Record<string, string> = {
+    food: t('analytics.food'),
+    transport: t('analytics.transport'),
+    shopping: t('analytics.shopping'),
+    turf: t('analytics.turf'),
+    accommodation: t('analytics.stay'),
+    other: t('analytics.other'),
+  };
 
   const analytics = useMemo(
     () => computeGroupAnalytics(groupId, groupName, expenses, members, user?.uid || ""),
@@ -61,25 +62,25 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           icon={<Receipt className="h-4 w-4" />}
-          label="Total Spent"
+          label={t('analytics.totalSpent')}
           value={formatBase(analytics.totalExpenses)}
           color="trevio"
         />
         <StatCard
           icon={<BarChart3 className="h-4 w-4" />}
-          label="Avg Expense"
+          label={t('analytics.avgExpense')}
           value={formatBase(analytics.avgExpenseAmount)}
           color="blue"
         />
         <StatCard
           icon={<Activity className="h-4 w-4" />}
-          label="Expenses"
+          label={t('analytics.expenses')}
           value={String(analytics.expenseCount)}
           color="purple"
         />
         <StatCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Recent Activity"
+          label={t('analytics.recentActivity')}
           value={`${analytics.recentActivityRate}%`}
           color="green"
         />
@@ -89,7 +90,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
       <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Monthly Spending</h3>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">{t('analytics.monthlySpending')}</h3>
         </div>
         <div className="flex items-end justify-between gap-2 h-40">
           {analytics.monthlyTrends.map((trend) => (
@@ -117,7 +118,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
           <div className="flex items-center gap-2 mb-4">
             <PieChart className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">By Category</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{t('analytics.byCategory')}</h3>
           </div>
           <div className="space-y-3">
             {analytics.categoryBreakdown.map((cat) => (
@@ -154,7 +155,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Award className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Top Spenders</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{t('analytics.topSpenders')}</h3>
           </div>
           <div className="space-y-3">
             {analytics.memberSpending
@@ -179,7 +180,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {formatBase(member.totalPaid)}
                     </p>
-                    <p className="text-[10px] text-slate-400">{member.expenseCount} expenses</p>
+                    <p className="text-[10px] text-slate-400">{t('analytics.expensesCount', { count: member.expenseCount })}</p>
                   </div>
                 </div>
               ))}
@@ -192,7 +193,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-trevio-50 to-slate-50 dark:from-trevio-900/20 dark:to-slate-800 p-5">
           <div className="flex items-center gap-2 mb-3">
             <ArrowUpRight className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Biggest Expense</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{t('analytics.biggestExpense')}</h3>
           </div>
           <div className="flex items-center justify-between">
             <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import type { BroadcastMessage, BroadcastPriority } from "@/lib/types";
@@ -44,6 +45,7 @@ const priorityStyles: Record<
 export function BroadcastPopup() {
   const { user } = useAuth();
   const { broadcast } = useServices();
+  const t = useTranslations("common");
   const [unreadBroadcasts, setUnreadBroadcasts] = useState<BroadcastMessage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [acknowledging, setAcknowledging] = useState(false);
@@ -116,7 +118,7 @@ export function BroadcastPopup() {
         <div className={cn("flex items-center gap-2 px-5 py-3", style.headerBg)}>
           <style.icon className={cn("h-5 w-5", style.iconColor)} />
           <span className="text-sm font-semibold text-white uppercase tracking-wide">
-            {visibleBroadcast.priority === "critical" ? "Critical Alert" : visibleBroadcast.priority === "maintenance" ? "Maintenance Notice" : "Information"}
+            {visibleBroadcast.priority === "critical" ? t('broadcast.priority.critical') : visibleBroadcast.priority === "maintenance" ? t('broadcast.priority.maintenance') : t('broadcast.priority.info')}
           </span>
           {!isCritical && (
             <button
@@ -152,7 +154,7 @@ export function BroadcastPopup() {
             ) : (
               <Check className="h-4 w-4" />
             )}
-            {isCritical ? "Understood" : "OK, Got it"}
+            {isCritical ? t('understood') : t('okGotIt')}
           </button>
         </div>
       </div>

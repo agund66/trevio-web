@@ -1,32 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { LoadMoreButton } from "@/components/load-more-button";
 import type { User } from "@/lib/types";
 import { Ban, CheckCircle, Crown, Search, AlertCircle, Shield, X } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 
-const confirmMessages: Record<string, { title: string; body: string; confirm: string }> = {
-  block: { title: "Block User", body: "This user will be unable to sign in or use Trevio. They can be unblocked later.", confirm: "Block" },
-  unblock: { title: "Unblock User", body: "This user will regain access to Trevio.", confirm: "Unblock" },
-  promote: { title: "Promote to Superadmin", body: "This user will gain full admin privileges including managing users and broadcasts.", confirm: "Promote" },
-  demote: { title: "Demote to User", body: "This user will lose all admin privileges.", confirm: "Demote" },
-};
-
 export function UsersTab() {
   const { user: currentUser } = useAuth();
   const { admin } = useServices();
+  const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ uid: string; type: string; userName: string } | null>(null);
+
+  const confirmMessages: Record<string, { title: string; body: string; confirm: string }> = {
+    block: { title: t('users.blockTitle'), body: t('users.blockBody'), confirm: t('users.block') },
+    unblock: { title: t('users.unblockTitle'), body: t('users.unblockBody'), confirm: t('users.unblock') },
+    promote: { title: t('users.promoteTitle'), body: t('users.promoteBody'), confirm: t('users.promoteConfirm') },
+    demote: { title: t('users.demoteTitle'), body: t('users.demoteBody'), confirm: t('users.demoteConfirm') },
+  };
 
   const usersPagination = usePaginatedQuery({
     queryKey: ["adminUsers"],
     queryFn: (pageSize, lastId) => admin.getAllUsers(pageSize, lastId),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     extractItems: (r) => r.users,
     extractHasMore: (r) => r.hasMore,
     extractLastId: (r) => r.lastUserUid,
@@ -36,48 +41,56 @@ export function UsersTab() {
   const error = usersPagination.error instanceof Error ? usersPagination.error.message : null;
 
   const handleBlock = async (uid: string) => {
+    setActionError(null);
     setActionLoading(uid);
     try {
       await admin.blockUser(uid);
       usersPagination.refresh();
     } catch (e) {
       console.error(e);
+      setActionError(e instanceof Error ? e.message : t('users.actionFailed'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleUnblock = async (uid: string) => {
+    setActionError(null);
     setActionLoading(uid);
     try {
       await admin.unblockUser(uid);
       usersPagination.refresh();
     } catch (e) {
       console.error(e);
+      setActionError(e instanceof Error ? e.message : t('users.actionFailed'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handlePromote = async (uid: string) => {
+    setActionError(null);
     setActionLoading(uid);
     try {
       await admin.promoteToSuperAdmin(uid);
       usersPagination.refresh();
     } catch (e) {
       console.error(e);
+      setActionError(e instanceof Error ? e.message : t('users.actionFailed'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleDemote = async (uid: string) => {
+    setActionError(null);
     setActionLoading(uid);
     try {
       await admin.demoteToUser(uid);
       usersPagination.refresh();
     } catch (e) {
       console.error(e);
+      setActionError(e instanceof Error ? e.message : t('users.actionFailed'));
     } finally {
       setActionLoading(null);
     }
@@ -113,15 +126,15 @@ export function UsersTab() {
       {/* Stats */}
       <div className="mb-6 grid grid-cols-3 gap-3 md:gap-4">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Total Users</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('users.totalUsers')}</p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{totalUsers}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Blocked</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('users.blocked')}</p>
           <p className="mt-1 text-2xl font-bold text-red-600 dark:text-red-400">{blockedUsers}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Superadmins</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('users.superadmins')}</p>
           <p className="mt-1 text-2xl font-bold text-trevio-600 dark:text-trevio-400">{adminUsers}</p>
         </div>
       </div>
@@ -133,7 +146,7 @@ export function UsersTab() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by name, email, or username..."
+          placeholder={t('users.searchPlaceholder')}
           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 pl-11 pr-4 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
         />
       </div>
@@ -142,6 +155,21 @@ export function UsersTab() {
         <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {actionError && (
+        <div className="mb-4 flex items-center justify-between gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            {actionError}
+          </div>
+          <button
+            onClick={() => setActionError(null)}
+            className="rounded-lg p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -160,17 +188,17 @@ export function UsersTab() {
                 <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-10 w-10" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                    <p className="truncate font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs font-normal text-trevio-600 dark:text-trevio-400">{tCommon('youLabel')}</span>}</p>
                     {u.role === "superadmin" && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-trevio-50 dark:bg-trevio-900/30 px-2 py-0.5 text-xs font-medium text-trevio-700 dark:text-trevio-300">
                         <Crown className="h-3 w-3" />
-                        Admin
+                        {t('users.adminBadge')}
                       </span>
                     )}
                     {u.blocked && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-900/20 px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
                         <Ban className="h-3 w-3" />
-                        Blocked
+                        {t('users.blocked')}
                       </span>
                     )}
                   </div>
@@ -188,7 +216,7 @@ export function UsersTab() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400 transition hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-50"
                   >
                     <CheckCircle className="h-4 w-4" />
-                    Unblock
+                    {t('users.unblock')}
                   </button>
                 ) : (
                   <button
@@ -197,7 +225,7 @@ export function UsersTab() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
                   >
                     <Ban className="h-4 w-4" />
-                    Block
+                    {t('users.block')}
                   </button>
                 )}
                 {u.role === "superadmin" ? (
@@ -207,7 +235,7 @@ export function UsersTab() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
                   >
                     <Shield className="h-4 w-4" />
-                    Demote
+                    {t('users.demoteConfirm')}
                   </button>
                 ) : (
                   <button
@@ -216,7 +244,7 @@ export function UsersTab() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 dark:bg-trevio-900/20 px-3 py-2 text-sm font-medium text-trevio-700 dark:text-trevio-300 transition hover:bg-trevio-100 dark:hover:bg-trevio-900/30 disabled:opacity-50"
                   >
                     <Crown className="h-4 w-4" />
-                    Promote
+                    {t('users.promoteConfirm')}
                   </button>
                 )}
               </div>
@@ -224,7 +252,7 @@ export function UsersTab() {
           ))}
           {filteredUsers.length === 0 && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-              No users found.
+              {t('users.noUsersFound')}
             </div>
           )}
           <LoadMoreButton
@@ -255,7 +283,7 @@ export function UsersTab() {
                 onClick={() => setConfirmAction(null)}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                Cancel
+                {tCommon('actions.cancel')}
               </button>
               <button
                 onClick={executeConfirmedAction}

@@ -47,7 +47,17 @@ export function getCategory(key: string): HouseholdCategory | undefined {
   return categoryMap.get(key);
 }
 
-export function getCategoryLabel(key: string): string {
+/**
+ * Returns the display label for a category key.
+ * If a translator function is provided, it will use the i18n label
+ * from the "categories" namespace; otherwise it falls back to the
+ * hardcoded English label.
+ */
+export function getCategoryLabel(key: string, translator?: (key: string) => string): string {
+  if (translator) {
+    const translated = translator(`categories.${key}`);
+    if (translated && translated !== `categories.${key}`) return translated;
+  }
   const category = categoryMap.get(key);
   if (category) return category.label;
   return key.charAt(0).toUpperCase() + key.slice(1);

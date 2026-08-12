@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import { X, Download, Share2, Copy, Check } from "lucide-react";
 
@@ -16,6 +17,7 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const t = useTranslations("common");
 
   const joinUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/join/${inviteCode}`;
 
@@ -70,8 +72,8 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join "${groupName}" on Trevio`,
-          text: `You've been invited to join "${groupName}" on Trevio. Tap to join and start splitting bills!`,
+          title: t('shareInviteTitle', { groupName }),
+          text: t('shareInviteText', { groupName }),
           url: joinUrl,
         });
       } catch { /* user cancelled share */ }
@@ -101,7 +103,7 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
       />
       <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Group QR Code</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('groupQrCode')}</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300"
@@ -111,7 +113,7 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
         </div>
 
         <div className="px-6 py-6 flex flex-col items-center">
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Scan to join</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t('scanToJoin')}</p>
           <p className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-4 text-center">{groupName}</p>
 
           <div className="rounded-2xl border-2 border-slate-100 dark:border-slate-700 p-4 bg-white">
@@ -135,14 +137,14 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
             className="w-full rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             <Share2 className="h-4 w-4" />
-            {shared ? "Link Copied!" : "Share Invite Link"}
+            {shared ? t('linkCopied') : t('shareInviteLink')}
           </button>
           <button
             onClick={handleDownload}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-2"
           >
             <Download className="h-4 w-4" />
-            Download QR
+            {t('downloadQr')}
           </button>
         </div>
       </div>

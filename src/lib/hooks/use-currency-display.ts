@@ -4,22 +4,27 @@ import { useQuery } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { convertCurrency, convertFromBase, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
+import { DEFAULT_CURRENCY, BASE_CURRENCY } from "@/lib/constants/currency";
+import { EXCHANGE_RATE_STALE_TIME } from "@/lib/constants/app";
+import { queryKeys } from "@/lib/constants/query-keys";
 
 export function useCurrencyDisplay() {
   const { exchangeRate, user: userService } = useServices();
   const { user: currentUser } = useAuth();
 
   const { data: rates } = useQuery({
-    queryKey: ["exchangeRates"],
+    queryKey: queryKeys.exchangeRates,
     queryFn: () => exchangeRate.getRates(),
-    staleTime: 1000 * 60 * 60,
+    staleTime: EXCHANGE_RATE_STALE_TIME,
   });
 
-  const userCurrency = currentUser?.defaultCurrency || "INR";
+  const userCurrency = currentUser?.defaultCurrency || DEFAULT_CURRENCY;
   const rateMap = rates?.rates;
 
   const formatBase = (amountInBase: number): string => {
-    if (!rateMap) return formatCurrencySymbol(amountInBase, "INR");
+    // When rates aren't loaded yet, the amount is still in base currency (INR),
+    // so showing the base currency symbol is the correct representation.
+    if (!rateMap) return formatCurrencySymbol(amountInBase, BASE_CURRENCY);
     const converted = convertFromBase(amountInBase, userCurrency, rateMap);
     return formatCurrencySymbol(converted, userCurrency);
   };

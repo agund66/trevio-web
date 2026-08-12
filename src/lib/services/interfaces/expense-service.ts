@@ -36,4 +36,5 @@ export interface ExpenseService {
 
   deleteExpense(groupId: string, expenseId: string): Promise<void>;
   getGroupExpenses(groupId: string, pageSize: number, lastExpenseId?: string): Promise<{ expenses: Expense[]; hasMore: boolean; lastExpenseId: string | null }>;
+  getExpenseById(groupId: string, expenseId: string): Promise<Expense | null>;
 }

@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
@@ -16,9 +17,12 @@ import { TripView } from "@/components/trip-view";
 import { Avatar } from "@/components/avatar";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { computeGamification } from "@/lib/utils/household-analytics";
 import { formatRelativeTime, formatShortDate } from "@/lib/utils/date";
 import { DailyTab, MonthlyReportTab, EditEntrySheet, EntryDetailSheet } from "@/components/household";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
+import { convertCurrency } from "@/lib/utils/currency";
 
 const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
   food: { icon: Utensils, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20" },
@@ -29,14 +33,6 @@ const categoryConfig: Record<string, { icon: typeof Receipt; color: string; bg: 
   other: { icon: Receipt, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700/40" },
 };
 
-const splitTypeLabels: Record<SplitType, string> = {
-  equal: "Equal",
-  exact: "Exact",
-  percent: "Percent",
-  shares: "Shares",
-  itemized: "Items",
-};
-
 export default function GroupDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -45,6 +41,16 @@ export default function GroupDetailPage() {
   const { user: currentUser } = useAuth();
   const { formatBase, formatOriginal, formatDate: formatDateFn, userCurrency, rates, convertToUserCurrency, convertBase, isLoading: ratesLoading } = useCurrencyDisplay();
   const queryClient = useQueryClient();
+  const t = useTranslations("groups");
+  const tc = useTranslations("categories");
+  const tcommon = useTranslations("common");
+  const splitTypeLabels: Record<SplitType, string> = {
+    equal: t('details.equal'),
+    exact: t('details.exact'),
+    percent: t('details.percent'),
+    shares: t('details.shares'),
+    itemized: t('details.items'),
+  };
   const [tab, setTab] = useState<"expenses" | "balances" | "analytics" | "trip" | "members" | "activity" | "today" | "monthly">("expenses");
   const [activityFilter, setActivityFilter] = useState<"all" | "settlements">("all");
   const [showInvite, setShowInvite] = useState(false);
@@ -91,7 +97,7 @@ export default function GroupDetailPage() {
   const expensesPagination = usePaginatedQuery({
     queryKey: ["expenses", groupId],
     queryFn: (pageSize, lastId) => expense.getGroupExpenses(groupId, pageSize, lastId),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     extractItems: (r) => r.expenses,
     extractHasMore: (r) => r.hasMore,
     extractLastId: (r) => r.lastExpenseId,
@@ -116,7 +122,7 @@ export default function GroupDetailPage() {
         fromUid: debt.fromUid,
         toUid: debt.toUid,
         amount: debt.amount,
-        currency: "INR",
+        currency: BASE_CURRENCY,
         method: debt.method,
       }),
     onSuccess: () => {
@@ -135,7 +141,7 @@ export default function GroupDetailPage() {
   const activitiesPagination = usePaginatedQuery({
     queryKey: ["activities", groupId],
     queryFn: (pageSize, lastId) => group.getGroupActivities(groupId, pageSize, lastId),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     enabled: tab === "activity",
     extractItems: (r) => r.activities,
     extractHasMore: (r) => r.hasMore,
@@ -147,7 +153,7 @@ export default function GroupDetailPage() {
   const settlementsPagination = usePaginatedQuery({
     queryKey: ["settlementHistory", groupId],
     queryFn: (pageSize, lastId) => settlement.getSettlementHistory(groupId, pageSize, lastId),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     enabled: tab === "activity" && activityFilter === "settlements",
     extractItems: (r) => r.settlements,
     extractHasMore: (r) => r.hasMore,
@@ -221,17 +227,25 @@ export default function GroupDetailPage() {
     onError: (e: Error) => setActionError(e.message),
   });
 
-  const allExpenses: Expense[] = expensesData?.expenses ?? [];
-  const householdMembers = members ?? [];
+  const allExpenses = useMemo(() => expensesData?.expenses ?? [], [expensesData?.expenses]);
+  const householdMembers = useMemo(() => members ?? [], [members]);
 
   // Convert all household expenses to the viewer's currency for display & calculation.
-  // When rates aren't loaded yet, fall back to INR to avoid showing wrong amounts with wrong symbols.
-  const displayCurrency = rates ? userCurrency : "INR";
+  // Preserve the original amount and currency so edits can save back in the
+  // original currency instead of overwriting with the display currency.
+  // When rates aren't loaded yet, fall back to base currency (INR) — the amounts
+  // are still in base currency, so showing the base symbol is correct.
+  const displayCurrency = rates ? userCurrency : BASE_CURRENCY;
   const convertedExpenses = useMemo(
     () => rates
-      ? allExpenses.map((e) => ({ ...e, amount: convertToUserCurrency(e.amount, e.currency || "INR") }))
+      ? allExpenses.map((e) => ({
+          ...e,
+          amount: convertToUserCurrency(e.amount, e.currency || BASE_CURRENCY),
+          originalAmount: e.amount,
+          originalCurrency: e.currency || BASE_CURRENCY,
+        }))
       : allExpenses,
-    [allExpenses, userCurrency, rates]
+    [allExpenses, convertToUserCurrency, rates]
   );
 
   // Budget is stored in INR (base) on the group; convert to user's currency for display.
@@ -292,8 +306,8 @@ export default function GroupDetailPage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join "${groupInfo.name}" on Trevio`,
-          text: `You've been invited to join "${groupInfo.name}" on Trevio. Tap to join and start splitting bills!`,
+          title: t('details.shareTitle', { name: groupInfo.name }),
+          text: t('details.shareText', { name: groupInfo.name }),
           url,
         });
       } catch {}
@@ -324,19 +338,19 @@ export default function GroupDetailPage() {
   const formatActivityTime = (createdAt: number) => formatRelativeTime(createdAt, displayCurrency);
 
   const filteredExpenses = useMemo(() => {
-    if (!expensesData?.expenses) return [];
-    return expensesData.expenses.filter((e) => {
+    if (allExpenses.length === 0) return [];
+    return allExpenses.filter((e) => {
       const matchesSearch = !expenseSearch || e.description.toLowerCase().includes(expenseSearch.toLowerCase());
       const matchesCategory = expenseCategoryFilter === "all" || e.category === expenseCategoryFilter;
       return matchesSearch && matchesCategory;
     });
-  }, [expensesData, expenseSearch, expenseCategoryFilter]);
+  }, [allExpenses, expenseSearch, expenseCategoryFilter]);
 
   const exportCsv = () => {
     if (!expensesData?.expenses) return;
     const header = "Date,Description,Amount,Currency,Category,Paid By,Split Type,Note\n";
     const rows = expensesData.expenses.map((e) => {
-      const payer = members?.find((m) => m.uid === e.paidBy)?.displayName || "Unknown";
+      const payer = members?.find((m) => m.uid === e.paidBy)?.displayName || t('details.unknown');
       const date = e.date ? formatShortDate(e.date) : "";
       const desc = `"${e.description.replace(/"/g, '\\"')}"`;
       const note = e.note ? `"${e.note.replace(/"/g, '\\"')}"` : "";
@@ -373,7 +387,7 @@ export default function GroupDetailPage() {
     <div className="p-4 md:p-6">
       <button onClick={() => router.push("/dashboard")} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {tcommon('actions.back')}
       </button>
 
       {groupInfoLoading ? (
@@ -384,13 +398,13 @@ export default function GroupDetailPage() {
         <div className="flex min-h-[50vh] items-center justify-center text-center">
           <div className="max-w-md">
             <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Failed to load group</h2>
+            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">{t('details.failedToLoadGroup')}</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{groupInfoError.message}</p>
             <button
               onClick={() => queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] })}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
             >
-              Try Again
+              {tcommon('actions.retry')}
             </button>
           </div>
         </div>
@@ -406,9 +420,9 @@ export default function GroupDetailPage() {
         )}
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100">{groupInfo?.name || "Group"}</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100">{groupInfo?.name || t('details.defaultGroupName')}</h1>
           {groupInfo?.archived && (
-            <span className="rounded-lg bg-slate-200 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">Archived</span>
+            <span className="rounded-lg bg-slate-200 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">{t('details.archived')}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -419,7 +433,7 @@ export default function GroupDetailPage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Settings</span>
+                <span className="hidden sm:inline">{t('details.settings')}</span>
               </button>
               <button
                 onClick={() => archiveMutation.mutate(!groupInfo?.archived)}
@@ -427,7 +441,7 @@ export default function GroupDetailPage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
               >
                 {groupInfo?.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                {groupInfo?.archived ? "Unarchive" : "Archive"}
+                {groupInfo?.archived ? t('details.unarchive') : t('details.archive')}
               </button>
             </>
           )}
@@ -435,10 +449,10 @@ export default function GroupDetailPage() {
             onClick={() => router.push(`/groups/${groupId}/add-expense`)}
             disabled={groupInfo?.archived}
             className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={groupInfo?.archived ? "Unarchive group to add expenses" : ""}
+            title={groupInfo?.archived ? t('details.unarchiveToAddExpenses') : ""}
           >
             <Plus className="h-4 w-4" />
-            {isHousehold ? "Add Entry" : "Add Expense"}
+            {isHousehold ? t('details.addEntry') : t('details.addExpense')}
           </button>
         </div>
       </div>
@@ -449,10 +463,10 @@ export default function GroupDetailPage() {
 
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-          {groupInfo?.memberCount || 0} members
+          {t('details.membersCount', { count: groupInfo?.memberCount || 0 })}
         </span>
         <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-          {formatBase(groupInfo?.totalExpenses || 0)} total
+          {formatBase(groupInfo?.totalExpenses || 0)} {t('details.total')}
         </span>
         {groupInfo?.inviteCode && (
           <>
@@ -461,21 +475,21 @@ export default function GroupDetailPage() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700"
             >
               <QrCode className="h-3 w-3" />
-              QR Code
+              {t('details.qrCode')}
             </button>
             <button
               onClick={copyInviteCode}
               className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300 transition hover:bg-trevio-100 dark:hover:bg-trevio-900/50"
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              {copied ? "Copied!" : `Code: ${groupInfo.inviteCode}`}
+              {copied ? t('details.copied') : t('details.inviteCodeLabel', { code: groupInfo.inviteCode })}
             </button>
             <button
               onClick={shareInviteLink}
               className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-trevio-700"
             >
               <Share2 className="h-3 w-3" />
-              {shared ? "Link Copied!" : "Share Invite"}
+              {shared ? t('details.linkCopied') : t('details.shareInvite')}
             </button>
           </>
         )}
@@ -484,30 +498,30 @@ export default function GroupDetailPage() {
       <div className="flex gap-2 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
         {(isHousehold
           ? [
-              { key: "today" as const, label: "Today", icon: Home },
-              { key: "monthly" as const, label: "Monthly", icon: CalendarDays },
-              { key: "analytics" as const, label: "Insights", icon: BarChart3 },
-              { key: "members" as const, label: "Members", icon: Users },
-              { key: "activity" as const, label: "Activity", icon: ActivityIcon },
+              { key: "today" as const, label: t('details.tabToday'), icon: Home },
+              { key: "monthly" as const, label: t('details.tabMonthly'), icon: CalendarDays },
+              { key: "analytics" as const, label: t('details.tabInsights'), icon: BarChart3 },
+              { key: "members" as const, label: t('details.members'), icon: Users },
+              { key: "activity" as const, label: t('details.tabActivity'), icon: ActivityIcon },
             ]
           : [
-              { key: "expenses" as const, label: "Expenses", icon: Receipt },
-              { key: "balances" as const, label: "Balances", icon: Wallet },
-              { key: "analytics" as const, label: "Insights", icon: BarChart3 },
-              ...(groupInfo?.template === "trip" ? [{ key: "trip" as const, label: "Trip", icon: Plane }] : []),
-              { key: "members" as const, label: "Members", icon: Users },
-              { key: "activity" as const, label: "Activity", icon: ActivityIcon },
+              { key: "expenses" as const, label: t('details.expenses'), icon: Receipt },
+              { key: "balances" as const, label: t('details.balances'), icon: Wallet },
+              { key: "analytics" as const, label: t('details.tabInsights'), icon: BarChart3 },
+              ...(groupInfo?.template === "trip" ? [{ key: "trip" as const, label: t('details.tabTrip'), icon: Plane }] : []),
+              { key: "members" as const, label: t('details.members'), icon: Users },
+              { key: "activity" as const, label: t('details.tabActivity'), icon: ActivityIcon },
             ]
-        ).map((t) => (
+        ).map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tabItem.key}
+            onClick={() => setTab(tabItem.key)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
-              tab === t.key ? "border-trevio-600 text-trevio-600 dark:text-trevio-400" : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              tab === tabItem.key ? "border-trevio-600 text-trevio-600 dark:text-trevio-400" : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
-            <t.icon className="h-4 w-4" />
-            {t.label}
+            <tabItem.icon className="h-4 w-4" />
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -577,9 +591,16 @@ export default function GroupDetailPage() {
           userCurrency={displayCurrency}
           onUpdate={(expenseId: string, amount: number, description: string, category: string, paidBy: string, date: number, note: string, transactionType: TransactionType) => {
             setHouseholdQuickSaving(true);
+            // Use the original expense's currency, not the display currency.
+            // Convert the edited display amount back to the original currency
+            // so we don't overwrite the stored currency or corrupt the base amount.
+            const origCurrency = editingEntry.originalCurrency || editingEntry.currency || BASE_CURRENCY;
+            const amountToSave = rates && displayCurrency !== origCurrency
+              ? convertCurrency(amount, displayCurrency, origCurrency, rates)
+              : amount;
             expense.updateExpense({
-              groupId, expenseId, description, amount,
-              currency: displayCurrency,
+              groupId, expenseId, description, amount: amountToSave,
+              currency: origCurrency,
               paidBy, splitType: "equal", splits: {},
               memberUids: members?.filter((m) => m.status === "active").map((m) => m.uid) ?? [],
               category, note, transactionType,
@@ -638,7 +659,7 @@ export default function GroupDetailPage() {
                 <div className="flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                   <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    {filteredExpenses.length} {filteredExpenses.length === 1 ? "expense" : "expenses"}
+                    {t('details.expenseCount', { count: filteredExpenses.length })}
                   </span>
                 </div>
                 <span className="text-sm font-bold text-trevio-600 dark:text-trevio-400">
@@ -652,7 +673,7 @@ export default function GroupDetailPage() {
                     type="text"
                     value={expenseSearch}
                     onChange={(e) => setExpenseSearch(e.target.value)}
-                    placeholder="Search expenses..."
+                    placeholder={t('details.searchExpensesPlaceholder')}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                   />
                 </div>
@@ -661,21 +682,21 @@ export default function GroupDetailPage() {
                   onChange={(e) => setExpenseCategoryFilter(e.target.value)}
                   className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 >
-                  <option value="all">All categories</option>
-                  <option value="food">Food</option>
-                  <option value="transport">Transport</option>
-                  <option value="shopping">Shopping</option>
-                  <option value="turf">Turf</option>
-                  <option value="accommodation">Accommodation</option>
-                  <option value="other">Other</option>
+                  <option value="all">{t('details.allCategories')}</option>
+                  <option value="food">{tc('food')}</option>
+                  <option value="transport">{tc('transport')}</option>
+                  <option value="shopping">{tc('shopping')}</option>
+                  <option value="turf">{tc('turf')}</option>
+                  <option value="accommodation">{tc('accommodation')}</option>
+                  <option value="other">{tc('other')}</option>
                 </select>
                 <button
                   onClick={exportCsv}
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-                  title="Export as CSV"
+                  title={t('details.exportCsv')}
                 >
                   <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Export</span>
+                  <span className="hidden sm:inline">{t('details.export')}</span>
                 </button>
               </div>
             </>
@@ -687,7 +708,7 @@ export default function GroupDetailPage() {
           ) : filteredExpenses.length > 0 ? (
             filteredExpenses.map((e) => {
               const payer = members?.find((m) => m.uid === e.paidBy);
-              const payerName = payer?.displayName?.split(" ")[0] || "Someone";
+              const payerName = payer?.displayName?.split(" ")[0] || t('details.someone');
               const isPayerMe = currentUser?.uid === e.paidBy;
               const myShare = currentUser ? e.splits?.[currentUser.uid]?.amount : undefined;
               const canEdit = e.createdBy === currentUser?.uid || members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
@@ -715,7 +736,7 @@ export default function GroupDetailPage() {
                     <div className="flex items-center gap-1.5 mt-1">
                       <Avatar photoURL={payer?.photoURL} displayName={payerName} className="h-4 w-4" textClassName="text-[8px]" />
                       <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
-                        {isPayerMe ? "You" : payerName} paid
+                        {isPayerMe ? t('details.you') : payerName} {t('details.paid')}
                       </span>
                       {e.date ? (
                         <>
@@ -736,10 +757,10 @@ export default function GroupDetailPage() {
                             : "bg-slate-100 dark:bg-slate-700/40 text-slate-500 dark:text-slate-400"
                       }`}>
                         {youOwe
-                          ? `You owe ${formatOriginal(myShare!, e.currency)}`
+                          ? t('details.youOweAmount', { amount: formatOriginal(myShare!, e.currency) })
                           : youLent
-                            ? `You lent ${formatOriginal(e.amount - Math.abs(myShare!), e.currency)}`
-                            : `Your share: ${formatOriginal(myShare!, e.currency)}`}
+                            ? t('details.youLentAmount', { amount: formatOriginal(e.amount - Math.abs(myShare!), e.currency) })
+                            : t('details.yourShare', { amount: formatOriginal(myShare!, e.currency) })}
                       </div>
                     )}
                     {e.note && (
@@ -756,14 +777,14 @@ export default function GroupDetailPage() {
                         <button
                           onClick={() => router.push(`/groups/${groupId}/edit-expense/${e.expenseId}`)}
                           className="rounded-lg p-1.5 text-slate-400 hover:text-trevio-600 hover:bg-trevio-50 dark:hover:bg-trevio-900/30 transition"
-                          title="Edit expense"
+                          title={t('details.editExpense')}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleteExpenseId(e.expenseId)}
                           className="rounded-lg p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
-                          title="Delete expense"
+                          title={t('details.deleteExpense')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -777,29 +798,29 @@ export default function GroupDetailPage() {
             expenseSearch || expenseCategoryFilter !== "all" ? (
               <div className="flex flex-col items-center py-16 text-center">
                 <Search className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No expenses match your filters.</p>
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.noExpensesMatchFilters')}</p>
                 <button
                   onClick={() => { setExpenseSearch(""); setExpenseCategoryFilter("all"); }}
                   className="mt-3 text-sm text-trevio-600 dark:text-trevio-400 hover:underline"
                 >
-                  Clear filters
+                  {t('details.clearFilters')}
                 </button>
               </div>
             ) : (
               <div className="flex flex-col items-center py-16 text-center">
                 <Receipt className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No expenses yet. Tap &quot;Add Expense&quot; to get started.</p>
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.noExpensesYet')}</p>
               </div>
             )
           ) : (
             <div className="flex flex-col items-center py-16 text-center">
               <AlertCircle className="h-10 w-10 text-red-400" />
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load expenses</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.failedToLoadExpenses')}</p>
               <button
                 onClick={() => expensesPagination.refresh()}
                 className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
               >
-                Try Again
+                {tcommon('actions.retry')}
               </button>
             </div>
           )}
@@ -813,21 +834,21 @@ export default function GroupDetailPage() {
           {deleteExpenseId && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
               <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 max-w-sm w-full">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Delete Expense?</h3>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">This action cannot be undone. Balances will be recalculated.</p>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('details.deleteExpenseConfirm')}</h3>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t('details.deleteCannotUndo')}</p>
                 <div className="mt-4 flex gap-3">
                   <button
                     onClick={() => deleteExpenseMutation.mutate(deleteExpenseId)}
                     disabled={deleteExpenseMutation.isPending}
                     className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
                   >
-                    {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
+                    {deleteExpenseMutation.isPending ? tcommon('actions.deleting') : tcommon('actions.delete')}
                   </button>
                   <button
                     onClick={() => setDeleteExpenseId(null)}
                     className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
-                    Cancel
+                    {tcommon('actions.cancel')}
                   </button>
                 </div>
               </div>
@@ -836,26 +857,26 @@ export default function GroupDetailPage() {
           {removingMember && (
             <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4" onClick={() => setRemovingMember(null)}>
               <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-800 p-6" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Member</h3>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('details.removeMemberTitle')}</h3>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  Remove {removingMember.name} from this group? If they have any entries, they&apos;ll be converted to an offline member to preserve transaction history.
+                  {t('details.removeMemberConfirm', { name: removingMember.name })}
                 </p>
                 {removeMemberMutation.isError && (
-                  <p className="mt-2 text-sm text-red-500 dark:text-red-400">{removeMemberMutation.error instanceof Error ? removeMemberMutation.error.message : "Failed to remove member"}</p>
+                  <p className="mt-2 text-sm text-red-500 dark:text-red-400">{removeMemberMutation.error instanceof Error ? removeMemberMutation.error.message : t('details.failedToRemoveMember')}</p>
                 )}
                 <div className="mt-4 flex gap-3">
                   <button
                     onClick={() => setRemovingMember(null)}
                     className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
-                    Cancel
+                    {tcommon('actions.cancel')}
                   </button>
                   <button
                     onClick={() => removeMemberMutation.mutate(removingMember.uid)}
                     disabled={removeMemberMutation.isPending}
                     className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
                   >
-                    {removeMemberMutation.isPending ? "Removing..." : "Remove"}
+                    {removeMemberMutation.isPending ? t('details.removing') : t('details.remove')}
                   </button>
                 </div>
               </div>
@@ -872,23 +893,23 @@ export default function GroupDetailPage() {
             const myCredits = debts?.filter((d) => d.toUid === currentUser?.uid) ?? [];
             return (
               <div className={`rounded-2xl p-4 md:p-5 ${myBalance > 0.01 ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : myBalance < -0.01 ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" : "bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"}`}>
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Your balance</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('details.yourBalance')}</p>
                 <p className={`mt-1 text-2xl md:text-3xl font-bold ${myBalance > 0.01 ? "text-green-600 dark:text-green-400" : myBalance < -0.01 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}>
                   {myBalance > 0.01 ? "+" : ""}{formatBase(myBalance)}
                 </p>
                 <div className="mt-3 space-y-1.5">
                   {myDebts.length > 0 && (
                     <p className="text-sm text-red-600 dark:text-red-400">
-                      You owe {myDebts.length} {myDebts.length === 1 ? "person" : "people"} {formatBase(myDebts.reduce((s, d) => s + d.amount, 0))}
+                      {t('details.youOwe')} {t('details.personCount', { count: myDebts.length })} {formatBase(myDebts.reduce((s, d) => s + d.amount, 0))}
                     </p>
                   )}
                   {myCredits.length > 0 && (
                     <p className="text-sm text-green-600 dark:text-green-400">
-                      {myCredits.length} {myCredits.length === 1 ? "person owes" : "people owe"} you {formatBase(myCredits.reduce((s, d) => s + d.amount, 0))}
+                      {t('details.personOwesCount', { count: myCredits.length })} {t('details.you')} {formatBase(myCredits.reduce((s, d) => s + d.amount, 0))}
                     </p>
                   )}
                   {myDebts.length === 0 && myCredits.length === 0 && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">All settled up in this group</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{t('details.allSettledUp')}</p>
                   )}
                 </div>
               </div>
@@ -896,7 +917,7 @@ export default function GroupDetailPage() {
           })()}
           {debts && debts.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Suggested Settlements</h3>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('details.suggestedSettlements')}</h3>
               {debts.map((d, i) => {
                 const isCurrentUserDebtor = currentUser?.uid === d.fromUid;
                 const isCurrentUserCreditor = currentUser?.uid === d.toUid;
@@ -909,22 +930,22 @@ export default function GroupDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-900 dark:text-slate-100">
                         {isCurrentUserDebtor ? (
-                          <><span className="font-semibold text-red-600 dark:text-red-400">You owe</span> <span className="font-medium">{toFirstName}</span></>
+                          <><span className="font-semibold text-red-600 dark:text-red-400">{t('details.youOwe')}</span> <span className="font-medium">{toFirstName}</span></>
                         ) : isCurrentUserCreditor ? (
-                          <><span className="font-medium">{fromFirstName}</span> <span className="font-semibold text-green-600 dark:text-green-400">owes you</span></>
+                          <><span className="font-medium">{fromFirstName}</span> <span className="font-semibold text-green-600 dark:text-green-400">{t('details.owesYou')}</span></>
                         ) : (
-                          <><span className="font-medium">{fromFirstName}</span> owes <span className="font-medium">{toFirstName}</span></>
+                          <><span className="font-medium">{fromFirstName}</span> {t('details.owesYou')} <span className="font-medium">{toFirstName}</span></>
                         )}
                       </p>
                       <p className={`text-lg font-bold ${isCurrentUserDebtor ? "text-red-600 dark:text-red-400" : isCurrentUserCreditor ? "text-green-600 dark:text-green-400" : "text-trevio-600 dark:text-trevio-400"}`}>{formatBase(d.amount)}</p>
                       {paymentVpa && isCurrentUserDebtor && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Pay to: {paymentVpa}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t('details.payTo', { vpa: paymentVpa })}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                       {canPayUpi && (
                         <button
-                          onClick={() => handleUpiPay(d.toUpiId, d.toPhoneNumber, d.toCountryCode, d.amount, `Trevio: ${groupInfo?.name || "Settlement"}`)}
+                          onClick={() => handleUpiPay(d.toUpiId, d.toPhoneNumber, d.toCountryCode, d.amount, t('details.upiPaymentNote', { name: groupInfo?.name || t('details.settlement') }))}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white hover:bg-trevio-700"
                         >
                           <Smartphone className="h-4 w-4" />
@@ -936,7 +957,7 @@ export default function GroupDetailPage() {
                         disabled={settleMutation.isPending}
                         className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                       >
-                        Mark Settled
+                        {t('details.markSettled')}
                       </button>
                     </div>
                   </div>
@@ -948,13 +969,13 @@ export default function GroupDetailPage() {
           {debts && debts.length === 0 && (
             <div className="flex flex-col items-center py-12 text-center">
               <Check className="h-12 w-12 text-green-500" />
-              <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-300">All settled up!</p>
+              <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-300">{t('details.allSettledUpShort')}</p>
             </div>
           )}
 
           {members && members.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Member Balances</h3>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('details.memberBalances')}</h3>
               {members.map((m) => {
                 const isMe = currentUser?.uid === m.uid;
                 return (
@@ -963,14 +984,14 @@ export default function GroupDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
                       {m.displayName}
-                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}
+                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">{tcommon('youLabel')}</span>}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
                   </div>
                   {m.status === "pending" ? (
                     <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                       <Clock className="h-3 w-3" />
-                      pending
+                      {t('details.statusPending')}
                     </span>
                   ) : !isHousehold && (
                     m.balance > 0.01 ? (
@@ -982,7 +1003,7 @@ export default function GroupDetailPage() {
                         {isMe ? "you'll pay" : "owes"} {formatBase(Math.abs(m.balance))}
                       </span>
                     ) : (
-                      <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400 dark:text-slate-500">settled</span>
+                      <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400 dark:text-slate-500">{t('details.statusSettled')}</span>
                     )
                   )}
                 </Link>
@@ -1005,7 +1026,7 @@ export default function GroupDetailPage() {
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
               }`}
             >
-              All
+              {t('details.filterAll')}
             </button>
             {!isHousehold && (
               <button
@@ -1016,7 +1037,7 @@ export default function GroupDetailPage() {
                     : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
-                Settlements
+                {t('details.settlements')}
               </button>
             )}
           </div>
@@ -1040,7 +1061,7 @@ export default function GroupDetailPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {isFromMe ? "You" : fromFirstName} paid {isToMe ? "you" : toFirstName}
+                        {isFromMe ? t('details.youPaidName', { name: toFirstName }) : isToMe ? t('details.namePaidYou', { name: fromFirstName }) : t('details.namePaidName', { name1: fromFirstName, name2: toFirstName })}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {s.date ? formatDateFn(s.date) : ""} · {s.method}
@@ -1054,12 +1075,12 @@ export default function GroupDetailPage() {
             ) : settlementHistory ? (
               <div className="flex flex-col items-center py-16 text-center">
                 <Wallet className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No settlements yet.</p>
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.noSettlementsYet')}</p>
               </div>
             ) : (
               <div className="flex flex-col items-center py-16 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400" />
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load settlement history</p>
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.failedToLoadSettlements')}</p>
               </div>
             )}
             <LoadMoreButton
@@ -1088,7 +1109,7 @@ export default function GroupDetailPage() {
                       {a.userPhotoURL && (
                         <img src={a.userPhotoURL} alt={a.userName} className="h-4 w-4 rounded-full" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                       )}
-                      <span className="text-xs text-slate-400 dark:text-slate-500">{a.userName}{a.userId === currentUser?.uid && " (You)"}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{a.userName}{a.userId === currentUser?.uid && ` ${tcommon('youLabel')}`}</span>
                       <span className="text-xs text-slate-300 dark:text-slate-600">&middot;</span>
                       <span className="text-xs text-slate-400 dark:text-slate-500">{formatActivityTime(a.createdAt)}</span>
                     </div>
@@ -1099,17 +1120,17 @@ export default function GroupDetailPage() {
           ) : activities ? (
             <div className="flex flex-col items-center py-16 text-center">
               <ActivityIcon className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No activity yet.</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.noActivityYet')}</p>
             </div>
           ) : (
             <div className="flex flex-col items-center py-16 text-center">
               <AlertCircle className="h-10 w-10 text-red-400" />
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Failed to load activity</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('details.failedToLoadActivity')}</p>
               <button
                 onClick={() => activitiesPagination.refresh()}
                 className="mt-4 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
               >
-                Try Again
+                {tcommon('actions.retry')}
               </button>
             </div>
           )}
@@ -1125,18 +1146,18 @@ export default function GroupDetailPage() {
 
       {tab === "analytics" && (
         <div>
-          {expensesData?.expenses && members && members.length > 0 ? (
+          {convertedExpenses && convertedExpenses.length > 0 && members && members.length > 0 ? (
             <AnalyticsDashboard
               groupId={groupId}
-              groupName={groupInfo?.name || "Group"}
-              expenses={expensesData.expenses}
+              groupName={groupInfo?.name || t('details.defaultGroupName')}
+              expenses={convertedExpenses}
               members={members}
             />
           ) : (
             <div className="flex flex-col items-center py-16 text-center">
               <BarChart3 className="h-12 w-12 text-slate-300 dark:text-slate-600" />
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                {expensesLoading ? "Loading analytics..." : "No data available for analytics yet."}
+                {expensesLoading ? t('details.analyticsLoading') : t('details.analyticsNoData')}
               </p>
             </div>
           )}
@@ -1150,7 +1171,7 @@ export default function GroupDetailPage() {
       {tab === "members" && (
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Members ({members?.length || 0})</h3>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('details.membersCount', { count: members?.length || 0 })}</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setShowAddOffline(!showAddOffline); setShowInvite(false); }}
@@ -1171,7 +1192,7 @@ export default function GroupDetailPage() {
 
           {showAddOffline && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3">
-              <p className="text-sm text-slate-600 dark:text-slate-400">Add someone who isn&apos;t on the app yet. They can claim their profile later.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{t('details.addOfflineDesc')}</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -1180,7 +1201,7 @@ export default function GroupDetailPage() {
                     value={offlineName}
                     onChange={(e) => setOfflineName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && offlineName.trim() && addOfflineMutation.mutate(offlineName.trim())}
-                    placeholder="Enter name..."
+                    placeholder={t('details.enterNamePlaceholder')}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                   />
                 </div>
@@ -1189,12 +1210,12 @@ export default function GroupDetailPage() {
                   disabled={!offlineName.trim() || addOfflineMutation.isPending}
                   className="rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {addOfflineMutation.isPending ? "Adding..." : "Add"}
+                  {addOfflineMutation.isPending ? t('details.adding') : t('details.add')}
                 </button>
               </div>
               {inviteError && <p className="text-sm text-red-500 dark:text-red-400">{inviteError}</p>}
               <button onClick={() => { setShowAddOffline(false); setInviteError(null); }} className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-                Cancel
+                {tcommon('actions.cancel')}
               </button>
             </div>
           )}
@@ -1207,7 +1228,7 @@ export default function GroupDetailPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  placeholder="Search by username..."
+                  placeholder={t('details.searchByUsernamePlaceholder')}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 />
               </div>
@@ -1223,7 +1244,7 @@ export default function GroupDetailPage() {
                     >
                       <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-8 w-8" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">{tcommon('youLabel')}</span>}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">@{u.username}</p>
                       </div>
                       <UserPlus className="h-4 w-4 text-trevio-500" />
@@ -1235,7 +1256,7 @@ export default function GroupDetailPage() {
               {inviteError && <p className="text-sm text-red-500 dark:text-red-400">{inviteError}</p>}
 
               <button onClick={() => setShowInvite(false)} className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-                Cancel
+                {tcommon('actions.cancel')}
               </button>
             </div>
           )}
@@ -1250,18 +1271,18 @@ export default function GroupDetailPage() {
                         {m.displayName.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Offline member</p>
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">{tcommon('youLabel')}</span>}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{t('details.offlineMember')}</p>
                       </div>
                       <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-700/50 px-3 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">
                         <CloudOff className="h-3 w-3" />
-                        offline
+                        {t('details.offline')}
                       </span>
                       {isHousehold ? (
-                        <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">Member</span>
+                        <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">{t('details.member')}</span>
                       ) : (
                         m.role === "admin" && (
-                          <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                          <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">{t('details.admin')}</span>
                         )
                       )}
                     </>
@@ -1269,21 +1290,21 @@ export default function GroupDetailPage() {
                     <Link href={`/users/${m.uid}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 transition hover:border-trevio-300 dark:hover:border-trevio-700 hover:shadow-sm">
                       <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-8 w-8 md:h-10 md:w-10" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">{tcommon('youLabel')}</span>}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
                       </div>
                       {isHousehold ? (
-                        <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">Member</span>
+                        <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">{t('details.member')}</span>
                       ) : (
                         <>
                           {m.status === "pending" && (
                             <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                               <Clock className="h-3 w-3" />
-                              pending
+                              {t('details.statusPending')}
                             </span>
                           )}
                           {m.role === "admin" && (
-                            <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">admin</span>
+                            <span className="rounded-lg bg-trevio-50 dark:bg-trevio-900/30 px-2.5 py-1 text-xs font-medium text-trevio-700 dark:text-trevio-300">{t('details.admin')}</span>
                           )}
                         </>
                       )}
@@ -1295,7 +1316,7 @@ export default function GroupDetailPage() {
                             setRemovingMember({ uid: m.uid, name: m.displayName });
                           }}
                           className="ml-2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400"
-                          title="Remove member"
+                          title={t('details.removeMember')}
                         >
                           <UserX className="h-4 w-4" />
                         </button>

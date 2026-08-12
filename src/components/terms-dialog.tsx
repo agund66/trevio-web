@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, FileText } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 
@@ -15,6 +16,7 @@ interface TermsDialogProps {
 export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: TermsDialogProps) {
   const { user: userService } = useServices();
   const { refreshUser } = useAuth();
+  const t = useTranslations("common");
   const [checked, setChecked] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
       onAccepted?.();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to accept terms");
+      setError(e instanceof Error ? e.message : t('failedToAcceptTerms'));
       setAccepting(false);
     }
   };
@@ -62,7 +64,7 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <FileText className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Terms & Conditions</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('termsTitle')}</h2>
           </div>
           {!forceAccept && (
             <button
@@ -76,14 +78,14 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
 
         <div className="overflow-y-auto px-6 py-5" style={{ maxHeight: "calc(85vh - 180px)" }}>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-            {forceAccept ? "Before you get started, please read and accept our terms:" : "Please read our terms and conditions:"}
+            {forceAccept ? t('terms.introForceAccept') : t('terms.introNormal')}
           </p>
           <div className="space-y-4">
-            <TermsSection title="1. Acceptance of Terms" body="By using Trevio, you agree to these terms and conditions. If you do not agree, please do not use the app." />
-            <TermsSection title="2. Privacy & Data" body="Trevio stores your name, email, and profile photo from your Google account. We use this to identify you and facilitate group expense splitting. Your data is stored securely in Firebase." />
-            <TermsSection title="3. Financial Data" body="Trevio helps track expenses and settlements between users. We do not process actual payments. All settlements are tracked in-app. UPI deep links redirect you to your preferred payment app." />
-            <TermsSection title="4. User Conduct" body="You are responsible for the expenses and settlements you add. Do not create fraudulent or misleading expense entries." />
-            <TermsSection title="5. Account Termination" body="You can delete your account at any time. Upon deletion, your data will be removed from our servers." />
+            <TermsSection title={t('terms.section1Title')} body={t('terms.section1Body')} />
+            <TermsSection title={t('terms.section2Title')} body={t('terms.section2Body')} />
+            <TermsSection title={t('terms.section3Title')} body={t('terms.section3Body')} />
+            <TermsSection title={t('terms.section4Title')} body={t('terms.section4Body')} />
+            <TermsSection title={t('terms.section5Title')} body={t('terms.section5Body')} />
           </div>
         </div>
 
@@ -96,7 +98,7 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
                 onChange={(e) => setChecked(e.target.checked)}
                 className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-trevio-600 focus:ring-trevio-500"
               />
-              <span className="text-sm text-slate-700 dark:text-slate-300">I have read and agree to the Terms & Conditions</span>
+              <span className="text-sm text-slate-700 dark:text-slate-300">{t('terms.checkboxLabel')}</span>
             </label>
 
             {error && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{error}</p>}
@@ -106,7 +108,7 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
               disabled={!checked || accepting}
               className="mt-4 w-full rounded-xl bg-trevio-600 py-3.5 text-sm font-semibold text-white transition hover:bg-trevio-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {accepting ? "Accepting..." : "Accept & Continue"}
+              {accepting ? t('terms.accepting') : t('terms.acceptAndContinue')}
             </button>
           </div>
         )}

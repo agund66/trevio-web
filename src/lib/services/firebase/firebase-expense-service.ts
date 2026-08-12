@@ -18,8 +18,7 @@ import type { Expense, SplitEntry, SplitType, RecurringConfig, ItemizedSplitData
 import { calculateSplits, calculateBalances } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 import { toMillis } from "../../utils/date";
-
-const FIRESTORE_BATCH_LIMIT = 400;
+import { FIRESTORE_BATCH_LIMIT } from "../../constants/firestore";
 
 type SplitMap = Record<string, SplitEntry>;
 
@@ -55,6 +54,11 @@ export class FirebaseExpenseService implements ExpenseService {
     const groupDoc = await getDoc(groupRef);
     if (!groupDoc.exists()) throw new Error("Group not found");
 
+    // Reject expense creation in archived groups
+    if (groupDoc.data()?.archived === true) {
+      throw new Error("Cannot add expenses to an archived group");
+    }
+
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
@@ -68,7 +72,11 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const exchangeRateToBase = await this.exchangeRateService.getRateToBase(params.currency);
 
-    const now = params.date ?? Date.now();
+    // Separate the expense date (user-selected) from the creation timestamp.
+    // Using the user-selected date as createdAt would backdate activity
+    // ordering and notification timestamps incorrectly.
+    const now = Date.now();
+    const expenseDate = params.date ?? now;
     const expenseRef = doc(collection(groupRef, "expenses"));
     const transactionType: TransactionType = params.transactionType ?? "expense";
 
@@ -81,7 +89,7 @@ export class FirebaseExpenseService implements ExpenseService {
       splitType: params.splitType,
       splits: calculatedSplits,
       category: params.category || "other",
-      date: now,
+      date: expenseDate,
       createdBy: uid,
       createdAt: now,
       exchangeRateToBase,
@@ -195,6 +203,14 @@ export class FirebaseExpenseService implements ExpenseService {
     }
 
     const groupRef = doc(db, "groups", params.groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    // Reject expense edits in archived groups
+    if (groupDoc.data()?.archived === true) {
+      throw new Error("Cannot edit expenses in an archived group");
+    }
+
     const expenseRef = doc(groupRef, "expenses", params.expenseId);
     const expenseDoc = await getDoc(expenseRef);
     if (!expenseDoc.exists()) throw new Error("Expense not found");
@@ -423,6 +439,38 @@ export class FirebaseExpenseService implements ExpenseService {
       expenses,
       hasMore: snapshot.size === (pageSize || 20),
       lastExpenseId: snapshot.size > 0 ? snapshot.docs[snapshot.size - 1].id : null,
+    };
+  }
+
+  async getExpenseById(groupId: string, expenseId: string): Promise<Expense | null> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId || !expenseId) throw new Error("Group ID and Expense ID are required");
+
+    const groupRef = doc(db, "groups", groupId);
+    const memberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
+    const expenseDoc = await getDoc(doc(groupRef, "expenses", expenseId));
+    if (!expenseDoc.exists()) return null;
+
+    const data = expenseDoc.data() as Record<string, unknown>;
+    return {
+      expenseId: expenseDoc.id,
+      description: (data.description as string) ?? "",
+      amount: (data.amount as number) ?? 0,
+      currency: (data.currency as string) ?? "",
+      paidBy: (data.paidBy as string) ?? "",
+      splitType: (data.splitType as SplitType) ?? "equal",
+      splits: (data.splits as Record<string, SplitEntry>) ?? {},
+      category: (data.category as string) ?? "other",
+      createdBy: (data.createdBy as string) ?? "",
+      exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+      date: toMillis(data.date),
+      note: (data.note as string) ?? "",
+      recurring: (data.recurring as RecurringConfig) ?? undefined,
+      itemizedData: (data.itemizedData as ItemizedSplitData) ?? undefined,
+      transactionType: (data.transactionType as TransactionType) ?? "expense",
     };
   }
 

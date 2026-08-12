@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 // that the rules correctly enforce access control.
 
 type Role = "user" | "superadmin";
-type MemberStatus = "active" | "pending" | "left";
+type MemberStatus = "active" | "pending" | "left" | "removed";
 type MemberRole = "admin" | "member";
 
 interface MockUser {
@@ -410,8 +410,14 @@ describe("Security Rules — Members Subcollection", () => {
     ): boolean => {
       if (!requester) return false;
       const changed = affectedKeys(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>);
-      // Self-update: cannot change role or balance
-      if (requester.uid === targetUid && !changed.includes("role") && !changed.includes("balance")) {
+      // Self-update: cannot change role or balance.
+      // Cannot self-update if current status is "removed" or "left"
+      // (prevents re-activation after admin removal or voluntary leave).
+      if (requester.uid === targetUid
+        && before.status !== "removed"
+        && before.status !== "left"
+        && !changed.includes("role")
+        && !changed.includes("balance")) {
         return true;
       }
       const requesterMember = groupMembers.get(requester.uid);
@@ -485,6 +491,37 @@ describe("Security Rules — Members Subcollection", () => {
     const before = makeMember("u1", "member", "pending");
     const after = makeMember("u1", "member", "active");
     expect(rules.canUpdate(makeUser("u1"), "u1", members, before, after)).toBe(true);
+  });
+
+  it("removed member cannot reactivate themselves", () => {
+    const members = new Map<string, MockMember>();
+    const before = makeMember("u1", "member", "removed");
+    const after = makeMember("u1", "member", "active");
+    expect(rules.canUpdate(makeUser("u1"), "u1", members, before, after)).toBe(false);
+  });
+
+  it("left member cannot reactivate themselves", () => {
+    const members = new Map<string, MockMember>();
+    const before = makeMember("u1", "member", "left");
+    const after = makeMember("u1", "member", "active");
+    expect(rules.canUpdate(makeUser("u1"), "u1", members, before, after)).toBe(false);
+  });
+
+  it("removed member cannot update any field on their own doc", () => {
+    const members = new Map<string, MockMember>();
+    const before = makeMember("u1", "member", "removed");
+    const after = makeMember("u1", "member", "removed", 0);
+    // Even a non-status, non-role, non-balance change should be blocked
+    const beforeWithExtra = { ...before, displayName: "Old" };
+    const afterWithExtra = { ...after, displayName: "New" };
+    expect(rules.canUpdate(makeUser("u1"), "u1", members, beforeWithExtra as unknown as MockMember, afterWithExtra as unknown as MockMember)).toBe(false);
+  });
+
+  it("active member can still update own displayName", () => {
+    const members = new Map<string, MockMember>();
+    const before = { ...makeMember("u1", "member", "active"), displayName: "Old" };
+    const after = { ...makeMember("u1", "member", "active"), displayName: "New" };
+    expect(rules.canUpdate(makeUser("u1"), "u1", members, before as unknown as MockMember, after as unknown as MockMember)).toBe(true);
   });
 
   it("user cannot update own role", () => {

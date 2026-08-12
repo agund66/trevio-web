@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
@@ -10,7 +11,10 @@ import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { TermsDialog } from "@/components/terms-dialog";
 import { Avatar } from "@/components/avatar";
 import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber } from "@/lib/utils";
-import { SUPPORTED_CURRENCIES } from "@/lib/utils/currency";
+import { SUPPORTED_CURRENCIES, getCurrencySymbol } from "@/lib/utils/currency";
+import { DEFAULT_CURRENCY } from "@/lib/constants/currency";
+import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
+import { queryKeys } from "@/lib/constants/query-keys";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -18,14 +22,16 @@ export default function ProfilePage() {
   const { user: userService } = useServices();
   const { mode, setThemeMode } = useTheme();
   const queryClient = useQueryClient();
+  const t = useTranslations("profile");
+  const tc = useTranslations("common");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [defaultCurrency, setDefaultCurrency] = useState("INR");
+  const [defaultCurrency, setDefaultCurrency] = useState(DEFAULT_CURRENCY);
   const [upiId, setUpiId] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState("IN");
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [upiTouched, setUpiTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
@@ -34,6 +40,8 @@ export default function ProfilePage() {
   const [currencySearch, setCurrencySearch] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCurrencyChangeConfirm, setShowCurrencyChangeConfirm] = useState(false);
+  const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
 
   if (!user) return null;
 
@@ -42,7 +50,7 @@ export default function ProfilePage() {
     setDefaultCurrency(user.defaultCurrency);
     setUpiId(user.upiId || "");
     setPhoneNumber(user.phoneNumber || "");
-    setCountryCode(user.countryCode || "IN");
+    setCountryCode(user.countryCode || DEFAULT_COUNTRY_CODE);
     setUpiTouched(false);
     setPhoneTouched(false);
     setEditing(true);
@@ -51,20 +59,48 @@ export default function ProfilePage() {
   const upiValidation = upiId ? validateUpiId(upiId) : { valid: true };
   const phoneValidation = validatePhoneNumber(phoneNumber, countryCode);
   const editCountry = getCountryByCode(countryCode);
+  const isIndiaSelected = editCountry.code === "IN";
+
+  const handleCurrencySelect = (code: string) => {
+    if (code !== user.defaultCurrency) {
+      setPendingCurrency(code);
+      setShowCurrencyChangeConfirm(true);
+      setShowCurrencyDropdown(false);
+      setCurrencySearch("");
+    } else {
+      setDefaultCurrency(code);
+      setShowCurrencyDropdown(false);
+      setCurrencySearch("");
+    }
+  };
+
+  const confirmCurrencyChange = () => {
+    if (pendingCurrency) {
+      setDefaultCurrency(pendingCurrency);
+    }
+    setPendingCurrency(null);
+    setShowCurrencyChangeConfirm(false);
+  };
+
+  const handleCountrySelect = (code: string) => {
+    setCountryCode(code);
+    setShowCountryDropdown(false);
+    setPhoneTouched(false);
+  };
 
   const handleSave = async () => {
     setUpiTouched(true);
     setPhoneTouched(true);
     if (!displayName.trim()) {
-      setError("Display name cannot be empty");
+      setError(t("validation.displayNameEmpty"));
       return;
     }
     if (!phoneValidation.valid) {
-      setError(phoneValidation.error || "Invalid phone number");
+      setError(phoneValidation.error || t("validation.invalidPhone"));
       return;
     }
     if (upiId && !upiValidation.valid) {
-      setError(upiValidation.error || "Invalid UPI ID");
+      setError(upiValidation.error || t("validation.invalidUpiId"));
       return;
     }
 
@@ -81,33 +117,34 @@ export default function ProfilePage() {
       };
       await userService.updateUser(updated);
       await refreshUser();
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.balances });
       queryClient.invalidateQueries({ queryKey: ["publicProfile"] });
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups });
       setEditing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update profile");
+      setError(e instanceof Error ? e.message : t("validation.failedToUpdate"));
       setSaving(false);
     }
   };
 
   const currencies = SUPPORTED_CURRENCIES;
 
-  const country = getCountryByCode(user.countryCode || "IN");
+  const country = getCountryByCode(user.countryCode || DEFAULT_COUNTRY_CODE);
   const hasUpiId = !!(user.upiId && user.upiId.trim());
   const hasPhone = !!(user.phoneNumber && user.phoneNumber.trim());
+  const userIsInIndia = country.code === "IN";
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Profile</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
         {!editing && (
           <button
             onClick={startEdit}
             className="inline-flex items-center gap-2 rounded-xl bg-trevio-50 dark:bg-trevio-900/30 px-3 py-2 text-sm font-semibold text-trevio-700 dark:text-trevio-300 transition hover:bg-trevio-100 dark:hover:bg-trevio-900/50"
           >
             <Edit3 className="h-4 w-4" />
-            Edit
+            {tc("actions.edit")}
           </button>
         )}
       </div>
@@ -115,7 +152,7 @@ export default function ProfilePage() {
       {editing ? (
         <div className="mx-auto max-w-xl space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Display Name</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("fields.displayName")}</label>
             <input
               type="text"
               value={displayName}
@@ -125,7 +162,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Default Currency</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("fields.defaultCurrency")}</label>
             <div className="relative">
               <button
                 type="button"
@@ -134,7 +171,7 @@ export default function ProfilePage() {
               >
                 <span className="flex items-center gap-2">
                   <span className="text-lg font-semibold text-trevio-600 dark:text-trevio-400">
-                    {currencies.find((c) => c.code === defaultCurrency)?.symbol}
+                    {getCurrencySymbol(defaultCurrency)}
                   </span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">{defaultCurrency}</span>
                   <span className="text-slate-500 dark:text-slate-400">
@@ -152,7 +189,7 @@ export default function ProfilePage() {
                         type="text"
                         value={currencySearch}
                         onChange={(e) => setCurrencySearch(e.target.value)}
-                        placeholder="Search currency..."
+                        placeholder={t("searchCurrency")}
                         className="flex-1 bg-transparent text-sm text-slate-900 dark:text-slate-100 focus:outline-none"
                       />
                     </div>
@@ -167,11 +204,7 @@ export default function ProfilePage() {
                         <button
                           key={c.code}
                           type="button"
-                          onClick={() => {
-                            setDefaultCurrency(c.code);
-                            setShowCurrencyDropdown(false);
-                            setCurrencySearch("");
-                          }}
+                          onClick={() => handleCurrencySelect(c.code)}
                           className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 ${
                             defaultCurrency === c.code ? "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300" : "text-slate-700 dark:text-slate-300"
                           }`}
@@ -189,7 +222,7 @@ export default function ProfilePage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Mobile Number <span className="text-red-500">*</span>
+              {t("fields.mobileNumber")} <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
               <div className="relative">
@@ -206,11 +239,7 @@ export default function ProfilePage() {
                     {COUNTRY_CODES.map((c) => (
                       <button
                         key={c.code}
-                        onClick={() => {
-                          setCountryCode(c.code);
-                          setShowCountryDropdown(false);
-                          setPhoneTouched(false);
-                        }}
+                        onClick={() => handleCountrySelect(c.code)}
                         className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800 ${
                           c.code === countryCode ? "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300" : "text-slate-700 dark:text-slate-300"
                         }`}
@@ -231,7 +260,7 @@ export default function ProfilePage() {
                   setPhoneTouched(false);
                 }}
                 onBlur={() => setPhoneTouched(true)}
-                placeholder={`${editCountry.phoneLength}-digit number`}
+                placeholder={t('fields.phonePlaceholder', { phoneLength: editCountry.phoneLength })}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
             </div>
@@ -241,36 +270,40 @@ export default function ProfilePage() {
             {phoneValidation.valid && phoneNumber && (
               <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
                 <Check className="h-4 w-4" />
-                Valid {editCountry.phoneLength}-digit number
+                {t("validation.validPhone", { phoneLength: editCountry.phoneLength })}
               </p>
             )}
-            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">Used for UPI payments. Friends can pay you using this number.</p>
+            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+              {isIndiaSelected ? t("payment.mobileUsedForUpi") : t("fields.mobileNumber")}
+            </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">UPI ID (optional)</label>
-            <input
-              type="text"
-              value={upiId}
-              onChange={(e) => {
-                setUpiId(e.target.value);
-                setUpiTouched(false);
-              }}
-              onBlur={() => setUpiTouched(true)}
-              placeholder="yourname@okhdfcbank"
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
-            />
-            {upiTouched && upiId && !upiValidation.valid && (
-              <p className="mt-1.5 text-sm text-red-500">{upiValidation.error}</p>
-            )}
-            {upiTouched && upiId && upiValidation.valid && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
-                <Check className="h-4 w-4" />
-                Valid UPI ID format
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">If set, payments will use UPI ID first. Otherwise, your mobile number is used.</p>
-          </div>
+          {isIndiaSelected && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("fields.upiIdOptional")}</label>
+              <input
+                type="text"
+                value={upiId}
+                onChange={(e) => {
+                  setUpiId(e.target.value);
+                  setUpiTouched(false);
+                }}
+                onBlur={() => setUpiTouched(true)}
+                placeholder={t("upi.placeholder")}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+              />
+              {upiTouched && upiId && !upiValidation.valid && (
+                <p className="mt-1.5 text-sm text-red-500">{upiValidation.error}</p>
+              )}
+              {upiTouched && upiId && upiValidation.valid && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
+                  <Check className="h-4 w-4" />
+                  {t("upi.validFormat")}
+                </p>
+              )}
+              <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">{t("payment.upiPriority")}</p>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
@@ -279,7 +312,7 @@ export default function ProfilePage() {
               onClick={() => setEditing(false)}
               className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              Cancel
+              {tc("actions.cancel")}
             </button>
             <button
               onClick={handleSave}
@@ -287,7 +320,7 @@ export default function ProfilePage() {
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check className="h-4 w-4" />
-              {saving ? "Saving..." : "Save"}
+              {saving ? tc("actions.saving") : tc("actions.save")}
             </button>
           </div>
         </div>
@@ -306,27 +339,27 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-                <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">Payment Info</span>
+                <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">{t("payment.title")}</span>
               </div>
               {hasUpiId ? (
                 <>
                   <p className="text-sm text-trevio-600 dark:text-trevio-400">{user.upiId}</p>
-                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">Friends can pay you via UPI ID</p>
+                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaUpiId")}</p>
                 </>
               ) : hasPhone ? (
                 <>
                   <p className="text-sm text-trevio-600 dark:text-trevio-400">{country.dialCode} {user.phoneNumber}</p>
-                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">Friends can pay you via mobile number</p>
+                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaMobile")}</p>
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-trevio-600 dark:text-trevio-400">No payment info set</p>
+                  <p className="text-sm text-trevio-600 dark:text-trevio-400">{t("payment.noPaymentInfo")}</p>
                   <button
                     onClick={startEdit}
                     className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
                   >
                     <Plus className="h-3 w-3" />
-                    Set up payment info
+                    {t("payment.setUpPaymentInfo")}
                   </button>
                 </>
               )}
@@ -336,13 +369,13 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Sun className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Appearance</span>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{tc("theme.appearance")}</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  { value: "light", label: "Light", icon: Sun },
-                  { value: "dark", label: "Dark", icon: Moon },
-                  { value: "system", label: "Device", icon: Monitor },
+                  { value: "light", label: tc("theme.light"), icon: Sun },
+                  { value: "dark", label: tc("theme.dark"), icon: Moon },
+                  { value: "system", label: tc("theme.system"), icon: Monitor },
                 ] as { value: ThemeMode; label: string; icon: typeof Sun }[]).map((opt) => (
                   <button
                     key={opt.value}
@@ -361,22 +394,27 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Right column — details & actions */}
+          {/* Right column — actions */}
           <div className="space-y-4">
+            {/* Profile info rows */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-              <ProfileRow label="Username" value={`@${user.username}`} />
-              <ProfileRow label="Email" value={user.email} />
-              <ProfileRow label="Currency" value={`${currencies.find((c) => c.code === user.defaultCurrency)?.symbol || ""} ${user.defaultCurrency}`} />
+              <ProfileRow label={t("fields.username")} value={`@${user.username}`} />
+              <ProfileRow label={t("fields.email")} value={user.email} />
+              <ProfileRow label={t("fields.defaultCurrency")} value={`${getCurrencySymbol(user.defaultCurrency)} ${user.defaultCurrency}`} />
               <ProfileRow
-                label="Mobile"
-                value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : "Not set"}
-                action={!hasPhone ? { label: "Add", onClick: startEdit } : undefined}
+                label={t("fields.mobileNumber")}
+                value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : tc("status.notSet")}
+                isNotSet={!hasPhone}
+                action={!hasPhone ? { label: tc("actions.add"), onClick: startEdit } : undefined}
               />
-              <ProfileRow
-                label="UPI ID"
-                value={hasUpiId ? user.upiId! : "Not set"}
-                action={!hasUpiId ? { label: "Add", onClick: startEdit } : undefined}
-              />
+              {userIsInIndia && (
+                <ProfileRow
+                  label={t("fields.upiId")}
+                  value={hasUpiId ? user.upiId! : tc("status.notSet")}
+                  isNotSet={!hasUpiId}
+                  action={!hasUpiId ? { label: tc("actions.add"), onClick: startEdit } : undefined}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -385,7 +423,7 @@ export default function ProfilePage() {
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <FileText className="h-4 w-4" />
-                Terms
+                {t("actions.terms")}
               </button>
 
               <Link
@@ -393,7 +431,7 @@ export default function ProfilePage() {
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <LifeBuoy className="h-4 w-4" />
-                Help & Support
+                {t("actions.helpSupport")}
               </Link>
             </div>
 
@@ -403,7 +441,7 @@ export default function ProfilePage() {
                 className="flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Account
+                {t("deleteAccount.button")}
               </button>
 
               <button
@@ -411,7 +449,7 @@ export default function ProfilePage() {
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 md:hidden"
               >
                 <LogOut className="h-4 w-4" />
-                Sign Out
+                {t("actions.signOut")}
               </button>
             </div>
           </div>
@@ -423,6 +461,40 @@ export default function ProfilePage() {
         onClose={() => setShowTerms(false)}
       />
 
+      {/* Currency change confirmation dialog (Point 3) */}
+      {showCurrencyChangeConfirm && pendingCurrency && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-900/30">
+                <Wallet className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("currencyChange.title")}</h2>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+              {t("currencyChange.confirm", { currency: pendingCurrency })}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setPendingCurrency(null);
+                  setShowCurrencyChangeConfirm(false);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                {t("currencyChange.keepCurrent")}
+              </button>
+              <button
+                onClick={confirmCurrencyChange}
+                className="flex-1 rounded-xl bg-trevio-600 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+              >
+                {t("currencyChange.confirmButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl">
@@ -430,10 +502,10 @@ export default function ProfilePage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
                 <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete Account?</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("deleteAccount.title")}</h2>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
-              This will permanently delete your account, remove you from all groups, and erase your data. This action cannot be undone.
+              {t("deleteAccount.confirm")}
             </p>
             <div className="flex gap-3">
               <button
@@ -441,7 +513,7 @@ export default function ProfilePage() {
                 disabled={deleting}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
               >
-                Cancel
+                {tc("actions.cancel")}
               </button>
               <button
                 onClick={async () => {
@@ -458,7 +530,7 @@ export default function ProfilePage() {
                 disabled={deleting}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
               >
-                {deleting ? "Deleting..." : "Delete Account"}
+                {deleting ? t("deleteAccount.deleting") : t("deleteAccount.button")}
               </button>
             </div>
           </div>
@@ -468,12 +540,12 @@ export default function ProfilePage() {
   );
 }
 
-function ProfileRow({ label, value, action }: { label: string; value: string; action?: { label: string; onClick: () => void } }) {
+function ProfileRow({ label, value, isNotSet, action }: { label: string; value: string; isNotSet?: boolean; action?: { label: string; onClick: () => void } }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5">
       <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
       <div className="flex items-center gap-2">
-        <span className={`text-sm font-medium ${value === "Not set" ? "text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}>{value}</span>
+        <span className={`text-sm font-medium ${isNotSet ? "text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}>{value}</span>
         {action && (
           <button
             onClick={action.onClick}

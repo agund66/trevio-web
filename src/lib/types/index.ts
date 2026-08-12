@@ -86,6 +86,8 @@ export interface Expense {
   recurring?: RecurringConfig;
   itemizedData?: ItemizedSplitData;
   transactionType?: TransactionType;
+  originalAmount?: number;
+  originalCurrency?: string;
 }
 
 export type RecurringFrequency = "weekly" | "monthly";
@@ -237,6 +239,7 @@ export interface TripItineraryItem {
   longitude?: number;
   category: string;
   estimatedCost: number;
+  estimatedCostCurrency?: string;
   assignedTo: string[];
   completed: boolean;
 }

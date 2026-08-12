@@ -8,9 +8,11 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { useNotificationPermission } from "@/lib/hooks/use-fcm-notifications";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus } from "lucide-react";
 import DOMPurify from "dompurify";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/date";
 import type { BroadcastMessage, BroadcastPriority } from "@/lib/types";
@@ -28,6 +30,8 @@ const broadcastColors: Record<BroadcastPriority, { border: string; bg: string; i
 };
 
 export default function NotificationsPage() {
+  const t = useTranslations("notifications");
+  const tc = useTranslations("common");
   const { notification, broadcast, group } = useServices();
   const { user } = useAuth();
   const { userCurrency } = useCurrencyDisplay();
@@ -44,7 +48,7 @@ export default function NotificationsPage() {
   const notificationsPagination = usePaginatedQuery({
     queryKey: ["notifications"],
     queryFn: (pageSize, lastId) => notification.getNotifications(pageSize, lastId),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     extractItems: (r) => r.notifications,
     extractHasMore: (r) => r.hasMore,
     extractLastId: (r) => r.lastNotificationId,
@@ -130,13 +134,13 @@ export default function NotificationsPage() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Notifications</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
         {hasUnread && (
           <button
             onClick={() => markAllMutation.mutate()}
             className="text-sm font-medium text-trevio-600 dark:text-trevio-400 hover:text-trevio-700 dark:hover:text-trevio-300"
           >
-            Mark all read
+            {t("markAllRead")}
           </button>
         )}
       </div>
@@ -145,13 +149,13 @@ export default function NotificationsPage() {
         <div className="flex min-h-[50vh] items-center justify-center text-center">
           <div className="max-w-md">
             <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Failed to load notifications</h2>
+            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">{t("error.failedToLoad")}</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{(error as Error).message}</p>
             <button
               onClick={() => notificationsPagination.refresh()}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
             >
-              Try Again
+              {t("error.tryAgain")}
             </button>
           </div>
         </div>
@@ -196,7 +200,7 @@ export default function NotificationsPage() {
                       onClick={() => toggleExpand(b.id)}
                       className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                     >
-                      {isExpanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> Read more</>}
+                      {isExpanded ? <><ChevronUp className="h-3 w-3" /> {t("broadcast.showLess")}</> : <><ChevronDown className="h-3 w-3" /> {t("broadcast.readMore")}</>}
                     </button>
                   </div>
                   <Megaphone className="h-4 w-4 text-slate-300 dark:text-slate-600" />
@@ -251,7 +255,7 @@ export default function NotificationsPage() {
                       ) : (
                         <Check className="h-3 w-3" />
                       )}
-                      Accept & Join
+                      {t("invitation.acceptAndJoin")}
                     </button>
                     <button
                       onClick={() => handleDeclineInvitation(n.notificationId, n.data.invitationId)}
@@ -259,7 +263,7 @@ export default function NotificationsPage() {
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                     >
                       <X className="h-3 w-3" />
-                      Decline
+                      {t("invitation.decline")}
                     </button>
                   </div>
                 )}
@@ -269,13 +273,13 @@ export default function NotificationsPage() {
                       onClick={() => router.push(`/groups/${n.data.groupId}`)}
                       className="text-xs font-medium text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
                     >
-                      Open Group →
+                      {t("invitation.openGroup")}
                     </button>
                   </div>
                 )}
                 {isInvitation && isDeclined && (
                   <div className="mt-2 pl-11">
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Declined</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("invitation.declined")}</span>
                   </div>
                 )}
                 {hasGroupLink && (
@@ -284,7 +288,7 @@ export default function NotificationsPage() {
                       onClick={() => router.push(`/groups/${n.data.groupId}`)}
                       className="text-xs font-medium text-trevio-600 dark:text-trevio-400 hover:text-trevio-700 dark:hover:text-trevio-300"
                     >
-                      View Group →
+                      {t("invitation.viewGroup")}
                     </button>
                   </div>
                 )}
@@ -297,7 +301,7 @@ export default function NotificationsPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
                 <Bell className="h-8 w-8 text-slate-300 dark:text-slate-600" />
               </div>
-              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">No notifications yet</p>
+              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{t("empty")}</p>
             </div>
           )}
 

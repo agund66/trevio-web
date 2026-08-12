@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { QrScannerDialog } from "@/components/qr-scanner-dialog";
@@ -15,6 +16,7 @@ interface JoinGroupDialogProps {
 export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
   const { group, settlement } = useServices();
   const queryClient = useQueryClient();
+  const t = useTranslations("common");
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
 
   const handleJoinWithCode = async (code: string) => {
     if (!code) {
-      setError("Please enter an invite code");
+      setError(t('inviteCodeRequired'));
       return;
     }
 
@@ -67,7 +69,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
           setClaimableMembers(claimable);
           setJoining(false);
         } else {
-          setSuccess(`Joined "${result.groupName}" successfully!`);
+          setSuccess(t('joinedGroupSuccess', { name: result.groupName }));
           setTimeout(() => {
             onClose();
             setInviteCode("");
@@ -76,7 +78,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
           }, 1500);
         }
       } catch {
-        setSuccess(`Joined "${result.groupName}" successfully!`);
+        setSuccess(t('joinedGroupSuccess', { name: result.groupName }));
         setTimeout(() => {
           onClose();
           setInviteCode("");
@@ -85,7 +87,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
         }, 1500);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to join group");
+      setError(e instanceof Error ? e.message : t('failedToJoinGroup'));
       setJoining(false);
     }
   };
@@ -111,7 +113,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
               <LogIn className="h-4.5 w-4.5 text-trevio-600 dark:text-trevio-400" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Join Group</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('joinGroup')}</h2>
           </div>
           <button
             onClick={() => !joining && onClose()}
@@ -126,7 +128,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
             <>
               <div className="flex items-center gap-2 rounded-xl bg-green-50 dark:bg-green-900/20 px-4 py-3 text-sm text-green-600 dark:text-green-400">
                 <Check className="h-4 w-4 shrink-0" />
-                <span>Joined successfully! Claim an offline profile to link your account.</span>
+                <span>{t('joinedSuccess')}</span>
               </div>
               <div className="space-y-2">
                 {claimableMembers.map((m) => (
@@ -144,21 +146,21 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
                           await group.claimOfflineMember(groupId, m.uid);
                           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
                           setClaimableMembers([]);
-                          setSuccess("Profile claimed successfully!");
+                          setSuccess(t('profileClaimedSuccess'));
                           setTimeout(() => {
                             onClose();
                             setSuccess(null);
                             setClaiming(false);
                           }, 1500);
                         } catch (e) {
-                          setClaimError(e instanceof Error ? e.message : "Failed to claim");
+                          setClaimError(e instanceof Error ? e.message : t('failedToClaim'));
                           setClaiming(false);
                         }
                       }}
                       disabled={claiming}
                       className="rounded-lg bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
                     >
-                      {claiming ? "Claiming..." : "Claim"}
+                      {claiming ? t('claiming') : t('claim')}
                     </button>
                   </div>
                 ))}
@@ -168,17 +170,17 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
                 onClick={() => { setClaimableMembers([]); onClose(); }}
                 className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
-                Skip for now
+                {t('skipForNow')}
               </button>
             </>
           ) : (
             <>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Enter the invite code shared by your friend to join their group.
+                {t('enterInviteCodeDesc')}
               </p>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Invite Code</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('inviteCode')}</label>
                 <input
                   type="text"
                   value={inviteCode}
@@ -187,7 +189,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
                     setError(null);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && !joining && handleJoin()}
-                  placeholder="e.g. ABCD12"
+                  placeholder={t('inviteCodePlaceholder')}
                   maxLength={10}
                   autoFocus
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium tracking-wider uppercase text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
@@ -223,10 +225,10 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
               {joining ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Joining...
+                  {t('joining')}
                 </span>
               ) : (
-                "Join Group"
+                t('joinGroup')
               )}
             </button>
             <button
@@ -235,7 +237,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 py-3.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <QrCode className="h-4 w-4" />
-              Scan QR Code
+              {t('scanQrCodeBtn')}
             </button>
           </div>
         )}

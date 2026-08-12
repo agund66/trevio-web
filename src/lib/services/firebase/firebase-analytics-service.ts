@@ -3,6 +3,7 @@ import { db, auth } from "../../firebase";
 import type { AnalyticsService } from "../interfaces/analytics-service";
 import type { Expense, GroupAnalytics, UserAnalytics, SplitType, SplitEntry } from "../../types";
 import { computeGroupAnalytics, computeUserAnalytics } from "../../utils/analytics";
+import { DEFAULT_CURRENCY } from "../../constants/currency";
 
 export class FirebaseAnalyticsService implements AnalyticsService {
   async getGroupAnalytics(groupId: string): Promise<GroupAnalytics> {
@@ -24,7 +25,7 @@ export class FirebaseAnalyticsService implements AnalyticsService {
         expenseId: doc.id,
         description: (data.description as string) || "",
         amount: (data.amount as number) || 0,
-        currency: (data.currency as string) || "INR",
+        currency: (data.currency as string) || DEFAULT_CURRENCY,
         paidBy: (data.paidBy as string) || "",
         splitType: (data.splitType as SplitType) || "equal",
         splits: (data.splits as Record<string, SplitEntry>) || {},

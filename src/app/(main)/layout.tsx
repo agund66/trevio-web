@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { useFcmNotifications } from "@/lib/hooks/use-fcm-notifications";
 import { OfflineBanner } from "@/components/offline-banner";
+import { useTranslations } from "next-intl";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut, refreshUser } = useAuth();
@@ -20,6 +21,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const { theme, mode, toggleTheme } = useTheme();
+  const t = useTranslations("dashboard");
+  const tc = useTranslations("common");
   useFcmNotifications();
 
   useEffect(() => {
@@ -35,7 +38,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       // who accepted TnC under old rules but username creation failed
       userService.acceptTnC().then(() => refreshUser()).catch(console.error);
     }
-  }, [user, loading, router, userService, refreshUser]);
+  }, [user, loading, router, userService, refreshUser, signOut]);
 
   if (loading) {
     return (
@@ -48,18 +51,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   if (!user) return null;
 
   const desktopNavItems = [
-    { href: "/dashboard", label: "Home", icon: Home },
-    { href: "/groups", label: "Groups", icon: Users },
-    { href: "/notifications", label: "Notifications", icon: Bell },
-    ...(user.role === "superadmin" ? [{ href: "/admin", label: "Dashboard", icon: Shield }] : []),
+    { href: "/dashboard", label: t("nav.home"), icon: Home },
+    { href: "/groups", label: t("nav.groups"), icon: Users },
+    { href: "/notifications", label: t("nav.notifications"), icon: Bell },
+    ...(user.role === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
   ];
 
   const mobileNavItems = [
-    { href: "/dashboard", label: "Home", icon: Home },
-    { href: "/groups", label: "Groups", icon: Users },
-    { href: "/notifications", label: "Notifications", icon: Bell },
-    { href: "/profile", label: "Profile", icon: User },
-    ...(user.role === "superadmin" ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+    { href: "/dashboard", label: t("nav.home"), icon: Home },
+    { href: "/groups", label: t("nav.groups"), icon: Users },
+    { href: "/notifications", label: t("nav.notifications"), icon: Bell },
+    { href: "/profile", label: t("nav.profile"), icon: User },
+    ...(user.role === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
   ];
 
   return (
@@ -101,7 +104,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <button
               onClick={(e) => { e.preventDefault(); toggleTheme(); }}
               className="rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              title={`Theme: ${mode}${mode === "system" ? " (device)" : ""} — click to change`}
+              title={tc('themeTitle', { mode, device: mode === "system" ? tc('themeDevice') : "" })}
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -111,7 +114,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <LogOut className="h-5 w-5" />
-            Sign Out
+            {t("nav.signOut")}
           </button>
         </div>
       </aside>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { ArrowLeft, Mail, AtSign, Wallet, Phone } from "lucide-react";
 import { getCountryByCode } from "@/lib/utils";
@@ -13,6 +14,8 @@ export default function PublicProfilePage() {
   const router = useRouter();
   const uid = params.uid as string;
   const { user: userService } = useServices();
+  const t = useTranslations("profile");
+  const tc = useTranslations("common");
 
   const { data: profileUser, isLoading } = useQuery({
     queryKey: ["publicProfile", uid],
@@ -24,7 +27,7 @@ export default function PublicProfilePage() {
       <div className="p-4 md:p-6 max-w-2xl mx-auto">
         <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {tc('actions.back')}
         </button>
         <div className="flex min-h-[50vh] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 dark:border-trevio-800 border-t-trevio-600" />
@@ -38,9 +41,9 @@ export default function PublicProfilePage() {
       <div className="p-4 md:p-6">
         <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {tc('actions.back')}
         </button>
-        <p className="text-slate-500 dark:text-slate-400">User not found.</p>
+        <p className="text-slate-500 dark:text-slate-400">{t('userNotFound')}</p>
       </div>
     );
   }
@@ -49,7 +52,7 @@ export default function PublicProfilePage() {
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {tc('actions.back')}
       </button>
 
       <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
@@ -70,7 +73,7 @@ export default function PublicProfilePage() {
               <AtSign className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Username</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('fields.username')}</p>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">@{profileUser.username}</p>
             </div>
           </div>
@@ -80,7 +83,7 @@ export default function PublicProfilePage() {
               <Mail className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Email</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('fields.email')}</p>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{profileUser.email}</p>
             </div>
           </div>
@@ -92,7 +95,7 @@ export default function PublicProfilePage() {
                 <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Pay via UPI ID</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('payment.payViaUpi')}</p>
                 <p className="text-sm font-medium text-trevio-700 dark:text-trevio-300">{profileUser.upiId}</p>
               </div>
             </div>
@@ -102,7 +105,7 @@ export default function PublicProfilePage() {
                 <Phone className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Pay via Mobile Number</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('payment.payViaMobileNumber')}</p>
                 <p className="text-sm font-medium text-trevio-700 dark:text-trevio-300">
                   {getCountryByCode(profileUser.countryCode || "IN").dialCode} {profileUser.phoneNumber}
                 </p>

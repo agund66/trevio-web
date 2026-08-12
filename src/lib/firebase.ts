@@ -35,8 +35,18 @@ try {
 export const db = dbInstance;
 
 export let messaging: ReturnType<typeof getMessaging> | null = null;
-isSupported().then((supported) => {
-  if (supported) {
-    messaging = getMessaging(app);
-  }
-}).catch(() => {});
+
+// Export a promise that resolves when messaging is initialized (or null if
+// unsupported). This lets hooks/components await messaging availability
+// instead of capturing a possibly-null value at render time.
+export let messagingReady: Promise<ReturnType<typeof getMessaging> | null> =
+  Promise.resolve(null);
+messagingReady = isSupported()
+  .then((supported) => {
+    if (supported) {
+      messaging = getMessaging(app);
+      return messaging;
+    }
+    return null;
+  })
+  .catch(() => null);

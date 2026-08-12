@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   ChevronLeft,
   ChevronRight,
@@ -45,6 +46,7 @@ import { formatCurrencySymbol } from "@/lib/utils/currency";
 import { formatTime, formatShortDate } from "@/lib/utils/date";
 import { Avatar } from "@/components/avatar";
 import { GamificationCard } from "./GamificationCard";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
 
 const ICON_MAP: Record<string, typeof ShoppingCart> = {
   ShoppingCart,
@@ -85,8 +87,8 @@ interface DailyTabProps {
   userCurrency?: string;
 }
 
-function memberName(members: Member[], uid: string): string {
-  return members.find((m) => m.uid === uid)?.displayName ?? "Someone";
+function memberName(members: Member[], uid: string, fallback: string): string {
+  return members.find((m) => m.uid === uid)?.displayName ?? fallback;
 }
 
 export function DailyTab({
@@ -101,8 +103,9 @@ export function DailyTab({
   onDeleteEntry,
   isSaving,
   monthlyBudget,
-  userCurrency = "INR",
+  userCurrency = BASE_CURRENCY,
 }: DailyTabProps) {
+  const t = useTranslations("household");
   const summary = useMemo(
     () => computeDailySummary(expenses, selectedDate),
     [expenses, selectedDate]
@@ -198,10 +201,10 @@ export function DailyTab({
       d.getMonth() === yesterday.getMonth() &&
       d.getDate() === yesterday.getDate()
     ) {
-      return "Yesterday";
+      return t('yesterday');
     }
     return formatShortDate(d.getTime(), userCurrency);
-  }, [lastEntryDay]);
+  }, [lastEntryDay, t, userCurrency]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -210,7 +213,7 @@ export function DailyTab({
         <div className="flex items-center justify-between">
           <button
             onClick={onPreviousDay}
-            aria-label="Previous day"
+            aria-label={t('daily.previousDayAria')}
             className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -219,7 +222,7 @@ export function DailyTab({
             onClick={() => {
               if (!isToday && onGoToToday) onGoToToday();
             }}
-            aria-label="Go to today"
+            aria-label={t('daily.goToTodayAria')}
             disabled={isToday}
             className="text-sm font-semibold text-slate-900 dark:text-slate-100 disabled:opacity-60"
           >
@@ -227,7 +230,7 @@ export function DailyTab({
           </button>
           <button
             onClick={onNextDay}
-            aria-label="Next day"
+            aria-label={t('daily.nextDayAria')}
             disabled={isToday}
             className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -238,19 +241,19 @@ export function DailyTab({
         {/* Summary card */}
         <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
           <div className="text-center">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Spent</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{t('daily.spent')}</p>
             <p className="mt-1 text-sm font-bold text-red-500">
               {formatCurrencySymbol(summary.totalSpent, userCurrency)}
             </p>
           </div>
           <div className="text-center border-x border-slate-100 dark:border-slate-700">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Received</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{t('daily.received')}</p>
             <p className="mt-1 text-sm font-bold text-green-500">
               {formatCurrencySymbol(summary.totalReceived, userCurrency)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Net</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{t('daily.net')}</p>
             <p
               className={`mt-1 text-sm font-bold ${
                 summary.netAmount >= 0 ? "text-green-500" : "text-red-500"
@@ -267,13 +270,13 @@ export function DailyTab({
           {gamification.loggingStreak > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 dark:bg-orange-900/20 px-3 py-1 text-xs font-semibold text-orange-600 dark:text-orange-400">
               <Flame className="h-3.5 w-3.5" />
-              {gamification.loggingStreak} day streak
+              {gamification.loggingStreak} {t('daily.dayStreak')}
             </span>
           )}
           {isToday && (
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
               <Users className="h-3.5 w-3.5" />
-              {gamification.membersLoggedToday}/{gamification.totalMembers} logged today
+              {gamification.membersLoggedToday}/{gamification.totalMembers} {t('daily.loggedToday')}
             </span>
           )}
         </div>
@@ -290,21 +293,21 @@ export function DailyTab({
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 py-10 text-center">
                 <Receipt className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                 <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {isToday ? "No entries yet today" : "No entries for this day"}
+                  {isToday ? t('daily.noEntriesToday') : t('daily.noEntriesForDay')}
                 </p>
-                <p className="text-xs text-slate-400">Tap Add Entry to log a new entry</p>
+                <p className="text-xs text-slate-400">{t('daily.tapToAddHint')}</p>
               </div>
               {isToday && recentEntries.length > 0 && (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      {lastEntryDayLabel} · {recentEntries.length} {recentEntries.length === 1 ? "entry" : "entries"}
+                      {lastEntryDayLabel} · {recentEntries.length} {recentEntries.length === 1 ? t('daily.entry') : t('daily.entries')}
                     </p>
                     <button
                       onClick={onPreviousDay}
                       className="text-xs font-semibold text-trevio-600 dark:text-trevio-400 hover:underline"
                     >
-                      View all →
+                      {t('daily.viewAll')}
                     </button>
                   </div>
                   <div className="space-y-1.5">
@@ -341,7 +344,7 @@ export function DailyTab({
               const Icon = ICON_MAP[iconName] ?? Package;
               const color = getCategoryColor(entry.category);
               const isIncome = (entry.transactionType ?? "expense") === "income";
-              const name = memberName(members, entry.paidBy);
+              const name = memberName(members, entry.paidBy, t('someone'));
 
               return (
                 <div
@@ -379,14 +382,14 @@ export function DailyTab({
                     <button
                       onClick={() => onEditEntry(entry)}
                       className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200"
-                      title="Edit"
+                      title={t('daily.editEntry')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => onDeleteEntry(entry.expenseId)}
                       className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500"
-                      title="Delete"
+                      title={t('daily.deleteEntry')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

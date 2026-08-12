@@ -12,6 +12,7 @@ import {
 import { db, auth } from "../../firebase";
 import type { AdminService } from "../interfaces/admin-service";
 import type { User, UserRole } from "../../types";
+import { DEFAULT_CURRENCY } from "../../constants/currency";
 
 export class FirebaseAdminService implements AdminService {
   async getAllUsers(pageSize: number = 50, lastUserUid?: string): Promise<{ users: User[]; hasMore: boolean; lastUserUid: string | null }> {
@@ -41,7 +42,7 @@ export class FirebaseAdminService implements AdminService {
         lastName: (data.lastName as string) || "",
         username: (data.username as string) || "",
         photoURL: (data.photoURL as string) || "",
-        defaultCurrency: (data.defaultCurrency as string) || "INR",
+        defaultCurrency: (data.defaultCurrency as string) || DEFAULT_CURRENCY,
         acceptedTnC: (data.acceptedTnC as boolean) || false,
         role: (data.role as UserRole) || "user",
         blocked: (data.blocked as boolean) || false,

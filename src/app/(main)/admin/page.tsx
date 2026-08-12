@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Shield, Megaphone, LifeBuoy } from "lucide-react";
 import { UsersTab } from "./users-tab";
@@ -14,15 +15,16 @@ type AdminTab = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const adminTabs: AdminTab[] = [
-  { id: "users", label: "Users", icon: Shield },
-  { id: "broadcasts", label: "Broadcasts", icon: Megaphone },
-  { id: "support", label: "Support", icon: LifeBuoy },
-];
-
 export default function AdminDashboardPage() {
   const { user: currentUser } = useAuth();
+  const t = useTranslations("admin");
   const [activeTab, setActiveTab] = useState("users");
+
+  const adminTabs: AdminTab[] = [
+    { id: "users", label: t('usersTab'), icon: Shield },
+    { id: "broadcasts", label: t('tabs.broadcasts'), icon: Megaphone },
+    { id: "support", label: t('supportTab'), icon: LifeBuoy },
+  ];
 
   if (!currentUser) {
     return (
@@ -37,8 +39,8 @@ export default function AdminDashboardPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
           <Shield className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-600" />
-          <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">Access Denied</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">You need superadmin privileges to view this page.</p>
+          <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">{t('accessDenied')}</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('superadminRequired')}</p>
         </div>
       </div>
     );
@@ -47,8 +49,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Admin Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage users, roles, and access control</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('dashboardTitle')}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('manageUsersDesc')}</p>
       </div>
 
       {/* Tab bar */}

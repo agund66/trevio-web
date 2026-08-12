@@ -20,6 +20,8 @@ import { deleteUser as firebaseDeleteUser } from "firebase/auth";
 import type { UserService } from "../interfaces/user-service";
 import type { User, UserSearchResult, UserRole } from "../../types";
 import { generateBaseUsername } from "../../utils/calculations";
+import { FIRESTORE_BATCH_LIMIT_MULTI_OP } from "../../constants/firestore";
+import { DEFAULT_CURRENCY } from "../../constants/currency";
 
 export class FirebaseUserService implements UserService {
   async getUser(uid: string): Promise<User> {
@@ -34,7 +36,7 @@ export class FirebaseUserService implements UserService {
       lastName: data.lastName || "",
       username: data.username || "",
       photoURL: data.photoURL || "",
-      defaultCurrency: data.defaultCurrency || "INR",
+      defaultCurrency: data.defaultCurrency || DEFAULT_CURRENCY,
       acceptedTnC: data.acceptedTnC || false,
       role: (data.role as UserRole) || "user",
       blocked: data.blocked || false,
@@ -53,7 +55,7 @@ export class FirebaseUserService implements UserService {
       firstName: user.firstName || "",
       lastName: user.lastName || "",
       photoURL: user.photoURL || "",
-      defaultCurrency: user.defaultCurrency || "INR",
+      defaultCurrency: user.defaultCurrency || DEFAULT_CURRENCY,
       upiId: user.upiId || "",
       phoneNumber: user.phoneNumber || "",
       countryCode: user.countryCode || "",
@@ -227,9 +229,8 @@ export class FirebaseUserService implements UserService {
     );
 
     const memberDocs = membersSnapshot.docs;
-    const BATCH_SIZE = 200;
-    for (let i = 0; i < memberDocs.length; i += BATCH_SIZE) {
-      const chunk = memberDocs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < memberDocs.length; i += FIRESTORE_BATCH_LIMIT_MULTI_OP) {
+      const chunk = memberDocs.slice(i, i + FIRESTORE_BATCH_LIMIT_MULTI_OP);
       const batch = writeBatch(db);
       for (const memberDoc of chunk) {
         const pathSegments = memberDoc.ref.path.split("/");

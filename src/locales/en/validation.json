@@ -1,0 +1,42 @@
+{
+  "upi": {
+    "required": "UPI ID is required",
+    "mustContainAt": "UPI ID must contain @",
+    "invalidFormat": "Enter a valid UPI ID (e.g., name@okhdfcbank)"
+  },
+  "phone": {
+    "required": "Mobile number is required",
+    "invalidLength": "Enter a valid {phoneLength}-digit mobile number",
+    "invalid": "Invalid phone number for selected country"
+  },
+  "group": {
+    "nameRequired": "Group name is required",
+    "notFound": "Group not found",
+    "notMember": "You are not a member of this group",
+    "inviteCodeRequired": "Invite code is required"
+  },
+  "expense": {
+    "missingFields": "Missing required fields",
+    "amountPositive": "Amount must be greater than 0",
+    "notFound": "Expense not found",
+    "onlyCreatorOrAdmin": "Only the expense creator or group admin can edit this expense"
+  },
+  "settlement": {
+    "missingFields": "Missing required fields",
+    "amountPositive": "Settlement amount must be greater than 0",
+    "cannotSettleSelf": "Cannot settle with yourself",
+    "onlyInvolved": "You can only record settlements involving yourself",
+    "bothMembers": "Both parties must be group members"
+  },
+  "user": {
+    "notFound": "User not found",
+    "notAuthenticated": "User not authenticated",
+    "cannotUpdateOther": "Cannot update another user's profile",
+    "usernameTooShort": "Username must be at least 3 characters",
+    "usernameTaken": "Username is already taken",
+    "userDocNotFound": "User document not found"
+  },
+  "exchange": {
+    "fetchFailed": "Failed to fetch exchange rates"
+  }
+}

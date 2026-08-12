@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import { Loader2, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface LoadMoreButtonProps {
   onClick: () => void;
@@ -10,6 +11,7 @@ interface LoadMoreButtonProps {
 }
 
 export function LoadMoreButton({ onClick, loading, hasMore }: LoadMoreButtonProps) {
+  const t = useTranslations("common");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function LoadMoreButton({ onClick, loading, hasMore }: LoadMoreButtonProp
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading...
+          {t("actions.loading")}
         </div>
       ) : (
         <button
@@ -48,7 +50,7 @@ export function LoadMoreButton({ onClick, loading, hasMore }: LoadMoreButtonProp
           className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50"
         >
           <ChevronDown className="h-4 w-4" />
-          Load More
+          {t("actions.loadMore")}
         </button>
       )}
     </div>

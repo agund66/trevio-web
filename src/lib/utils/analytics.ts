@@ -108,13 +108,17 @@ export function computeGroupAnalytics(
   members: Member[],
   currentUserId: string
 ): GroupAnalytics {
-  const totalExpenses = round2(expenses.reduce((s, e) => s + e.amount, 0));
-  const expenseCount = expenses.length;
+  // Filter to only "expense" type for spending analytics.
+  // Income entries should not be counted in spending totals.
+  const spendingExpenses = expenses.filter((e) => (e.transactionType ?? "expense") === "expense");
+
+  const totalExpenses = round2(spendingExpenses.reduce((s, e) => s + e.amount, 0));
+  const expenseCount = spendingExpenses.length;
   const avgExpenseAmount = expenseCount > 0 ? round2(totalExpenses / expenseCount) : 0;
 
   let highestExpense: GroupAnalytics["highestExpense"] = null;
-  if (expenses.length > 0) {
-    const highest = expenses.reduce((max, e) => (e.amount > max.amount ? e : max), expenses[0]);
+  if (spendingExpenses.length > 0) {
+    const highest = spendingExpenses.reduce((max, e) => (e.amount > max.amount ? e : max), spendingExpenses[0]);
     highestExpense = {
       description: highest.description,
       amount: highest.amount,
@@ -124,7 +128,7 @@ export function computeGroupAnalytics(
 
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-  const recentExpenses = expenses.filter((e) => (e.date || 0) >= thirtyDaysAgo);
+  const recentExpenses = spendingExpenses.filter((e) => (e.date || 0) >= thirtyDaysAgo);
   const recentActivityRate = expenseCount > 0 ? round2((recentExpenses.length / expenseCount) * 100) : 0;
 
   return {
@@ -132,9 +136,9 @@ export function computeGroupAnalytics(
     groupName,
     totalExpenses,
     expenseCount,
-    categoryBreakdown: computeCategoryBreakdown(expenses),
-    monthlyTrends: computeMonthlyTrends(expenses),
-    memberSpending: computeMemberSpending(expenses, members, currentUserId),
+    categoryBreakdown: computeCategoryBreakdown(spendingExpenses),
+    monthlyTrends: computeMonthlyTrends(spendingExpenses),
+    memberSpending: computeMemberSpending(spendingExpenses, members, currentUserId),
     avgExpenseAmount,
     highestExpense,
     recentActivityRate,
@@ -155,7 +159,12 @@ export function computeUserAnalytics(
   for (const g of groups) {
     if (g.archived) continue;
     const expenses = allExpensesByGroup.get(g.groupId) || [];
-    for (const e of expenses) {
+    // Filter to only "expense" type for spending analytics.
+    // Income entries should not be counted in spending totals.
+    const spendingExpenses = expenses.filter(
+      (e) => (e.transactionType ?? "expense") === "expense"
+    );
+    for (const e of spendingExpenses) {
       allExpenses.push(e);
       totalSpent += e.amount;
       expenseCount += 1;
@@ -163,12 +172,12 @@ export function computeUserAnalytics(
         totalPaid += e.amount;
       }
     }
-    const groupTotal = expenses.reduce((s, e) => s + e.amount, 0);
+    const groupTotal = spendingExpenses.reduce((s, e) => s + e.amount, 0);
     groupSpendingMap.set(g.groupId, {
       groupId: g.groupId,
       groupName: g.groupName,
       totalSpent: round2(groupTotal),
-      expenseCount: expenses.length,
+      expenseCount: spendingExpenses.length,
     });
   }
 

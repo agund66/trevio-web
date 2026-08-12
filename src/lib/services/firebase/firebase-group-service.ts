@@ -21,6 +21,8 @@ import type { GroupService, GroupInfo } from "../interfaces/group-service";
 import type { Group, GroupTemplate, Activity, SplitEntry } from "../../types";
 import { generateInviteCode, calculateBalances } from "../../utils/calculations";
 import { toMillis } from "../../utils/date";
+import { FIRESTORE_BATCH_LIMIT } from "../../constants/firestore";
+import { DEFAULT_CURRENCY } from "../../constants/currency";
 
 export class FirebaseGroupService implements GroupService {
   async createGroup(name: string, description: string, template: GroupTemplate, memberUids: string[], monthlyBudget?: number): Promise<{ groupId: string; inviteCode: string }> {
@@ -29,7 +31,7 @@ export class FirebaseGroupService implements GroupService {
     if (!name || name.trim().length === 0) throw new Error("Group name is required");
 
     const userDoc = await getDoc(doc(db, "users", uid));
-    const userCurrency = userDoc.data()?.defaultCurrency || "INR";
+    const userCurrency = userDoc.data()?.defaultCurrency || DEFAULT_CURRENCY;
 
     const now = Date.now();
     const inviteCode = generateInviteCode();
@@ -284,6 +286,9 @@ export class FirebaseGroupService implements GroupService {
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
     const memberData = memberDoc.data()!;
+    const now = Date.now();
+    const batch = writeBatch(db);
+
     if (memberData.role === "admin") {
       const membersSnapshot = await getDocs(
         firestoreQuery(collection(groupDoc.ref, "members"), where("status", "==", "active"))
@@ -291,11 +296,17 @@ export class FirebaseGroupService implements GroupService {
       if (membersSnapshot.size <= 1) {
         throw new Error("Admin cannot leave. Transfer admin role or delete the group.");
       }
+      // Auto-transfer admin role to the longest-joined active member
+      const otherActiveMembers = membersSnapshot.docs
+        .filter((d) => d.id !== uid)
+        .sort((a, b) => (a.data().joinedAt as number) - (b.data().joinedAt as number));
+      if (otherActiveMembers.length > 0) {
+        const newAdmin = otherActiveMembers[0];
+        batch.update(newAdmin.ref, { role: "admin", updatedAt: now });
+      }
     }
 
-    const now = Date.now();
-    const batch = writeBatch(db);
-    batch.update(memberDoc.ref, { status: "left" });
+    batch.update(memberDoc.ref, { status: "left", role: "member" });
     batch.update(groupDoc.ref, {
       memberCount: increment(-1),
       updatedAt: now,
@@ -507,9 +518,8 @@ export class FirebaseGroupService implements GroupService {
       groupRef,
     ];
 
-    const BATCH_SIZE = 400;
-    for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
-      const chunk = allDocs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < allDocs.length; i += FIRESTORE_BATCH_LIMIT) {
+      const chunk = allDocs.slice(i, i + FIRESTORE_BATCH_LIMIT);
       const batch = writeBatch(db);
       for (const ref of chunk) {
         batch.delete(ref);
@@ -819,9 +829,8 @@ export class FirebaseGroupService implements GroupService {
       if (changed) ops.push({ ref: settlementDoc.ref, updates });
     }
 
-    const BATCH_SIZE = 400;
-    for (let i = 0; i < ops.length; i += BATCH_SIZE) {
-      const chunk = ops.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < ops.length; i += FIRESTORE_BATCH_LIMIT) {
+      const chunk = ops.slice(i, i + FIRESTORE_BATCH_LIMIT);
       const batch = writeBatch(db);
       for (const op of chunk) batch.update(op.ref, op.updates);
       await batch.commit();
@@ -861,9 +870,9 @@ export class FirebaseGroupService implements GroupService {
     const balances = calculateBalances(expenses, settlements, memberUids);
 
     const balanceEntries = Array.from(balances.entries());
-    const BATCH_SIZE = 400;
-    for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
-      const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
+
+    for (let i = 0; i < balanceEntries.length; i += FIRESTORE_BATCH_LIMIT) {
+      const chunk = balanceEntries.slice(i, i + FIRESTORE_BATCH_LIMIT);
       const batch = writeBatch(db);
       for (const [memberUid, balance] of chunk) {
         batch.update(doc(groupRef, "members", memberUid), {

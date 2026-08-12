@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
 import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check, LogOut, Wallet } from "lucide-react";
 
 export default function GroupSettingsPage() {
@@ -17,6 +19,8 @@ export default function GroupSettingsPage() {
   const { user: currentUser } = useAuth();
   const { userCurrency, rates, convertBase, formatBase } = useCurrencyDisplay();
   const queryClient = useQueryClient();
+  const t = useTranslations("groups");
+  const tcommon = useTranslations("common");
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -68,7 +72,7 @@ export default function GroupSettingsPage() {
     mutationFn: () => group.updateGroup(groupId, name, description),
     onSuccess: () => {
       setError(null);
-      setSuccess("Group settings updated");
+      setSuccess(t('settings.settingsUpdated'));
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       if (successTimerRef.current) clearTimeout(successTimerRef.current);
@@ -82,21 +86,21 @@ export default function GroupSettingsPage() {
       const budgetNum = budget.trim() ? parseFloat(budget) : null;
       // Only call updateGroupBudget if budget is empty (to clear it) or a positive value
       if (budgetNum !== null && (isNaN(budgetNum) || budgetNum <= 0)) {
-        throw new Error("Budget must be a positive number");
+        throw new Error(t('settings.budgetPositive'));
       }
       // Block saving if user has non-INR currency and rates haven't loaded yet
-      if (budgetNum !== null && userCurrency !== "INR" && !rates) {
-        throw new Error("Loading exchange rates... Please wait a moment and try again.");
+      if (budgetNum !== null && userCurrency !== BASE_CURRENCY && !rates) {
+        throw new Error(t('settings.loadingRates'));
       }
       // Convert from user's currency to INR (base) for storage
       const budgetInBase = budgetNum !== null && rates
-        ? convertCurrency(budgetNum, userCurrency, "INR", rates)
+        ? convertCurrency(budgetNum, userCurrency, BASE_CURRENCY, rates)
         : budgetNum;
       return group.updateGroupBudget(groupId, budgetInBase, null);
     },
     onSuccess: () => {
       setError(null);
-      setSuccess("Budget updated successfully");
+      setSuccess(t('settings.budgetUpdated'));
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       if (successTimerRef.current) clearTimeout(successTimerRef.current);
@@ -109,7 +113,7 @@ export default function GroupSettingsPage() {
     mutationFn: () => group.transferAdminRole(groupId, transferTarget),
     onSuccess: () => {
       setError(null);
-      setSuccess("Admin role transferred successfully");
+      setSuccess(t('settings.adminTransferredSuccess'));
       setTransferTarget("");
       queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
@@ -154,13 +158,13 @@ export default function GroupSettingsPage() {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
         <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-          <ArrowLeft className="h-4 w-4" /> Back
+          <ArrowLeft className="h-4 w-4" /> {tcommon('actions.back')}
         </button>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Group Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{t('settings.title')}</h1>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5 mb-6">
           <div className="flex items-center gap-3">
             <Settings className="h-5 w-5 text-slate-400" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">Only group admins can edit group settings. Contact an admin if you need changes.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('settings.adminOnlyDesc')}</p>
           </div>
         </div>
 
@@ -173,8 +177,8 @@ export default function GroupSettingsPage() {
 
         <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-300">Leave Group</h2>
-            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">You will no longer have access to this group&apos;s expenses and activity.</p>
+            <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-300">{t('settings.leaveGroup')}</h2>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">{t('settings.leaveDesc')}</p>
           </div>
           {!showLeaveConfirm ? (
             <button
@@ -182,11 +186,11 @@ export default function GroupSettingsPage() {
               className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 dark:border-amber-700 px-4 py-2.5 text-sm font-semibold text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
             >
               <LogOut className="h-4 w-4" />
-              Leave Group
+              {t('settings.leaveGroup')}
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Are you sure you want to leave this group?</p>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">{t('settings.leaveConfirm')}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => leaveMutation.mutate()}
@@ -194,13 +198,13 @@ export default function GroupSettingsPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
                 >
                   <LogOut className="h-4 w-4" />
-                  {leaveMutation.isPending ? "Leaving..." : "Yes, Leave Group"}
+                  {leaveMutation.isPending ? t('settings.leaving') : t('settings.yesLeaveGroup')}
                 </button>
                 <button
                   onClick={() => setShowLeaveConfirm(false)}
                   className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  Cancel
+                  {tcommon('actions.cancel')}
                 </button>
               </div>
             </div>
@@ -213,10 +217,10 @@ export default function GroupSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">
       <button onClick={() => router.back()} className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-        <ArrowLeft className="h-4 w-4" /> Back
+        <ArrowLeft className="h-4 w-4" /> {tcommon('actions.back')}
       </button>
 
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Group Settings</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{t('settings.title')}</h1>
 
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
@@ -233,10 +237,10 @@ export default function GroupSettingsPage() {
 
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Group Details</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.groupDetails')}</h2>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Group Name</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('settings.groupName')}</label>
             <input
               type="text"
               value={name}
@@ -246,12 +250,12 @@ export default function GroupSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('create.description')}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder="What is this group for?"
+              placeholder={t('details.descriptionPlaceholder')}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
             />
           </div>
@@ -261,7 +265,7 @@ export default function GroupSettingsPage() {
             disabled={!name.trim() || updateMutation.isPending}
             className="rounded-xl bg-trevio-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
           >
-            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            {updateMutation.isPending ? t('settings.saving') : t('settings.saveChanges')}
           </button>
         </div>
 
@@ -269,11 +273,11 @@ export default function GroupSettingsPage() {
           <div className="rounded-2xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10 p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Monthly Budget</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.monthlyBudget')}</h2>
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Set a monthly budget to track spending progress. Leave empty to remove the budget.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('settings.budgetDesc')}</p>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Monthly Budget Amount ({userCurrency})</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('settings.monthlyBudgetAmount', { currency: userCurrency })}</label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
                   {getCurrencySymbol(userCurrency)}
@@ -284,7 +288,7 @@ export default function GroupSettingsPage() {
                   step="1"
                   value={budget}
                   onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="e.g., 50000"
+                  placeholder={t('create.monthlyBudgetPlaceholder')}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 />
               </div>
@@ -299,7 +303,7 @@ export default function GroupSettingsPage() {
               disabled={updateBudgetMutation.isPending}
               className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
             >
-              {updateBudgetMutation.isPending ? "Saving..." : "Save Budget"}
+              {updateBudgetMutation.isPending ? t('settings.saving') : t('settings.saveBudget')}
             </button>
           </div>
         )}
@@ -308,8 +312,8 @@ export default function GroupSettingsPage() {
         <>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Transfer Admin Role</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Transfer admin rights to another member. You will become a regular member.</p>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.transferAdmin')}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('settings.transferDesc')}</p>
           </div>
 
           {activeMembers.length > 0 ? (
@@ -332,7 +336,7 @@ export default function GroupSettingsPage() {
               {transferTarget && (
                 <button
                   onClick={() => {
-                    if (confirm(`Transfer admin role to ${activeMembers.find((m) => m.uid === transferTarget)?.displayName}? You will become a regular member.`)) {
+                    if (confirm(t('settings.transferAdminConfirm', { name: activeMembers.find((m) => m.uid === transferTarget)?.displayName }))) {
                       transferMutation.mutate();
                     }
                   }}
@@ -340,20 +344,20 @@ export default function GroupSettingsPage() {
                   className="inline-flex items-center gap-2 rounded-xl border-2 border-trevio-600 px-4 py-2.5 text-sm font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50"
                 >
                   <Crown className="h-4 w-4" />
-                  {transferMutation.isPending ? "Transferring..." : "Transfer Admin Role"}
+                  {transferMutation.isPending ? t('settings.transferring') : t('settings.transferAdmin')}
                 </button>
               )}
             </>
           ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500">No other active members to transfer admin role to.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">{t('settings.noMembersToTransfer')}</p>
           )}
         </div>
 
         <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-5 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-red-900 dark:text-red-300">Danger Zone</h2>
-            <p className="text-sm text-red-600 dark:text-red-400 mt-1">Delete this group permanently. All expenses, settlements, and activity will be removed.</p>
-            <p className="text-xs text-red-500 dark:text-red-400 mt-1">Only works if you are the sole active member. Remove other members first.</p>
+            <h2 className="text-lg font-semibold text-red-900 dark:text-red-300">{t('settings.dangerZone')}</h2>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">{t('settings.deleteDesc')}</p>
+            <p className="text-xs text-red-500 dark:text-red-400 mt-1">{t('settings.deleteHint')}</p>
           </div>
 
           {!showDeleteConfirm ? (
@@ -362,11 +366,11 @@ export default function GroupSettingsPage() {
               className="inline-flex items-center gap-2 rounded-xl border-2 border-red-300 dark:border-red-700 px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30"
             >
               <Trash2 className="h-4 w-4" />
-              Delete Group
+              {t('settings.deleteGroup')}
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-red-700 dark:text-red-300">Are you absolutely sure? This cannot be undone.</p>
+              <p className="text-sm font-medium text-red-700 dark:text-red-300">{t('settings.deleteConfirm')}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => deleteMutation.mutate()}
@@ -374,13 +378,13 @@ export default function GroupSettingsPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
-                  {deleteMutation.isPending ? "Deleting..." : "Yes, Delete Group"}
+                  {deleteMutation.isPending ? tcommon('actions.deleting') : t('settings.yesDeleteGroup')}
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  Cancel
+                  {tcommon('actions.cancel')}
                 </button>
               </div>
             </div>
@@ -392,8 +396,8 @@ export default function GroupSettingsPage() {
         {!isAdmin && (
           <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5 space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-300">Leave Group</h2>
-              <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">You will no longer have access to this group&apos;s expenses and activity.</p>
+              <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-300">{t('settings.leaveGroup')}</h2>
+              <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">{t('settings.leaveDesc')}</p>
             </div>
             {!showLeaveConfirm ? (
               <button
@@ -401,11 +405,11 @@ export default function GroupSettingsPage() {
                 className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 dark:border-amber-700 px-4 py-2.5 text-sm font-semibold text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
               >
                 <LogOut className="h-4 w-4" />
-                Leave Group
+                {t('settings.leaveGroup')}
               </button>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Are you sure you want to leave this group?</p>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">{t('settings.leaveConfirm')}</p>
                 <div className="flex gap-3">
                   <button
                     onClick={() => leaveMutation.mutate()}
@@ -413,13 +417,13 @@ export default function GroupSettingsPage() {
                     className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
                   >
                     <LogOut className="h-4 w-4" />
-                    {leaveMutation.isPending ? "Leaving..." : "Yes, Leave Group"}
+                    {leaveMutation.isPending ? t('settings.leaving') : t('settings.yesLeaveGroup')}
                   </button>
                   <button
                     onClick={() => setShowLeaveConfirm(false)}
                     className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
-                    Cancel
+                    {tcommon('actions.cancel')}
                   </button>
                 </div>
               </div>

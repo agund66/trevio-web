@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { messaging } from "@/lib/firebase";
+import { useEffect, useRef, useState } from "react";
+import { messagingReady } from "@/lib/firebase";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { getToken, onMessage } from "firebase/messaging";
+import { getToken, onMessage, type Messaging } from "firebase/messaging";
 
 /**
  * Listens for foreground FCM messages and displays them as Notifications.
@@ -18,9 +18,19 @@ export function useFcmNotifications() {
   const { user } = useAuth();
   const { user: userService } = useServices();
   const tokenRegisteredRef = useRef(false);
+  const [messagingInstance, setMessagingInstance] = useState<Messaging | null>(null);
+
+  // Wait for messaging to be initialized asynchronously
+  useEffect(() => {
+    let cancelled = false;
+    messagingReady.then((m) => {
+      if (!cancelled) setMessagingInstance(m);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    if (!user || !messaging) return;
+    if (!user || !messagingInstance) return;
     // iOS Safari (non-PWA) and older browsers don't support the Notification API.
     if (typeof Notification === "undefined") return;
 
@@ -35,14 +45,14 @@ export function useFcmNotifications() {
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
       if (!vapidKey) return;
 
-      getToken(messaging, { vapidKey })
+      getToken(messagingInstance, { vapidKey })
         .then((token) => {
           if (token) userService.updateFcmToken(token).catch(() => {});
         })
         .catch(() => {});
     }
 
-    const unsubscribe = onMessage(messaging, (payload) => {
+    const unsubscribe = onMessage(messagingInstance, (payload) => {
       if (payload.notification && Notification.permission === "granted") {
         try {
           new Notification(payload.notification.title || "Trevio", {
@@ -59,7 +69,7 @@ export function useFcmNotifications() {
     return () => {
       unsubscribe();
     };
-  }, [user, userService]);
+  }, [user, userService, messagingInstance]);
 }
 
 /**
@@ -71,9 +81,19 @@ export function useFcmNotifications() {
 export function useNotificationPermission() {
   const { user } = useAuth();
   const { user: userService } = useServices();
+  const [messagingInstance, setMessagingInstance] = useState<Messaging | null>(null);
+
+  // Wait for messaging to be initialized asynchronously
+  useEffect(() => {
+    let cancelled = false;
+    messagingReady.then((m) => {
+      if (!cancelled) setMessagingInstance(m);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    if (!user || !messaging) return;
+    if (!user || !messagingInstance) return;
     if (typeof Notification === "undefined") return;
 
     // Only request if not already decided.
@@ -90,7 +110,7 @@ export function useNotificationPermission() {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
-        const token = await getToken(messaging!, { vapidKey });
+        const token = await getToken(messagingInstance, { vapidKey });
         if (token) {
           await userService.updateFcmToken(token);
         }
@@ -100,5 +120,5 @@ export function useNotificationPermission() {
     };
 
     requestPermissionAndToken();
-  }, [user, userService]);
+  }, [user, userService, messagingInstance]);
 }

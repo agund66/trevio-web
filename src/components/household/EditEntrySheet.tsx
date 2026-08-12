@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   X,
   Trash2,
@@ -32,6 +33,7 @@ import type { Expense, Member, TransactionType } from "@/lib/types";
 import { getCategories } from "@/lib/utils/household-categories";
 import { formatCurrencySymbol, getCurrencySymbol } from "@/lib/utils/currency";
 import { Avatar } from "@/components/avatar";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
 
 const ICON_MAP: Record<string, typeof ShoppingCart> = {
   ShoppingCart,
@@ -80,7 +82,7 @@ export function EditEntrySheet({
   entry,
   members,
   isSaving,
-  userCurrency = "INR",
+  userCurrency = BASE_CURRENCY,
   onUpdate,
   onDelete,
   onClose,
@@ -93,6 +95,7 @@ export function EditEntrySheet({
   const [transactionType, setTransactionType] = useState<TransactionType>("expense");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("household");
 
   useEffect(() => {
     if (!entry) return;
@@ -174,11 +177,11 @@ export function EditEntrySheet({
 
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-            Edit Entry
+            {t('editEntry.title')}
           </h3>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('editEntry.closeAria')}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200"
           >
             <X className="h-4 w-4" />
@@ -189,7 +192,7 @@ export function EditEntrySheet({
           {/* Amount */}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Amount
+              {t('editEntry.amount')}
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
@@ -209,7 +212,7 @@ export function EditEntrySheet({
           {/* Transaction type toggle */}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Type
+              {t('editEntry.type')}
             </label>
             <div className="flex rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden">
               <button
@@ -225,7 +228,7 @@ export function EditEntrySheet({
                     : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                 }`}
               >
-                Spent
+                {t('editEntry.spent')}
               </button>
               <button
                 type="button"
@@ -240,7 +243,7 @@ export function EditEntrySheet({
                     : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                 }`}
               >
-                Received
+                {t('editEntry.received')}
               </button>
             </div>
           </div>
@@ -248,7 +251,7 @@ export function EditEntrySheet({
           {/* Description */}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Description
+              {t('editEntry.description')}
             </label>
             <input
               type="text"
@@ -256,7 +259,7 @@ export function EditEntrySheet({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
               disabled={isSaving}
-              placeholder="What was this for?"
+              placeholder={t('editEntry.descriptionPlaceholder')}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 py-2.5 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500 disabled:opacity-50"
             />
           </div>
@@ -264,7 +267,7 @@ export function EditEntrySheet({
           {/* Category chips */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Category
+              {t('editEntry.category')}
             </label>
             <div className="flex flex-wrap gap-2">
               {categories.map((cat) => {
@@ -294,7 +297,7 @@ export function EditEntrySheet({
           {/* Paid by */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Paid by
+              {t('editEntry.paidBy')}
             </label>
             <div className="flex flex-wrap gap-2">
               {activeMembers.map((m) => {
@@ -322,7 +325,7 @@ export function EditEntrySheet({
           {/* Note */}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Note
+              {t('editEntry.note')}
             </label>
             <textarea
               value={note}
@@ -330,7 +333,7 @@ export function EditEntrySheet({
               maxLength={500}
               disabled={isSaving}
               rows={2}
-              placeholder="Add a note (optional)"
+              placeholder={t('editEntry.notePlaceholder')}
               className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 py-2.5 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500 disabled:opacity-50"
             />
           </div>
@@ -339,24 +342,24 @@ export function EditEntrySheet({
           {showDeleteConfirm ? (
             <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-3 space-y-2">
               <p className="text-sm font-semibold text-red-900 dark:text-red-300">
-                Delete this entry? This cannot be undone.
+                {t('editEntry.deleteConfirm')}
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  aria-label="Cancel"
+                  aria-label={t('editEntry.cancelAria')}
                   disabled={isSaving}
                   className="flex-1 rounded-xl border border-slate-200 dark:border-slate-600 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
                 >
-                  Cancel
+                  {t('editEntry.cancel')}
                 </button>
                 <button
                   onClick={() => onDelete(entry.expenseId)}
-                  aria-label="Delete entry"
+                  aria-label={t('editEntry.deleteEntryAria')}
                   disabled={isSaving}
                   className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
                 >
-                  {isSaving ? "Deleting..." : "Delete"}
+                  {isSaving ? t('editEntry.deleting') : t('editEntry.delete')}
                 </button>
               </div>
             </div>
@@ -364,16 +367,16 @@ export function EditEntrySheet({
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                aria-label="Delete entry"
+                aria-label={t('editEntry.deleteEntryAria')}
                 disabled={isSaving}
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete
+                {t('editEntry.delete')}
               </button>
               <button
                 onClick={handleSave}
-                aria-label="Save entry"
+                aria-label={t('editEntry.saveEntryAria')}
                 disabled={isSaving || !amount || !paidBy}
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -382,7 +385,7 @@ export function EditEntrySheet({
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Save
+              {t('editEntry.save')}
             </button>
           </div>
           )}

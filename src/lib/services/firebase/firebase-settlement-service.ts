@@ -16,6 +16,8 @@ import type { SettlementService } from "../interfaces/settlement-service";
 import type { Member, Settlement, SimplifiedDebt, SettlementMethod, SplitEntry } from "../../types";
 import { calculateBalances, simplifyDebts } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
+import { FIRESTORE_BATCH_LIMIT } from "../../constants/firestore";
+import { BASE_CURRENCY, DEFAULT_CURRENCY } from "../../constants/currency";
 
 type SplitMap = Record<string, SplitEntry>;
 
@@ -69,7 +71,7 @@ export class FirebaseSettlementService implements SettlementService {
       fromUid: params.fromUid,
       toUid: params.toUid,
       amount: amountInBase,
-      currency: "INR",
+      currency: BASE_CURRENCY,
       originalAmount: params.amount,
       originalCurrency: params.currency,
       method: params.method || "cash",
@@ -453,9 +455,9 @@ export class FirebaseSettlementService implements SettlementService {
     const balances = calculateBalances(expenses, settlements, memberUids);
 
     const balanceEntries = Array.from(balances.entries());
-    const BATCH_SIZE = 400;
-    for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
-      const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
+
+    for (let i = 0; i < balanceEntries.length; i += FIRESTORE_BATCH_LIMIT) {
+      const chunk = balanceEntries.slice(i, i + FIRESTORE_BATCH_LIMIT);
       const batch = writeBatch(db);
       for (const [memberUid, balance] of chunk) {
         batch.update(doc(groupRef, "members", memberUid), {

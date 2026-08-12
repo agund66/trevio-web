@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
@@ -27,46 +28,55 @@ import {
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 
-const priorityConfig: Record<
+type TranslateFn = (key: string) => string;
+
+function getPriorityConfig(t: TranslateFn): Record<
   BroadcastPriority,
   { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string; border: string; text: string }
-> = {
-  critical: {
-    label: "Critical",
-    icon: AlertTriangle,
-    color: "text-red-600 dark:text-red-400",
-    bg: "bg-red-50 dark:bg-red-900/20",
-    border: "border-red-200 dark:border-red-800",
-    text: "text-red-700 dark:text-red-400",
-  },
-  maintenance: {
-    label: "Maintenance",
-    icon: Wrench,
-    color: "text-amber-600 dark:text-amber-400",
-    bg: "bg-amber-50 dark:bg-amber-900/20",
-    border: "border-amber-200 dark:border-amber-800",
-    text: "text-amber-700 dark:text-amber-400",
-  },
-  info: {
-    label: "Info",
-    icon: Info,
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-50 dark:bg-blue-900/20",
-    border: "border-blue-200 dark:border-blue-800",
-    text: "text-blue-700 dark:text-blue-400",
-  },
-};
+> {
+  return {
+    critical: {
+      label: t('broadcasts.critical'),
+      icon: AlertTriangle,
+      color: "text-red-600 dark:text-red-400",
+      bg: "bg-red-50 dark:bg-red-900/20",
+      border: "border-red-200 dark:border-red-800",
+      text: "text-red-700 dark:text-red-400",
+    },
+    maintenance: {
+      label: t('broadcasts.maintenance'),
+      icon: Wrench,
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-900/20",
+      border: "border-amber-200 dark:border-amber-800",
+      text: "text-amber-700 dark:text-amber-400",
+    },
+    info: {
+      label: t('broadcasts.info'),
+      icon: Info,
+      color: "text-blue-600 dark:text-blue-400",
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      border: "border-blue-200 dark:border-blue-800",
+      text: "text-blue-700 dark:text-blue-400",
+    },
+  };
+}
 
-const targetTypeConfig: Record<BroadcastTargetType, string> = {
-  all: "All Users",
-  all_except_blocked: "All Users (except blocked)",
-  specific: "Specific Users",
-};
+function getTargetTypeConfig(t: TranslateFn): Record<BroadcastTargetType, string> {
+  return {
+    all: t('broadcasts.allUsers'),
+    all_except_blocked: t('broadcasts.allExceptBlocked'),
+    specific: t('broadcasts.specificUsers'),
+  };
+}
 
 export function BroadcastsTab() {
   const { broadcast, admin } = useServices();
   const { user: currentUser } = useAuth();
   const { formatDate: formatDateFn } = useCurrencyDisplay();
+  const t = useTranslations("admin");
+  const priorityConfig = getPriorityConfig(t);
+  const targetTypeConfig = getTargetTypeConfig(t);
   const [showForm, setShowForm] = useState(false);
   const [selectedBroadcastId, setSelectedBroadcastId] = useState<string | null>(null);
   const [broadcasts, setBroadcasts] = useState<BroadcastMessage[]>([]);
@@ -87,11 +97,11 @@ export function BroadcastsTab() {
       }
       setReadCounts(counts);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load broadcasts");
+      setError(e instanceof Error ? e.message : t('broadcasts.failedToLoad'));
     } finally {
       setLoading(false);
     }
-  }, [broadcast]);
+  }, [broadcast, t]);
 
   useEffect(() => {
     loadBroadcasts();
@@ -103,7 +113,7 @@ export function BroadcastsTab() {
       await broadcast.stopBroadcast(id);
       await loadBroadcasts();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to stop broadcast");
+      setError(e instanceof Error ? e.message : t('broadcasts.failedToStop'));
     } finally {
       setActionLoading(null);
     }
@@ -142,30 +152,30 @@ export function BroadcastsTab() {
       {/* Header with create button */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Broadcast Messages</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Send HTML-formatted messages to users</p>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('broadcasts.messagesTitle')}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.messagesSubtitle')}</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-trevio-700"
         >
           <Plus className="h-4 w-4" />
-          New Broadcast
+          {t('broadcasts.newBroadcast')}
         </button>
       </div>
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-3 gap-3 md:gap-4">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Total</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.total')}</p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{broadcasts.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Active</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.active')}</p>
           <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{activeBroadcasts.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Stopped</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.stopped')}</p>
           <p className="mt-1 text-2xl font-bold text-slate-400 dark:text-slate-500">{inactiveBroadcasts.length}</p>
         </div>
       </div>
@@ -206,11 +216,11 @@ export function BroadcastsTab() {
                     </span>
                     {isActive ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
-                        Active
+                        {t('broadcasts.active')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Stopped
+                        {t('broadcasts.stopped')}
                       </span>
                     )}
                   </div>
@@ -218,7 +228,7 @@ export function BroadcastsTab() {
                   <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Eye className="h-3 w-3" />
-                      {readCounts[b.id] ?? 0} reads
+                      {readCounts[b.id] ?? 0} {t('broadcasts.reads')}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
@@ -229,7 +239,7 @@ export function BroadcastsTab() {
                         → {formatDateFn(b.endAt)}
                       </span>
                     )}
-                    <span>by {b.createdByName || "Unknown"}</span>
+                    <span>{t('broadcasts.by')} {b.createdByName || t('broadcasts.unknown')}</span>
                   </div>
                 </div>
                 {isActive && (
@@ -239,7 +249,7 @@ export function BroadcastsTab() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
                   >
                     <Square className="h-4 w-4" />
-                    Stop
+                    {t('broadcasts.stop')}
                   </button>
                 )}
               </div>
@@ -248,7 +258,7 @@ export function BroadcastsTab() {
           {broadcasts.length === 0 && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
               <Megaphone className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No broadcasts yet. Create one to get started.</p>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.noBroadcastsYet')}</p>
             </div>
           )}
         </div>
@@ -267,6 +277,10 @@ function BroadcastForm({
 }) {
   const { broadcast, admin } = useServices();
   const { user: currentUser } = useAuth();
+  const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
+  const priorityConfig = getPriorityConfig(t);
+  const targetTypeConfig = getTargetTypeConfig(t);
   const [title, setTitle] = useState("");
   const [htmlContent, setHtmlContent] = useState("");
   const [priority, setPriority] = useState<BroadcastPriority>("info");
@@ -289,7 +303,7 @@ function BroadcastForm({
     if (editorRef.current && htmlContent !== editorRef.current.innerHTML) {
       editorRef.current.innerHTML = htmlContent;
     }
-  }, []);
+  }, [htmlContent]);
 
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -305,7 +319,7 @@ function BroadcastForm({
   };
 
   const handleAddLink = () => {
-    const url = prompt("Enter URL:");
+    const url = prompt(t('broadcasts.enterUrl'));
     if (url) {
       execCommand("createLink", url);
     }
@@ -330,19 +344,19 @@ function BroadcastForm({
   const handleSubmit = async () => {
     setError(null);
     if (!title.trim()) {
-      setError("Title is required");
+      setError(t('broadcasts.titleRequired'));
       return;
     }
     if (!htmlContent.trim()) {
-      setError("Message content is required");
+      setError(t('broadcasts.contentRequired'));
       return;
     }
     if (!startAt) {
-      setError("Start date and time is required");
+      setError(t('broadcasts.startDateRequired'));
       return;
     }
     if (targetType === "specific" && targetUids.length === 0) {
-      setError("Select at least one user for specific targeting");
+      setError(t('broadcasts.selectUserRequired'));
       return;
     }
 
@@ -352,7 +366,7 @@ function BroadcastForm({
       const endMs = endAt ? new Date(endAt).getTime() : null;
 
       if (endMs && endMs < startMs) {
-        setError("End time must be after start time");
+        setError(t('broadcasts.endAfterStart'));
         setSubmitting(false);
         return;
       }
@@ -368,7 +382,7 @@ function BroadcastForm({
       });
       onCreated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create broadcast");
+      setError(e instanceof Error ? e.message : t('broadcasts.failedToCreate'));
     } finally {
       setSubmitting(false);
     }
@@ -396,10 +410,10 @@ function BroadcastForm({
             className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Broadcasts
+            {t('broadcasts.backToBroadcasts')}
           </button>
         </div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Broadcast</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('broadcasts.createTitle')}</h2>
       </div>
 
       {/* Body */}
@@ -413,19 +427,19 @@ function BroadcastForm({
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('broadcasts.titleField')}</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Broadcast title..."
+              placeholder={t('broadcasts.titlePlaceholder')}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
 
           {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Priority</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('broadcasts.priority')}</label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(priorityConfig) as BroadcastPriority[]).map((p) => {
                 const config = priorityConfig[p];
@@ -450,7 +464,7 @@ function BroadcastForm({
 
           {/* Target audience */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Target Audience</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t('broadcasts.targetAudience')}</label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(targetTypeConfig) as BroadcastTargetType[]).map((t) => (
                 <button
@@ -481,7 +495,7 @@ function BroadcastForm({
                   type="text"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Search users..."
+                  placeholder={t('broadcasts.searchUsersPlaceholder')}
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 />
               </div>
@@ -502,11 +516,11 @@ function BroadcastForm({
                   </label>
                 ))}
                 {filteredUsers.length === 0 && (
-                  <p className="py-2 text-center text-xs text-slate-400 dark:text-slate-500">No users found</p>
+                  <p className="py-2 text-center text-xs text-slate-400 dark:text-slate-500">{t('broadcasts.noUsersFound')}</p>
                 )}
               </div>
               {targetUids.length > 0 && (
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{targetUids.length} user(s) selected</p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{t('broadcasts.usersSelected', { count: targetUids.length })}</p>
               )}
             </div>
           )}
@@ -514,7 +528,7 @@ function BroadcastForm({
           {/* Schedule */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Start Date & Time</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('broadcasts.startDateTime')}</label>
               <input
                 type="datetime-local"
                 value={startAt}
@@ -523,26 +537,26 @@ function BroadcastForm({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">End Date & Time (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('broadcasts.endDateTimeOptional')}</label>
               <input
                 type="datetime-local"
                 value={endAt}
                 onChange={(e) => setEndAt(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
               />
-              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Leave empty to run until manually stopped</p>
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t('broadcasts.leaveEmptyHint')}</p>
             </div>
           </div>
 
           {/* Rich text editor + preview */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Message Content</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('broadcasts.messageContent')}</label>
               <button
                 onClick={() => setShowPreview(!showPreview)}
                 className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
-                {showPreview ? <><EyeOff className="h-3.5 w-3.5" /> Hide Preview</> : <><Eye className="h-3.5 w-3.5" /> Show Preview</>}
+                {showPreview ? <><EyeOff className="h-3.5 w-3.5" /> {t('broadcasts.hidePreview')}</> : <><Eye className="h-3.5 w-3.5" /> {t('broadcasts.showPreview')}</>}
               </button>
             </div>
 
@@ -568,21 +582,21 @@ function BroadcastForm({
                   <button
                     onClick={() => execCommand("formatBlock", "<h2>")}
                     className="h-8 rounded px-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Heading 2"
+                    title={t('broadcasts.heading2')}
                   >
                     H2
                   </button>
                   <button
                     onClick={() => execCommand("formatBlock", "<h3>")}
                     className="h-8 rounded px-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Heading 3"
+                    title={t('broadcasts.heading3')}
                   >
                     H3
                   </button>
                   <button
                     onClick={() => execCommand("formatBlock", "<p>")}
                     className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Paragraph"
+                    title={t('broadcasts.paragraph')}
                   >
                     P
                   </button>
@@ -590,14 +604,14 @@ function BroadcastForm({
                   <button
                     onClick={() => execCommand("insertUnorderedList")}
                     className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Bullet List"
+                    title={t('broadcasts.bulletList')}
                   >
                     • List
                   </button>
                   <button
                     onClick={() => execCommand("insertOrderedList")}
                     className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Numbered List"
+                    title={t('broadcasts.numberedList')}
                   >
                     1. List
                   </button>
@@ -605,14 +619,14 @@ function BroadcastForm({
                   <button
                     onClick={handleAddLink}
                     className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Add Link"
+                    title={t('broadcasts.addLink')}
                   >
                     🔗
                   </button>
                   <button
                     onClick={() => execCommand("removeFormat")}
                     className="h-8 rounded px-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
-                    title="Clear Formatting"
+                    title={t('broadcasts.clearFormatting')}
                   >
                     Clear
                   </button>
@@ -631,7 +645,7 @@ function BroadcastForm({
               {showPreview && (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="border-b border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Live Preview
+                    {t('broadcasts.livePreview')}
                   </div>
                   <div
                     className="min-h-[200px] max-h-[300px] overflow-y-auto px-4 py-3 prose prose-sm dark:prose-invert max-w-none"
@@ -648,7 +662,7 @@ function BroadcastForm({
             onClick={onClose}
             className="rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
-            Cancel
+            {tCommon('actions.cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -660,7 +674,7 @@ function BroadcastForm({
             ) : (
               <Megaphone className="h-4 w-4" />
             )}
-            Send Broadcast
+            {t('broadcasts.sendBroadcast')}
           </button>
         </div>
       </div>
@@ -679,6 +693,9 @@ function BroadcastDetail({
 }) {
   const { broadcast: broadcastService, admin } = useServices();
   const { formatDate: formatDateFn } = useCurrencyDisplay();
+  const t = useTranslations("admin");
+  const priorityConfig = getPriorityConfig(t);
+  const targetTypeConfig = getTargetTypeConfig(t);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [reads, setReads] = useState<{ uid: string; readAt: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -728,7 +745,7 @@ function BroadcastDetail({
         className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:text-slate-900 dark:hover:text-slate-100"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Broadcasts
+        {t('broadcasts.backToBroadcasts')}
       </button>
 
       {/* Broadcast info card */}
@@ -743,11 +760,11 @@ function BroadcastDetail({
           </span>
           {broadcast.active ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
-              Active
+              {t('broadcasts.active')}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-              Stopped
+              {t('broadcasts.stopped')}
             </span>
           )}
         </div>
@@ -766,22 +783,22 @@ function BroadcastDetail({
               → {formatDateFn(broadcast.endAt, true)}
             </span>
           )}
-          <span>by {broadcast.createdByName || "Unknown"}</span>
+          <span>{t('broadcasts.by')} {broadcast.createdByName || t('broadcasts.unknown')}</span>
         </div>
       </div>
 
       {/* Read stats */}
       <div className="mt-4 grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Target Users</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.targetUsers')}</p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{targetUsers.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Read</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.read')}</p>
           <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{readUsers.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Unread</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.unread')}</p>
           <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">{unreadUsers.length}</p>
         </div>
       </div>
@@ -793,7 +810,7 @@ function BroadcastDetail({
         </div>
       ) : (
         <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">User Read Status</h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">{t('broadcasts.userReadStatus')}</h3>
           <div className="space-y-2">
             {targetUsers.map((u) => {
               const hasRead = readUids.has(u.uid);
@@ -813,12 +830,12 @@ function BroadcastDetail({
                   {hasRead ? (
                     <div className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400">
                       <CheckCircle2 className="h-4 w-4" />
-                      {readAt ? formatDateFn(readAt) : "Read"}
+                      {readAt ? formatDateFn(readAt) : t('broadcasts.read')}
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
                       <Clock className="h-4 w-4" />
-                      Pending
+                      {t('broadcasts.pending')}
                     </div>
                   )}
                 </div>
@@ -827,7 +844,7 @@ function BroadcastDetail({
             {targetUsers.length === 0 && (
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center">
                 <Users className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No target users found.</p>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t('broadcasts.noTargetUsers')}</p>
               </div>
             )}
           </div>

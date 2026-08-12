@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { TrevioIcon } from "@/components/trevio-logo";
 import { TermsDialog } from "@/components/terms-dialog";
@@ -10,10 +11,21 @@ import { PhoneSetupDialog } from "@/components/phone-setup-dialog";
 export default function LoginPage() {
   const { user, loading, signIn } = useAuth();
   const router = useRouter();
+  const t = useTranslations("auth");
   const [signingIn, setSigningIn] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPhoneSetup, setShowPhoneSetup] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+
+  const redirectToApp = useCallback(() => {
+    let pendingInvite: string | null = null;
+    try { pendingInvite = sessionStorage.getItem("pendingInviteCode"); } catch {}
+    if (pendingInvite) {
+      router.push(`/join/${pendingInvite}`);
+    } else {
+      router.push("/dashboard");
+    }
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;
@@ -26,17 +38,7 @@ export default function LoginPage() {
         redirectToApp();
       }
     }
-  }, [user, loading, router]);
-
-  const redirectToApp = () => {
-    let pendingInvite: string | null = null;
-    try { pendingInvite = sessionStorage.getItem("pendingInviteCode"); } catch {}
-    if (pendingInvite) {
-      router.push(`/join/${pendingInvite}`);
-    } else {
-      router.push("/dashboard");
-    }
-  };
+  }, [user, loading, redirectToApp]);
 
   const handleSignIn = async () => {
     setSignInError(null);
@@ -44,7 +46,7 @@ export default function LoginPage() {
     try {
       await signIn();
     } catch (e) {
-      setSignInError(e instanceof Error ? e.message : "Sign-in failed. Please try again.");
+      setSignInError(e instanceof Error ? e.message : t("signInFailed"));
     } finally {
       setSigningIn(false);
     }
@@ -67,8 +69,8 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-10">
           <div className="flex flex-col items-center">
             <TrevioIcon size={80} />
-            <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">Trevio</h1>
-            <p className="mt-2 text-base text-white/85">Split bills. Simplify life.</p>
+            <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">{t("appName")}</h1>
+            <p className="mt-2 text-base text-white/85">{t("tagline")}</p>
           </div>
 
           <div className="flex w-full max-w-sm flex-col items-center">
@@ -79,7 +81,7 @@ export default function LoginPage() {
                 onClick={handleSignIn}
                 className="w-full rounded-2xl bg-white px-6 py-4 text-base font-semibold text-trevio-600 transition hover:bg-trevio-50 active:scale-[0.98]"
               >
-                Continue with Google
+                {t("continueWithGoogle")}
               </button>
             )}
             {signInError && (
@@ -88,7 +90,7 @@ export default function LoginPage() {
               </p>
             )}
             <p className="mt-4 text-center text-sm text-white/70">
-              By continuing, you agree to our Terms & Conditions
+              {t("agreeToTerms")}
             </p>
           </div>
         </div>

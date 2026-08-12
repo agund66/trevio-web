@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { getCurrencySymbol } from "@/lib/utils/currency";
 import { formatShortDate } from "@/lib/utils/date";
 import { Avatar } from "@/components/avatar";
 import type { TripItineraryItem, TripLocation, Member } from "@/lib/types";
@@ -50,8 +52,10 @@ interface TripViewProps {
 }
 
 export function TripView({ groupId, members }: TripViewProps) {
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
   const { trip } = useServices();
-  const { formatBase, formatDate: formatDateFn } = useCurrencyDisplay();
+  const { formatBase, formatOriginal, formatDate: formatDateFn, userCurrency } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const [showAddItem, setShowAddItem] = useState(false);
   const [showAddLocation, setShowAddLocation] = useState(false);
@@ -122,15 +126,15 @@ export function TripView({ groupId, members }: TripViewProps) {
   const locations = tripData?.locations || [];
 
   const groupedByDay = itinerary.reduce((acc, item) => {
-    const dayKey = item.date ? new Date(item.date).toDateString() : "No date";
+    const dayKey = item.date ? new Date(item.date).toDateString() : "__no_date__";
     if (!acc[dayKey]) acc[dayKey] = [];
     acc[dayKey].push(item);
     return acc;
   }, {} as Record<string, TripItineraryItem[]>);
 
   const sortedDays = Object.entries(groupedByDay).sort(([a], [b]) => {
-    if (a === "No date") return 1;
-    if (b === "No date") return -1;
+    if (a === "__no_date__") return 1;
+    if (b === "__no_date__") return -1;
     return new Date(a).getTime() - new Date(b).getTime();
   });
 
@@ -152,7 +156,7 @@ export function TripView({ groupId, members }: TripViewProps) {
         <div className="flex items-center gap-2 mb-2">
           <Plane className="h-5 w-5" />
           <h3 className="text-lg font-bold">
-            {tripData?.destination || "Set your destination"}
+            {tripData?.destination || t("trip.setDestination")}
           </h3>
         </div>
         {tripData?.startDate && tripData?.endDate ? (
@@ -160,20 +164,20 @@ export function TripView({ groupId, members }: TripViewProps) {
             {formatDateFn(tripData.startDate)} - {formatDateFn(tripData.endDate)}
           </p>
         ) : (
-          <p className="text-sm text-white/70">Add dates to your trip</p>
+          <p className="text-sm text-white/70">{t("trip.addDates")}</p>
         )}
         <div className="mt-3 flex gap-4 text-sm">
           <div>
-            <p className="text-white/70 text-xs">Items</p>
+            <p className="text-white/70 text-xs">{t("trip.items")}</p>
             <p className="font-semibold">{itinerary.length}</p>
           </div>
           <div>
-            <p className="text-white/70 text-xs">Completed</p>
+            <p className="text-white/70 text-xs">{t("trip.completed")}</p>
             <p className="font-semibold">{completedCount}/{itinerary.length}</p>
           </div>
           <div>
-            <p className="text-white/70 text-xs">Est. Cost</p>
-            <p className="font-semibold">{formatBase(totalEstimatedCost)}</p>
+            <p className="text-white/70 text-xs">{t("trip.estimatedCost")}</p>
+            <p className="font-semibold">{formatOriginal(totalEstimatedCost, userCurrency)}</p>
           </div>
         </div>
       </div>
@@ -183,14 +187,14 @@ export function TripView({ groupId, members }: TripViewProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Itinerary</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{t("trip.itinerary")}</h3>
           </div>
           <button
             onClick={() => setShowAddItem(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add Item
+            {t("trip.addItineraryItem")}
           </button>
         </div>
 
@@ -201,7 +205,7 @@ export function TripView({ groupId, members }: TripViewProps) {
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-2 w-2 rounded-full bg-trevio-500" />
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {dayKey === "No date" ? "Unscheduled" : formatShortDate(new Date(dayKey).getTime())}
+                    {dayKey === "__no_date__" ? t("trip.unscheduled") : formatShortDate(new Date(dayKey).getTime())}
                   </span>
                   <span className="text-xs text-slate-400">
                     {formatBase(items.reduce((s, i) => s + i.estimatedCost, 0))}
@@ -261,14 +265,14 @@ export function TripView({ groupId, members }: TripViewProps) {
                             <button
                               onClick={() => toggleCompleteMutation.mutate({ itemId: item.itemId, completed: !item.completed })}
                               className={`rounded-lg p-1.5 transition ${item.completed ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" : "text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"}`}
-                              title={item.completed ? "Mark incomplete" : "Mark complete"}
+                              title={item.completed ? t("trip.markIncomplete") : t("trip.markComplete")}
                             >
                               <Check className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => removeItemMutation.mutate(item.itemId)}
                               className="rounded-lg p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-                              title="Remove"
+                              title={tCommon("actions.remove")}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -284,7 +288,7 @@ export function TripView({ groupId, members }: TripViewProps) {
         ) : (
           <div className="flex flex-col items-center py-12 text-center">
             <Calendar className="h-10 w-10 text-slate-300 dark:text-slate-600" />
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No itinerary items yet. Add your first activity!</p>
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t("trip.noItineraryItems")}</p>
           </div>
         )}
       </div>
@@ -294,14 +298,14 @@ export function TripView({ groupId, members }: TripViewProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Locations</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{t("trip.locations")}</h3>
           </div>
           <button
             onClick={() => setShowAddLocation(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add Location
+            {t("trip.addLocation")}
           </button>
         </div>
 
@@ -345,7 +349,7 @@ export function TripView({ groupId, members }: TripViewProps) {
         ) : (
           <div className="flex flex-col items-center py-12 text-center">
             <MapPin className="h-10 w-10 text-slate-300 dark:text-slate-600" />
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No locations added yet.</p>
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t("trip.noLocations")}</p>
           </div>
         )}
       </div>
@@ -357,6 +361,8 @@ export function TripView({ groupId, members }: TripViewProps) {
           onClose={() => setShowAddItem(false)}
           onAdd={(item) => addItineraryMutation.mutate(item)}
           isPending={addItineraryMutation.isPending}
+          currencySymbol={getCurrencySymbol(userCurrency)}
+          userCurrency={userCurrency}
         />
       )}
 
@@ -377,12 +383,18 @@ function AddItemDialog({
   onClose,
   onAdd,
   isPending,
+  currencySymbol,
+  userCurrency,
 }: {
   members: Member[];
   onClose: () => void;
   onAdd: (item: Omit<TripItineraryItem, "itemId">) => void;
   isPending: boolean;
+  currencySymbol: string;
+  userCurrency: string;
 }) {
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
@@ -400,6 +412,7 @@ function AddItemDialog({
       location: location.trim(),
       category,
       estimatedCost: parseFloat(estimatedCost) || 0,
+      estimatedCostCurrency: userCurrency,
       assignedTo,
       completed: false,
     });
@@ -409,7 +422,7 @@ function AddItemDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Itinerary Item</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("trip.addItemTitle")}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
             <X className="h-5 w-5" />
           </button>
@@ -419,13 +432,13 @@ function AddItemDialog({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (e.g. Visit Eiffel Tower)"
+            placeholder={t("trip.titlePlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description (optional)"
+            placeholder={t("trip.descriptionPlaceholder")}
             rows={2}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
@@ -440,7 +453,7 @@ function AddItemDialog({
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Location"
+              placeholder={t("trip.locationPlaceholder")}
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
           </div>
@@ -450,24 +463,29 @@ function AddItemDialog({
               onChange={(e) => setCategory(e.target.value)}
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             >
-              <option value="food">Food</option>
-              <option value="transport">Transport</option>
-              <option value="accommodation">Accommodation</option>
-              <option value="activity">Activity</option>
-              <option value="shopping">Shopping</option>
-              <option value="other">Other</option>
+              <option value="food">{t("trip.categories.food")}</option>
+              <option value="transport">{t("trip.categories.transport")}</option>
+              <option value="accommodation">{t("trip.categories.accommodation")}</option>
+              <option value="activity">{t("trip.categories.activity")}</option>
+              <option value="shopping">{t("trip.categories.shopping")}</option>
+              <option value="other">{t("trip.categories.other")}</option>
             </select>
-            <input
-              type="number"
-              value={estimatedCost}
-              onChange={(e) => setEstimatedCost(e.target.value)}
-              placeholder="Est. cost"
-              className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
-            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">
+                {currencySymbol}
+              </span>
+              <input
+                type="number"
+                value={estimatedCost}
+                onChange={(e) => setEstimatedCost(e.target.value)}
+                placeholder={t("trip.estCostPlaceholder")}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+              />
+            </div>
           </div>
           {members.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Assign to</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">{t("trip.assignTo")}</p>
               <div className="flex flex-wrap gap-2">
                 {members.map((m) => (
                   <button
@@ -491,7 +509,7 @@ function AddItemDialog({
             disabled={!title.trim() || isPending}
             className="w-full rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
           >
-            {isPending ? "Adding..." : "Add Item"}
+            {isPending ? tCommon("actions.adding") : t("trip.addItineraryItem")}
           </button>
         </div>
       </div>
@@ -508,6 +526,8 @@ function AddLocationDialog({
   onAdd: (loc: Omit<TripLocation, "locationId">) => void;
   isPending: boolean;
 }) {
+  const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [latitude, setLatitude] = useState("");
@@ -531,7 +551,7 @@ function AddLocationDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 max-w-md w-full">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Location</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("trip.addLocation")}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
             <X className="h-5 w-5" />
           </button>
@@ -541,14 +561,14 @@ function AddLocationDialog({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Location name (e.g. Hotel Taj)"
+            placeholder={t("trip.locationNamePlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Address"
+            placeholder={t("trip.addressPlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
           <div className="grid grid-cols-2 gap-3">
@@ -556,7 +576,7 @@ function AddLocationDialog({
               type="number"
               value={latitude}
               onChange={(e) => setLatitude(e.target.value)}
-              placeholder="Latitude"
+              placeholder={t("trip.latitudePlaceholder")}
               step="any"
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
@@ -564,7 +584,7 @@ function AddLocationDialog({
               type="number"
               value={longitude}
               onChange={(e) => setLongitude(e.target.value)}
-              placeholder="Longitude"
+              placeholder={t("trip.longitudePlaceholder")}
               step="any"
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             />
@@ -574,19 +594,19 @@ function AddLocationDialog({
             onChange={(e) => setCategory(e.target.value)}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           >
-            <option value="food">Food</option>
-            <option value="transport">Transport</option>
-            <option value="accommodation">Accommodation</option>
-            <option value="activity">Activity</option>
-            <option value="shopping">Shopping</option>
-            <option value="other">Other</option>
+            <option value="food">{t("trip.categories.food")}</option>
+            <option value="transport">{t("trip.categories.transport")}</option>
+            <option value="accommodation">{t("trip.categories.accommodation")}</option>
+            <option value="activity">{t("trip.categories.activity")}</option>
+            <option value="shopping">{t("trip.categories.shopping")}</option>
+            <option value="other">{t("trip.categories.other")}</option>
           </select>
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || isPending}
             className="w-full rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
           >
-            {isPending ? "Adding..." : "Add Location"}
+            {isPending ? tCommon("actions.adding") : t("trip.addLocation")}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { X, AlertCircle, Camera, Loader2 } from "lucide-react";
 
@@ -16,6 +17,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
   const onScanRef = useRef(onScan);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
+  const t = useTranslations("common");
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -79,7 +81,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
           ) {
             friendlyError = "Camera access requires HTTPS. Try entering the invite code manually instead.";
           } else {
-            friendlyError = "Failed to start camera. Try entering the invite code manually instead.";
+            friendlyError = t('cameraFailed');
           }
 
           setError(friendlyError);
@@ -95,7 +97,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
-  }, [open]);
+  }, [open, t]);
 
   if (!open) return null;
 
@@ -108,7 +110,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
               <Camera className="h-4.5 w-4.5 text-trevio-600 dark:text-trevio-400" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Scan QR Code</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('scanQrCode')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -129,7 +131,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
           {starting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
               <Loader2 className="h-8 w-8 animate-spin" />
-              <p className="mt-3 text-sm">Starting camera...</p>
+              <p className="mt-3 text-sm">{t('startingCamera')}</p>
             </div>
           )}
 
@@ -139,7 +141,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
                 <div className="h-48 w-48 rounded-2xl border-2 border-white/70 shadow-lg" />
               </div>
               <p className="absolute bottom-4 left-0 right-0 text-center text-sm text-white/80">
-                Point camera at a Trevio QR code
+                {t('pointAtQr')}
               </p>
             </>
           )}
@@ -152,7 +154,7 @@ export function QrScannerDialog({ open, onClose, onScan }: QrScannerDialogProps)
                 onClick={onClose}
                 className="mt-4 rounded-xl bg-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/30"
               >
-                Close
+                {t('actions.close')}
               </button>
             </div>
           )}

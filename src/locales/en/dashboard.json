@@ -1,0 +1,41 @@
+{
+  "title": "Dashboard",
+  "joinGroup": "Join Group",
+  "newGroup": "New Group",
+  "nav": {
+    "home": "Home",
+    "groups": "Groups",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "signOut": "Sign Out",
+    "admin": "Admin"
+  },
+  "stats": {
+    "netBalance": "Net Balance",
+    "youllGet": "You'll get",
+    "youllPay": "You'll pay",
+    "totalSpent": "Total Spent",
+    "acrossGroups": "Across {count} active {count, plural, =1 {group} other {groups}}",
+    "activeGroups": "Active Groups"
+  },
+  "groups": {
+    "yourGroups": "Your Groups",
+    "viewAll": "View All Groups",
+    "members": "{count} members",
+    "total": "total",
+    "spent": "spent",
+    "youllGet": "you'll get",
+    "youllPay": "you'll pay",
+    "settledUp": "settled up",
+    "budget": "Budget"
+  },
+  "empty": {
+    "noGroups": "No groups yet",
+    "createFirst": "Create your first group to start splitting bills with friends. Perfect for trips, turf sessions, or casual splits!",
+    "createGroup": "Create Group"
+  },
+  "error": {
+    "failedToLoad": "Failed to load groups",
+    "tryAgain": "Try Again"
+  }
+}

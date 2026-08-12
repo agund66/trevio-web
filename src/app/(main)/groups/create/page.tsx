@@ -9,9 +9,13 @@ import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
 import { Plane, Dumbbell, Coffee, Home, Search, UserPlus, X, User, Plus, Wallet } from "lucide-react";
 import { Avatar } from "@/components/avatar";
+import { useTranslations } from "next-intl";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
 
 export default function CreateGroupPage() {
+  const t = useTranslations("groups");
+  const tc = useTranslations("common");
   const { group, user } = useServices();
   const { user: currentUser } = useAuth();
   const { userCurrency, rates } = useCurrencyDisplay();
@@ -86,8 +90,8 @@ export default function CreateGroupPage() {
   const handleCreate = async () => {
     if (!name.trim()) return;
     // If user has non-INR currency and rates haven't loaded, block to prevent wrong budget storage
-    if (monthlyBudget.trim() && userCurrency !== "INR" && !rates) {
-      setError("Loading exchange rates... Please wait a moment and try again.");
+    if (monthlyBudget.trim() && userCurrency !== BASE_CURRENCY && !rates) {
+      setError(t("create.loadingRates"));
       return;
     }
     setCreating(true);
@@ -96,7 +100,7 @@ export default function CreateGroupPage() {
       const budgetNum = monthlyBudget.trim() ? parseFloat(monthlyBudget) : undefined;
       // Convert budget from user's currency to INR (base) for storage
       const budgetInBase = budgetNum && budgetNum > 0 && rates
-        ? convertCurrency(budgetNum, userCurrency, "INR", rates)
+        ? convertCurrency(budgetNum, userCurrency, BASE_CURRENCY, rates)
         : budgetNum && budgetNum > 0 ? budgetNum : undefined;
       const result = await group.createGroup(name, description, template, selectedMembers.map((m) => m.uid), budgetInBase);
       for (const offlineName of offlineMembers) {
@@ -105,25 +109,25 @@ export default function CreateGroupPage() {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       router.push("/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create group");
+      setError(e instanceof Error ? e.message : t("create.failedToCreate"));
       setCreating(false);
     }
   };
 
   const templates = [
-    { id: "trip" as GroupTemplate, label: "Trip", icon: Plane, desc: "Travel & vacations" },
-    { id: "turf" as GroupTemplate, label: "Turf", icon: Dumbbell, desc: "Recurring sports" },
-    { id: "casual" as GroupTemplate, label: "Casual", icon: Coffee, desc: "Everyday splits" },
-    { id: "household" as GroupTemplate, label: "Household", icon: Home, desc: "Track daily family expenses & income" },
+    { id: "trip" as GroupTemplate, label: t("templates.trip"), icon: Plane, desc: t("templates.tripDesc") },
+    { id: "turf" as GroupTemplate, label: t("templates.turf"), icon: Dumbbell, desc: t("templates.turfDesc") },
+    { id: "casual" as GroupTemplate, label: t("templates.casual"), icon: Coffee, desc: t("templates.casualDesc") },
+    { id: "household" as GroupTemplate, label: t("templates.household"), icon: Home, desc: t("templates.householdDesc") },
   ];
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Create Group</h1>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{t("create.title")}</h1>
 
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Choose a template</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t("create.chooseTemplate")}</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {templates.map((t) => {
               const isHousehold = t.id === "household";
@@ -150,23 +154,23 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Group name</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("create.groupName")}</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Goa Trip 2025"
+            placeholder={t("create.groupNamePlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description (optional)</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("create.description")}</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Add a description..."
+            placeholder={t("create.descriptionPlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
           />
         </div>
@@ -175,7 +179,7 @@ export default function CreateGroupPage() {
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               <Wallet className="h-4 w-4 text-teal-500" />
-              Monthly Budget (optional)
+              {t("create.monthlyBudget")}
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
@@ -187,24 +191,24 @@ export default function CreateGroupPage() {
                 step="1"
                 value={monthlyBudget}
                 onChange={(e) => setMonthlyBudget(e.target.value.replace(/[^0-9.]/g, ""))}
-                placeholder="e.g., 50000"
+                placeholder={t("create.monthlyBudgetPlaceholder")}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </div>
-            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">Set a monthly spending limit to track your budget progress (in {userCurrency})</p>
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">{t("create.monthlyBudgetHint", { currency: userCurrency })}</p>
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Add members</label>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Search by username or add someone not on the app</p>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("create.addMembers")}</label>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">{t("create.addMembersHint")}</p>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search by username..."
+              placeholder={t("create.searchUsers")}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
             />
           </div>
@@ -219,7 +223,7 @@ export default function CreateGroupPage() {
                 >
                   <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-9 w-9" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">{t("create.youLabel")}</span>}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">@{u.username}</p>
                   </div>
                   <UserPlus className="h-5 w-5 text-trevio-500" />
@@ -237,7 +241,7 @@ export default function CreateGroupPage() {
                 <UserPlus className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               </div>
               <p className="text-sm font-medium text-trevio-600 dark:text-trevio-400">
-                Add &ldquo;{searchQuery}&rdquo; as offline member
+                {t("create.addAsOffline", { name: searchQuery })}
               </p>
             </button>
           )}
@@ -250,7 +254,7 @@ export default function CreateGroupPage() {
                 value={offlineName}
                 onChange={(e) => setOfflineName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && offlineName.trim() && addOfflineMember(offlineName)}
-                placeholder="Add by name (not on app)..."
+                placeholder={t("create.offlineMemberName")}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none focus:ring-1 focus:ring-trevio-500"
               />
             </div>
@@ -265,12 +269,12 @@ export default function CreateGroupPage() {
 
           {(selectedMembers.length > 0 || offlineMembers.length > 0) && (
             <div className="mt-3 space-y-2">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{selectedMembers.length + offlineMembers.length} added</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("create.membersAdded", { count: selectedMembers.length + offlineMembers.length })}</p>
               <div className="flex flex-wrap gap-2">
                 {selectedMembers.map((u) => (
                   <div key={u.uid} className="flex items-center gap-2 rounded-full bg-trevio-50 dark:bg-trevio-900/30 border border-trevio-200 dark:border-trevio-700 pl-1.5 pr-1 py-1">
                     <Avatar photoURL={u.photoURL} displayName={u.displayName} className="h-6 w-6" textClassName="text-xs" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">(You)</span>}</span>
+                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{u.displayName}{u.uid === currentUser?.uid && <span className="ml-1 text-xs text-trevio-600 dark:text-trevio-400">{t("create.youLabel")}</span>}</span>
                     <button onClick={() => removeMember(u)} className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400">
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -299,7 +303,7 @@ export default function CreateGroupPage() {
           disabled={!name.trim() || creating}
           className="w-full rounded-xl bg-trevio-600 py-4 text-base font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {creating ? "Creating..." : "Create Group"}
+          {creating ? t("create.creating") : t("create.createButton")}
         </button>
       </div>
     </div>

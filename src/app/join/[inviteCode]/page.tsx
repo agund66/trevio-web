@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Check, Loader2, AlertCircle, CloudOff } from "lucide-react";
@@ -10,6 +11,7 @@ import type { Member } from "@/lib/types";
 export default function JoinGroupPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useTranslations("common");
   const inviteCode = params.inviteCode as string;
   const { group, settlement } = useServices();
   const { user, loading } = useAuth();
@@ -61,12 +63,12 @@ export default function JoinGroupPage() {
           setTimeout(() => router.push("/dashboard"), 1500);
         }
       } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : "Failed to join group");
+        setErrorMsg(e instanceof Error ? e.message : t('failedToJoinGroup'));
         setStatus("error");
       }
     };
     join();
-  }, [user, loading, inviteCode, group, settlement, router]);
+  }, [user, loading, inviteCode, group, settlement, router, t]);
 
   const handleClaim = async (memberDocId: string) => {
     if (!groupId) return;
@@ -78,7 +80,7 @@ export default function JoinGroupPage() {
       setClaiming(false);
       setTimeout(() => router.push("/dashboard"), 1500);
     } catch (e) {
-      setClaimError(e instanceof Error ? e.message : "Failed to claim profile");
+      setClaimError(e instanceof Error ? e.message : t('failedToClaimProfile'));
       setClaiming(false);
     }
   };
@@ -96,7 +98,7 @@ export default function JoinGroupPage() {
           <>
             <Loader2 className="h-12 w-12 animate-spin text-trevio-600 dark:text-trevio-400 mx-auto" />
             <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">
-              {status === "checking" ? "Checking..." : "Joining group..."}
+              {status === "checking" ? t('checking') : t('joiningGroup')}
             </p>
           </>
         ) : status === "claim" ? (
@@ -105,18 +107,18 @@ export default function JoinGroupPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mx-auto">
                 <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
-              <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">Profile claimed!</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">All transactions have been linked to your account.</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Redirecting to dashboard...</p>
+              <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">{t('profileClaimed')}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t('transactionsLinked')}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{t('redirectingDashboard')}</p>
             </>
           ) : (
             <>
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mx-auto">
                 <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
-              <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">Joined successfully!</p>
+              <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">{t('joinedSuccessfully')}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                Are any of these offline profiles you? Claim one to link your account.
+                {t('claimPrompt')}
               </p>
               <div className="mt-6 space-y-2 text-left">
                 {claimableMembers.map((m) => (
@@ -130,14 +132,14 @@ export default function JoinGroupPage() {
                       disabled={claiming}
                       className="rounded-lg bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
                     >
-                      Claim
+                      {t('claim')}
                     </button>
                   </div>
                 ))}
               </div>
               {claimError && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{claimError}</p>}
               <button onClick={skipClaim} className="mt-6 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-                Skip for now
+                {t('skipForNow')}
               </button>
             </>
           )
@@ -146,21 +148,21 @@ export default function JoinGroupPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mx-auto">
               <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
-            <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">Joined successfully!</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Redirecting to dashboard...</p>
+            <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">{t('joinedSuccessfully')}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('redirectingDashboard')}</p>
           </>
         ) : (
           <>
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mx-auto">
               <AlertCircle className="h-8 w-8 text-red-500 dark:text-red-400" />
             </div>
-            <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">Failed to join</p>
+            <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-200">{t('failedToJoin')}</p>
             <p className="text-sm text-slate-500 dark:text-slate-400">{errorMsg}</p>
             <button
               onClick={() => router.push("/dashboard")}
               className="mt-6 rounded-xl bg-trevio-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-trevio-700"
             >
-              Go to Dashboard
+              {t('goToDashboard')}
             </button>
           </>
         )}

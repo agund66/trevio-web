@@ -1,0 +1,55 @@
+{
+  "title": "Profile",
+  "fields": {
+    "displayName": "Display Name",
+    "username": "Username",
+    "email": "Email",
+    "defaultCurrency": "Default Currency",
+    "currency": "Currency",
+    "mobileNumber": "Mobile Number",
+    "upiId": "UPI ID",
+    "upiIdOptional": "UPI ID (optional)",
+    "phonePlaceholder": "{phoneLength}-digit number"
+  },
+  "payment": {
+    "title": "Payment Info",
+    "payViaUpiId": "Friends can pay you via UPI ID",
+    "payViaMobile": "Friends can pay you via mobile number",
+    "payViaUpi": "Pay via UPI ID",
+    "payViaMobileNumber": "Pay via Mobile Number",
+    "noPaymentInfo": "No payment info set",
+    "setUpPaymentInfo": "Set up payment info",
+    "mobileUsedForUpi": "Used for UPI payments. Friends can pay you using this number.",
+    "upiPriority": "If set, payments will use UPI ID first. Otherwise, your mobile number is used."
+  },
+  "validation": {
+    "displayNameEmpty": "Display name cannot be empty",
+    "invalidPhone": "Invalid phone number",
+    "validPhone": "Valid {phoneLength}-digit number",
+    "invalidUpiId": "Invalid UPI ID",
+    "failedToUpdate": "Failed to update profile"
+  },
+  "upi": {
+    "validFormat": "Valid UPI ID format",
+    "placeholder": "yourname@okhdfcbank"
+  },
+  "searchCurrency": "Search currency...",
+  "deleteAccount": {
+    "title": "Delete Account?",
+    "confirm": "This will permanently delete your account, remove you from all groups, and erase your data. This action cannot be undone.",
+    "button": "Delete Account",
+    "deleting": "Deleting..."
+  },
+  "actions": {
+    "terms": "Terms",
+    "helpSupport": "Help & Support",
+    "signOut": "Sign Out"
+  },
+  "currencyChange": {
+    "title": "Change Default Currency?",
+    "confirm": "Past expenses will keep their original currency. New expenses and groups will use {currency}. Balances will be displayed in {currency}.",
+    "confirmButton": "Change Currency",
+    "keepCurrent": "Keep Current"
+  },
+  "userNotFound": "User not found."
+}

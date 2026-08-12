@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 
 /**
@@ -10,6 +11,7 @@ import { useOnlineStatus } from "@/lib/hooks/use-online-status";
  * explains why data may be stale.
  */
 export function OfflineBanner() {
+  const t = useTranslations("common");
   const isOnline = useOnlineStatus();
 
   if (isOnline) return null;
@@ -18,7 +20,7 @@ export function OfflineBanner() {
     <div className="flex items-center gap-2.5 bg-amber-500 px-4 py-2.5 text-white">
       <CloudOff className="h-4 w-4 shrink-0" />
       <p className="text-sm font-medium">
-        You&apos;re offline. Some data may be outdated.
+        {t("status.offline")}
       </p>
     </div>
   );

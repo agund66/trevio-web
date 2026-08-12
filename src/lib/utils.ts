@@ -1,5 +1,12 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { getCountryByCode } from "./constants/countries";
+
+// Re-export country constants and helpers for backward compatibility
+// — existing imports use `from "@/lib/utils"`
+export { COUNTRY_CODES, getCountryByCode } from "./constants/countries";
+export type { CountryInfo } from "./constants/countries";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -14,33 +21,28 @@ export function validateUpiId(upiId: string): { valid: boolean; error?: string }
   return { valid: true };
 }
 
-export interface CountryInfo {
-  code: string;
-  dialCode: string;
-  name: string;
-  flag: string;
-  phoneLength: number;
-}
-
-export const COUNTRY_CODES: CountryInfo[] = [
-  { code: "IN", dialCode: "+91", name: "India", flag: "🇮🇳", phoneLength: 10 },
-  { code: "US", dialCode: "+1", name: "United States", flag: "🇺🇸", phoneLength: 10 },
-  { code: "GB", dialCode: "+44", name: "United Kingdom", flag: "🇬🇧", phoneLength: 10 },
-  { code: "AE", dialCode: "+971", name: "UAE", flag: "🇦🇪", phoneLength: 9 },
-  { code: "SG", dialCode: "+65", name: "Singapore", flag: "🇸🇬", phoneLength: 8 },
-  { code: "AU", dialCode: "+61", name: "Australia", flag: "🇦🇺", phoneLength: 9 },
-  { code: "CA", dialCode: "+1", name: "Canada", flag: "🇨🇦", phoneLength: 10 },
-  { code: "JP", dialCode: "+81", name: "Japan", flag: "🇯🇵", phoneLength: 10 },
-];
-
-export function getCountryByCode(code: string): CountryInfo {
-  return COUNTRY_CODES.find((c) => c.code === code) || COUNTRY_CODES[0];
-}
-
+/**
+ * Validates a phone number against the selected country's format.
+ * Uses libphonenumber-js for robust international validation.
+ * Falls back to digit-length check if parsing fails.
+ */
 export function validatePhoneNumber(phone: string, countryCode: string): { valid: boolean; error?: string } {
   if (!phone) return { valid: false, error: "Mobile number is required" };
   const country = getCountryByCode(countryCode);
   const digits = phone.replace(/\D/g, "");
+
+  // Try libphonenumber-js for proper validation
+  try {
+    const parsed = parsePhoneNumberFromString(digits, country.code as any);
+    if (parsed) {
+      if (parsed.isValid()) return { valid: true };
+      // If not valid per libphonenumber, fall through to length check
+    }
+  } catch {
+    // Fall through to length check
+  }
+
+  // Fallback: check digit length matches expected for country
   if (digits.length !== country.phoneLength) {
     return { valid: false, error: `Enter a valid ${country.phoneLength}-digit mobile number` };
   }

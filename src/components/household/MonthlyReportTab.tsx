@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   ChevronLeft,
   ChevronRight,
@@ -43,6 +44,7 @@ import {
 import { formatCurrencySymbol } from "@/lib/utils/currency";
 import { FULL_MONTH_LABELS } from "@/lib/utils/date";
 import { Avatar } from "@/components/avatar";
+import { BASE_CURRENCY } from "@/lib/constants/currency";
 
 const ICON_MAP: Record<string, typeof ShoppingCart> = {
   ShoppingCart,
@@ -89,8 +91,9 @@ export function MonthlyReportTab({
   gamificationInsight,
   onPreviousMonth,
   onNextMonth,
-  userCurrency = "INR",
+  userCurrency = BASE_CURRENCY,
 }: MonthlyReportTabProps) {
+  const t = useTranslations("household");
   const report = useMemo(
     () => computeMonthlyReport(expenses, members, selectedYear, selectedMonth, monthlyBudget),
     [expenses, members, selectedYear, selectedMonth, monthlyBudget]
@@ -121,7 +124,7 @@ export function MonthlyReportTab({
       <div className="flex items-center justify-between">
         <button
           onClick={onPreviousMonth}
-          aria-label="Previous month"
+          aria-label={t('monthly.previousMonthAria')}
           className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -131,7 +134,7 @@ export function MonthlyReportTab({
         </span>
         <button
           onClick={onNextMonth}
-          aria-label="Next month"
+          aria-label={t('monthly.nextMonthAria')}
           disabled={isCurrentMonth}
           className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -144,7 +147,7 @@ export function MonthlyReportTab({
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
           <div className="flex items-center gap-1.5 text-red-500">
             <TrendingDown className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-medium uppercase tracking-wide">Spent</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide">{t('daily.spent')}</span>
           </div>
           <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
             {formatCurrencySymbol(report.totalSpent, userCurrency)}
@@ -153,7 +156,7 @@ export function MonthlyReportTab({
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
           <div className="flex items-center gap-1.5 text-green-500">
             <TrendingUp className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-medium uppercase tracking-wide">Received</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide">{t('daily.received')}</span>
           </div>
           <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
             {formatCurrencySymbol(report.totalReceived, userCurrency)}
@@ -162,7 +165,7 @@ export function MonthlyReportTab({
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
           <div className="flex items-center gap-1.5 text-slate-400">
             <Wallet className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-medium uppercase tracking-wide">Net</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide">{t('daily.net')}</span>
           </div>
           <p
             className={`mt-1 text-sm font-bold ${
@@ -181,7 +184,7 @@ export function MonthlyReportTab({
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Budget
+                {t('monthly.budget')}
               </span>
             </div>
             <span className={`text-xs font-semibold ${budgetTextColor}`}>
@@ -195,11 +198,11 @@ export function MonthlyReportTab({
             />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>{formatCurrencySymbol(report.totalSpent, userCurrency)} spent</span>
+            <span>{formatCurrencySymbol(report.totalSpent, userCurrency)} {t('monthly.spent')}</span>
             <span>
               {report.budgetRemaining >= 0
-                ? `${formatCurrencySymbol(report.budgetRemaining, userCurrency)} left`
-                : `${formatCurrencySymbol(Math.abs(report.budgetRemaining), userCurrency)} over`}
+                ? `${formatCurrencySymbol(report.budgetRemaining, userCurrency)} ${t('monthly.left')}`
+                : `${formatCurrencySymbol(Math.abs(report.budgetRemaining), userCurrency)} ${t('monthly.over')}`}
             </span>
           </div>
         </div>
@@ -210,7 +213,7 @@ export function MonthlyReportTab({
         <div className="flex items-center gap-2 mb-3">
           <BarChart3 className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Daily Spending
+            {t('monthly.dailySpending')}
           </span>
         </div>
         <div className="flex items-end gap-[2px] h-24 sm:h-32">
@@ -220,7 +223,7 @@ export function MonthlyReportTab({
               <div
                 key={d.day}
                 className="flex flex-1 flex-col justify-end items-center group relative"
-                title={`Day ${d.day}: ${formatCurrencySymbol(d.totalSpent, userCurrency)}`}
+                title={t('monthly.dayTooltip', { day: d.day, amount: formatCurrencySymbol(d.totalSpent, userCurrency) })}
               >
                 <div
                   className="w-full rounded-t-sm bg-trevio-400 dark:bg-trevio-500 transition-all group-hover:bg-trevio-600"
@@ -246,7 +249,7 @@ export function MonthlyReportTab({
           <div className="flex items-center gap-2 mb-3">
             <PieChart className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
             <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Top Categories
+              {t('monthly.topCategories')}
             </span>
           </div>
           <div className="space-y-3">
@@ -284,7 +287,7 @@ export function MonthlyReportTab({
           <div className="flex items-center gap-2 mb-3">
             <Award className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
             <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Who Paid
+              {t('monthly.whoPaid')}
             </span>
           </div>
           <div className="space-y-3">
@@ -323,14 +326,14 @@ export function MonthlyReportTab({
           <div className="flex items-center gap-2 mb-2">
             <Lightbulb className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
             <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Insights
+              {t('monthly.insights')}
             </span>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300">
             {report.comparisonWithLastMonth.spentChange >= 0 ? (
-              <>Spending increased by {formatCurrencySymbol(Math.abs(report.comparisonWithLastMonth.spentChange), userCurrency)} ({report.comparisonWithLastMonth.spentChangePercent}%) vs last month.</>
+              <>{t('monthly.spendingIncreased', { amount: formatCurrencySymbol(Math.abs(report.comparisonWithLastMonth.spentChange), userCurrency), percent: report.comparisonWithLastMonth.spentChangePercent })}</>
             ) : (
-              <>Spending decreased by {formatCurrencySymbol(Math.abs(report.comparisonWithLastMonth.spentChange), userCurrency)} ({Math.abs(report.comparisonWithLastMonth.spentChangePercent)}%) vs last month.</>
+              <>{t('monthly.spendingDecreased', { amount: formatCurrencySymbol(Math.abs(report.comparisonWithLastMonth.spentChange), userCurrency), percent: Math.abs(report.comparisonWithLastMonth.spentChangePercent) })}</>
             )}
           </p>
         </div>
@@ -340,7 +343,7 @@ export function MonthlyReportTab({
         <div className="rounded-2xl border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-900/20 p-4">
           <div className="flex items-center gap-2 mb-1">
             <Lightbulb className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Insight</h3>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('monthly.insight')}</h3>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300">{gamificationInsight}</p>
         </div>

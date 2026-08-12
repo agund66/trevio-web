@@ -2,8 +2,10 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { LoadMoreButton } from "@/components/load-more-button";
 import {
   Inbox,
@@ -40,35 +42,43 @@ import type {
   HelpArticle,
 } from "@/lib/types";
 
-const STATUS_CONFIG: Record<
+function getStatusConfig(t: TranslateFn): Record<
   SupportStatus,
   { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
-> = {
-  open: { label: "Open", icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
-  in_progress: { label: "In Progress", icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
-  waiting_user: { label: "Waiting User", icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
-  resolved: { label: "Resolved", icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
-  closed: { label: "Closed", icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
-};
+> {
+  return {
+    open: { label: t('support.statusLabels.open'), icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+    in_progress: { label: t('support.statusLabels.in_progress'), icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
+    waiting_user: { label: t('support.statusLabels.waiting_user'), icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
+    resolved: { label: t('support.statusLabels.resolved'), icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
+    closed: { label: t('support.statusLabels.closed'), icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
+  };
+}
 
-const PRIORITY_CONFIG: Record<SupportPriority, { label: string; color: string; dot: string }> = {
-  urgent: { label: "Urgent", color: "text-red-600 dark:text-red-400", dot: "bg-red-500" },
-  high: { label: "High", color: "text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
-  medium: { label: "Medium", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
-  low: { label: "Low", color: "text-slate-500 dark:text-slate-400", dot: "bg-slate-400" },
-};
+function getPriorityConfig(t: TranslateFn): Record<SupportPriority, { label: string; color: string; dot: string }> {
+  return {
+    urgent: { label: t('support.priorityLabels.urgent'), color: "text-red-600 dark:text-red-400", dot: "bg-red-500" },
+    high: { label: t('support.priorityLabels.high'), color: "text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
+    medium: { label: t('support.priorityLabels.medium'), color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    low: { label: t('support.priorityLabels.low'), color: "text-slate-500 dark:text-slate-400", dot: "bg-slate-400" },
+  };
+}
 
-const CATEGORY_LABELS: Record<string, string> = {
-  calculation: "Calculation",
-  settlement: "Settlement",
-  expense: "Expense",
-  group_access: "Group Access",
-  payment_info: "Payment Info",
-  account: "Account",
-  bug: "Bug",
-  other: "Other",
-  general: "General",
-};
+type TranslateFn = (key: string) => string;
+
+function getCategoryLabels(t: TranslateFn): Record<string, string> {
+  return {
+    calculation: t('support.categoryLabels.calculation'),
+    settlement: t('support.categoryLabels.settlement'),
+    expense: t('support.categoryLabels.expense'),
+    group_access: t('support.categoryLabels.group_access'),
+    payment_info: t('support.categoryLabels.payment_info'),
+    account: t('support.categoryLabels.account'),
+    bug: t('support.categoryLabels.bug'),
+    other: t('support.categoryLabels.other'),
+    general: t('support.categoryLabels.general'),
+  };
+}
 
 function formatTime(ts: number): string {
   return formatRelativeTime(ts);
@@ -87,6 +97,7 @@ function formatDateTime(ts: number): string {
 type SubTab = "tickets" | "articles";
 
 export function SupportTab() {
+  const t = useTranslations("admin");
   const [subTab, setSubTab] = useState<SubTab>("tickets");
 
   return (
@@ -103,7 +114,7 @@ export function SupportTab() {
           )}
         >
           <Inbox className="h-4 w-4" />
-          Tickets
+          {t('support.ticketsTab')}
         </button>
         <button
           onClick={() => setSubTab("articles")}
@@ -115,7 +126,7 @@ export function SupportTab() {
           )}
         >
           <BookOpen className="h-4 w-4" />
-          Help Articles
+          {t('support.helpArticlesTab')}
         </button>
       </div>
 
@@ -132,6 +143,10 @@ export function SupportTab() {
 function TicketsPanel() {
   const { support } = useServices();
   const queryClient = useQueryClient();
+  const t = useTranslations("admin");
+  const categoryLabels = getCategoryLabels(t);
+  const statusConfig = getStatusConfig(t);
+  const priorityConfig = getPriorityConfig(t);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [statusFilter, setStatusFilter] = useState<SupportStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<SupportCategory | "all">("all");
@@ -145,7 +160,7 @@ function TicketsPanel() {
         pageSize,
         lastId,
       ),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     extractItems: (r) => r.tickets,
     extractHasMore: (r) => r.hasMore,
     extractLastId: (r) => r.lastTicketId,
@@ -188,15 +203,15 @@ function TicketsPanel() {
       {/* Stats */}
       <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('support.total')}</p>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{tickets?.length ?? 0}</p>
         </div>
         <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
-          <p className="text-xs text-amber-600 dark:text-amber-400">Open / In Progress</p>
+          <p className="text-xs text-amber-600 dark:text-amber-400">{t('support.openInProgress')}</p>
           <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{openCount}</p>
         </div>
         <div className="rounded-xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-3">
-          <p className="text-xs text-trevio-600 dark:text-trevio-400">Unread</p>
+          <p className="text-xs text-trevio-600 dark:text-trevio-400">{t('support.unread')}</p>
           <p className="text-xl font-bold text-trevio-700 dark:text-trevio-300">{unreadCount}</p>
         </div>
       </div>
@@ -209,7 +224,7 @@ function TicketsPanel() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by subject, user, email..."
+            placeholder={t('support.searchPlaceholder')}
             className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
         </div>
@@ -218,27 +233,27 @@ function TicketsPanel() {
           onChange={(e) => setStatusFilter(e.target.value as SupportStatus | "all")}
           className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
         >
-          <option value="all">All Status</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="waiting_user">Waiting User</option>
-          <option value="resolved">Resolved</option>
-          <option value="closed">Closed</option>
+          <option value="all">{t('support.allStatus')}</option>
+          <option value="open">{t('support.statusLabels.open')}</option>
+          <option value="in_progress">{t('support.statusLabels.in_progress')}</option>
+          <option value="waiting_user">{t('support.statusLabels.waiting_user')}</option>
+          <option value="resolved">{t('support.statusLabels.resolved')}</option>
+          <option value="closed">{t('support.statusLabels.closed')}</option>
         </select>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value as SupportCategory | "all")}
           className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
         >
-          <option value="all">All Categories</option>
-          <option value="calculation">Calculation</option>
-          <option value="settlement">Settlement</option>
-          <option value="expense">Expense</option>
-          <option value="group_access">Group Access</option>
-          <option value="payment_info">Payment Info</option>
-          <option value="account">Account</option>
-          <option value="bug">Bug</option>
-          <option value="other">Other</option>
+          <option value="all">{t('support.allCategories')}</option>
+          <option value="calculation">{t('support.categoryLabels.calculation')}</option>
+          <option value="settlement">{t('support.categoryLabels.settlement')}</option>
+          <option value="expense">{t('support.categoryLabels.expense')}</option>
+          <option value="group_access">{t('support.categoryLabels.group_access')}</option>
+          <option value="payment_info">{t('support.categoryLabels.payment_info')}</option>
+          <option value="account">{t('support.categoryLabels.account')}</option>
+          <option value="bug">{t('support.categoryLabels.bug')}</option>
+          <option value="other">{t('support.categoryLabels.other')}</option>
         </select>
       </div>
 
@@ -250,14 +265,14 @@ function TicketsPanel() {
       ) : filteredTickets.length === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center">
           <Inbox className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
-          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">No tickets found</p>
+          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">{t('support.noTicketsFound')}</p>
         </div>
       ) : (
         <div className="space-y-2">
           {filteredTickets.map((ticket) => {
-            const statusConfig = STATUS_CONFIG[ticket.status];
-            const StatusIcon = statusConfig.icon;
-            const priorityConfig = PRIORITY_CONFIG[ticket.priority];
+            const ticketStatusConfig = statusConfig[ticket.status];
+            const StatusIcon = ticketStatusConfig.icon;
+            const ticketPriorityConfig = priorityConfig[ticket.priority];
             return (
               <button
                 key={ticket.ticketId}
@@ -269,7 +284,7 @@ function TicketsPanel() {
                     : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                 )}
               >
-                <div className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", priorityConfig.dot)} />
+                <div className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", ticketPriorityConfig.dot)} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <p className={cn(
@@ -288,15 +303,15 @@ function TicketsPanel() {
                     {ticket.userDisplayName} @{ticket.userUsername}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium", statusConfig.bg, statusConfig.color)}>
+                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium", ticketStatusConfig.bg, ticketStatusConfig.color)}>
                       <StatusIcon className="h-3 w-3" />
-                      {statusConfig.label}
+                      {ticketStatusConfig.label}
                     </span>
-                    <span className={cn("text-[10px] font-medium", priorityConfig.color)}>
-                      {priorityConfig.label}
+                    <span className={cn("text-[10px] font-medium", ticketPriorityConfig.color)}>
+                      {ticketPriorityConfig.label}
                     </span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                      {CATEGORY_LABELS[ticket.category] || ticket.category}
+                      {categoryLabels[ticket.category] || ticket.category}
                     </span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">
                       • {formatTime(ticket.updatedAt)}
@@ -325,6 +340,10 @@ function TicketsPanel() {
 function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: () => void }) {
   const { support } = useServices();
   const queryClient = useQueryClient();
+  const t = useTranslations("admin");
+  const categoryLabels = getCategoryLabels(t);
+  const statusConfig = getStatusConfig(t);
+  const priorityConfig = getPriorityConfig(t);
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -356,7 +375,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
       queryClient.invalidateQueries({ queryKey: ["adminTickets"] });
     },
     onError: (e) => {
-      setError(e instanceof Error ? e.message : "Failed to send message");
+      setError(e instanceof Error ? e.message : t('support.failedToSendMessage'));
     },
   });
 
@@ -375,9 +394,9 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
     },
   });
 
-  const statusConfig = STATUS_CONFIG[ticket.status];
-  const StatusIcon = statusConfig.icon;
-  const priorityConfig = PRIORITY_CONFIG[ticket.priority];
+  const ticketStatusConfig = statusConfig[ticket.status];
+  const StatusIcon = ticketStatusConfig.icon;
+  const ticketPriorityConfig = priorityConfig[ticket.priority];
 
   const handleSendReply = () => {
     if (!reply.trim()) return;
@@ -391,7 +410,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
       >
         <ChevronLeft className="h-4 w-4" />
-        Back to Tickets
+        {t('support.backToTickets')}
       </button>
 
       {/* Ticket info */}
@@ -400,16 +419,16 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex-1">
             {ticket.subject}
           </h2>
-          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium shrink-0", statusConfig.bg, statusConfig.color)}>
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium shrink-0", ticketStatusConfig.bg, ticketStatusConfig.color)}>
             <StatusIcon className="h-3 w-3" />
-            {statusConfig.label}
+            {ticketStatusConfig.label}
           </span>
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{ticket.description}</p>
 
         {/* User info */}
         <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 mb-3">
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Reported by</p>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">{t('support.reportedBy')}</p>
           <div className="flex items-center gap-3">
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{ticket.userDisplayName}</p>
@@ -429,18 +448,18 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
 
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-          <span>Created: {formatDateTime(ticket.createdAt)}</span>
+          <span>{t('support.createdLabel')} {formatDateTime(ticket.createdAt)}</span>
           <span>•</span>
-          <span>Updated: {formatTime(ticket.updatedAt)}</span>
+          <span>{t('support.updatedLabel')} {formatTime(ticket.updatedAt)}</span>
           <span>•</span>
-          <span>Category: {CATEGORY_LABELS[ticket.category] || ticket.category}</span>
+          <span>Category: {categoryLabels[ticket.category] || ticket.category}</span>
         </div>
 
         {/* Admin controls */}
         <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 dark:border-slate-700 pt-3">
           {/* Status controls */}
           <div className="flex items-center gap-1">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">Status:</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">{t('support.statusLabel')}</span>
             {(["open", "in_progress", "waiting_user", "resolved", "closed"] as SupportStatus[]).map((s) => (
               <button
                 key={s}
@@ -449,17 +468,17 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
                 className={cn(
                   "rounded-lg px-2 py-1 text-[10px] font-medium transition disabled:opacity-50",
                   ticket.status === s
-                    ? STATUS_CONFIG[s].bg + " " + STATUS_CONFIG[s].color
+                    ? statusConfig[s].bg + " " + statusConfig[s].color
                     : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
                 )}
               >
-                {STATUS_CONFIG[s].label}
+                {statusConfig[s].label}
               </button>
             ))}
           </div>
         </div>
         <div className="mt-2 flex items-center gap-1">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">Priority:</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">{t('support.priorityLabel')}</span>
           {(["urgent", "high", "medium", "low"] as SupportPriority[]).map((p) => (
             <button
               key={p}
@@ -472,7 +491,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
                   : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
               )}
             >
-              {PRIORITY_CONFIG[p].label}
+              {priorityConfig[p].label}
             </button>
           ))}
         </div>
@@ -485,7 +504,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
             <div className="h-6 w-6 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
           </div>
         ) : !messages || messages.length === 0 ? (
-          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">No messages yet</p>
+          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">{t('support.noMessagesYet')}</p>
         ) : (
           <div className="space-y-4">
             {messages.map((msg) => {
@@ -499,7 +518,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
                       : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-sm"
                   )}>
                     {isAdmin ? (
-                      <p className="text-xs font-semibold text-trevio-200 mb-0.5">You (Admin)</p>
+                      <p className="text-xs font-semibold text-trevio-200 mb-0.5">{t('support.youAdmin')}</p>
                     ) : (
                       <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-0.5">{msg.fromName}</p>
                     )}
@@ -520,7 +539,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
       {ticket.status === "closed" && (
         <div className="mb-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            This ticket is closed. Change status above to reopen, or send a message below.
+            {t('support.closedTicketNotice')}
           </p>
         </div>
       )}
@@ -539,7 +558,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
-            placeholder="Type your response to the user..."
+            placeholder={t('support.typeResponsePlaceholder')}
             rows={3}
             maxLength={2000}
             className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
@@ -558,7 +577,7 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
           </button>
         </div>
         <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-          The user will receive a notification when you respond. Press Ctrl+Enter to send.
+          {t('support.replyHelpText')}
         </p>
       </div>
     </div>
@@ -572,6 +591,8 @@ function TicketDetailAdmin({ ticket, onBack }: { ticket: SupportTicket; onBack: 
 function ArticlesPanel() {
   const { support } = useServices();
   const queryClient = useQueryClient();
+  const t = useTranslations("admin");
+  const categoryLabels = getCategoryLabels(t);
   const [editing, setEditing] = useState<HelpArticle | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -619,14 +640,14 @@ function ArticlesPanel() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Manage help articles that users see in the Help Center
+          {t('support.manageArticlesDesc')}
         </p>
         <button
           onClick={() => setCreating(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
         >
           <Plus className="h-4 w-4" />
-          New Article
+          {t('support.newArticle')}
         </button>
       </div>
 
@@ -637,9 +658,9 @@ function ArticlesPanel() {
       ) : !articles || articles.length === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center">
           <BookOpen className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
-          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">No articles yet</p>
+          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">{t('support.noArticlesYet')}</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Create your first help article to get started
+            {t('support.createFirstArticle')}
           </p>
         </div>
       ) : (
@@ -661,31 +682,31 @@ function ArticlesPanel() {
                   )}
                 </div>
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {CATEGORY_LABELS[article.category] || article.category} • Order: {article.order}
+                  {categoryLabels[article.category] || article.category} • Order: {article.order}
                 </p>
               </div>
               <button
                 onClick={() => toggleActiveMutation.mutate({ id: article.articleId, active: !article.active })}
                 className="rounded-lg p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
-                title={article.active ? "Hide article" : "Show article"}
+                title={article.active ? t('support.hideArticle') : t('support.showArticle')}
               >
                 {article.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
               <button
                 onClick={() => setEditing(article)}
                 className="rounded-lg p-2 text-slate-400 hover:text-trevio-600 dark:hover:text-trevio-400 transition"
-                title="Edit article"
+                title={t('support.editArticle')}
               >
                 <Edit3 className="h-4 w-4" />
               </button>
               <button
                 onClick={() => {
-                  if (confirm(`Delete "${article.title}"? This cannot be undone.`)) {
+                  if (confirm(t('support.deleteArticleConfirm', { title: article.title }))) {
                     deleteMutation.mutate(article.articleId);
                   }
                 }}
                 className="rounded-lg p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition"
-                title="Delete article"
+                title={t('support.deleteArticle')}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -718,14 +739,15 @@ function ArticleEditor({
   const [order, setOrder] = useState(article?.order ?? 99);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("admin");
 
   const handleSave = async () => {
     if (!title.trim()) {
-      setError("Title is required");
+      setError(t('support.titleRequired'));
       return;
     }
     if (!content.trim()) {
-      setError("Content is required");
+      setError(t('support.contentRequired'));
       return;
     }
 
@@ -752,7 +774,7 @@ function ArticleEditor({
       }
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save article");
+      setError(e instanceof Error ? e.message : t('support.failedToSaveArticle'));
       setSaving(false);
     }
   };
@@ -761,7 +783,7 @@ function ArticleEditor({
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          {article ? "Edit Article" : "New Help Article"}
+          {article ? t('support.editArticleTitle') : t('support.newArticleTitle')}
         </h2>
         <button
           onClick={onClose}
@@ -773,12 +795,12 @@ function ArticleEditor({
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Title</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('support.titleField')}</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Article title"
+            placeholder={t('support.articleTitlePlaceholder')}
             maxLength={200}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
@@ -786,25 +808,25 @@ function ArticleEditor({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('support.categoryField')}</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
             >
-              <option value="general">General</option>
-              <option value="calculation">Calculation</option>
-              <option value="settlement">Settlement</option>
-              <option value="expense">Expense</option>
-              <option value="group_access">Group Access</option>
-              <option value="payment_info">Payment Info</option>
-              <option value="account">Account</option>
-              <option value="bug">Bug</option>
-              <option value="other">Other</option>
+              <option value="general">{t('support.categoryLabels.general')}</option>
+              <option value="calculation">{t('support.categoryLabels.calculation')}</option>
+              <option value="settlement">{t('support.categoryLabels.settlement')}</option>
+              <option value="expense">{t('support.categoryLabels.expense')}</option>
+              <option value="group_access">{t('support.categoryLabels.group_access')}</option>
+              <option value="payment_info">{t('support.categoryLabels.payment_info')}</option>
+              <option value="account">{t('support.categoryLabels.account')}</option>
+              <option value="bug">{t('support.categoryLabels.bug')}</option>
+              <option value="other">{t('support.categoryLabels.other')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Display Order</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('support.displayOrder')}</label>
             <input
               type="number"
               value={order}
@@ -816,37 +838,37 @@ function ArticleEditor({
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            Tags (comma-separated)
+            {t('support.tagsLabel')}
           </label>
           <input
             type="text"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
-            placeholder="balance, calculation, split"
+            placeholder={t('support.tagsPlaceholder')}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            Content (HTML supported)
+            {t('support.contentLabel')}
           </label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="<h3>Title</h3><p>Content here...</p>"
+            placeholder={t('support.contentPlaceholder')}
             rows={12}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none font-mono"
           />
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-            Supports HTML tags: &lt;h3&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;strong&gt;
+            {t('support.htmlTagsHint')}
           </p>
         </div>
 
         {/* Preview */}
         {content && (
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Preview</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('support.preview')}</label>
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 max-h-48 overflow-y-auto">
               <div
                 className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 [&_h3]:text-slate-900 dark:[&_h3]:text-slate-100 [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
@@ -876,7 +898,7 @@ function ArticleEditor({
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-trevio-600 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save Article"}
+            {saving ? t('support.saving') : t('support.saveArticle')}
           </button>
         </div>
       </div>

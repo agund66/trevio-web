@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import { getCategoryLabel } from "./household-categories";
 import { formatCurrencySymbol, getLocaleForCurrency } from "./currency";
+import { BASE_CURRENCY } from "../constants/currency";
 import { MONTH_LABELS, FULL_MONTH_LABELS, isSameDay, isSameMonth, startOfDay } from "./date";
 import { round2 } from "./math";
 
@@ -34,7 +35,7 @@ function formatDateLabel(timestamp: number): string {
     return `Yesterday, ${day} ${month}`;
   }
 
-  const weekday = cal.toLocaleDateString(getLocaleForCurrency("INR"), { weekday: "short" });
+  const weekday = cal.toLocaleDateString(getLocaleForCurrency(BASE_CURRENCY), { weekday: "short" });
   return `${weekday}, ${day} ${month}`;
 }
 
@@ -298,7 +299,7 @@ export function computeGamification(
   members: Member[],
   monthlyBudget?: number,
   monthlySpent: number = 0,
-  currency: string = "INR"
+  currency: string = BASE_CURRENCY
 ): HouseholdGamification {
   const activeMembers = members.filter((m) => m.status === "active");
   const totalMembers = activeMembers.length;
@@ -405,7 +406,7 @@ function computeInsightMessage(
   allExpenses: Expense[],
   monthlyBudget: number | undefined,
   monthlySpent: number,
-  currency: string = "INR"
+  currency: string = BASE_CURRENCY
 ): string | null {
   // Budget insight
   if (monthlyBudget != null && monthlyBudget > 0) {

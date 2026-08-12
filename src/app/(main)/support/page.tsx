@@ -23,24 +23,27 @@ import {
   HelpCircle,
 } from "lucide-react";
 import DOMPurify from "dompurify";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { HelpArticle, SupportCategory } from "@/lib/types";
 
-const CATEGORY_CONFIG: Record<
+const CATEGORY_ICONS: Record<
   string,
-  { label: string; icon: React.ComponentType<{ className?: string }>; color: string }
+  { icon: React.ComponentType<{ className?: string }>; color: string }
 > = {
-  calculation: { label: "Balance & Calculations", icon: Calculator, color: "text-blue-600 dark:text-blue-400" },
-  settlement: { label: "Settlements", icon: HandCoins, color: "text-green-600 dark:text-green-400" },
-  expense: { label: "Expenses", icon: Receipt, color: "text-purple-600 dark:text-purple-400" },
-  group_access: { label: "Groups", icon: Users, color: "text-orange-600 dark:text-orange-400" },
-  payment_info: { label: "Payment Info", icon: Wallet, color: "text-teal-600 dark:text-teal-400" },
-  account: { label: "Account & Profile", icon: UserCircle, color: "text-indigo-600 dark:text-indigo-400" },
-  bug: { label: "Troubleshooting", icon: Bug, color: "text-red-600 dark:text-red-400" },
-  general: { label: "General", icon: HelpCircle, color: "text-slate-600 dark:text-slate-400" },
+  calculation: { icon: Calculator, color: "text-blue-600 dark:text-blue-400" },
+  settlement: { icon: HandCoins, color: "text-green-600 dark:text-green-400" },
+  expense: { icon: Receipt, color: "text-purple-600 dark:text-purple-400" },
+  group_access: { icon: Users, color: "text-orange-600 dark:text-orange-400" },
+  payment_info: { icon: Wallet, color: "text-teal-600 dark:text-teal-400" },
+  account: { icon: UserCircle, color: "text-indigo-600 dark:text-indigo-400" },
+  bug: { icon: Bug, color: "text-red-600 dark:text-red-400" },
+  general: { icon: HelpCircle, color: "text-slate-600 dark:text-slate-400" },
 };
 
 export default function SupportPage() {
+  const t = useTranslations("support");
+  const tc = useTranslations("common");
   const { support } = useServices();
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -84,7 +87,7 @@ export default function SupportPage() {
           className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back to Help Center
+          {t("backToHelpCenter")}
         </button>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
@@ -99,17 +102,17 @@ export default function SupportPage() {
         </div>
         <div className="mt-6 rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4">
           <p className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">
-            Didn&apos;t find what you were looking for?
+            {t("article.notFoundHelp")}
           </p>
           <p className="mt-1 text-sm text-trevio-600 dark:text-trevio-400">
-            Our support team is here to help. Report your issue and we&apos;ll get back to you.
+            {t("article.notFoundHelpDesc")}
           </p>
           <Link
             href="/support/new"
             className="mt-3 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
           >
             <MessageSquarePlus className="h-4 w-4" />
-            Report an Issue
+            {t("article.reportIssue")}
           </Link>
         </div>
       </div>
@@ -124,7 +127,7 @@ export default function SupportPage() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
       >
         <ChevronLeft className="h-4 w-4" />
-        Back
+        {t("back")}
       </button>
 
       {/* Header */}
@@ -134,9 +137,9 @@ export default function SupportPage() {
             <LifeBuoy className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Help & Support</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Find answers or get help from our support team
+              {t("subtitle")}
             </p>
           </div>
         </div>
@@ -152,8 +155,8 @@ export default function SupportPage() {
             <MessageSquarePlus className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Report an Issue</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Tell us what&apos;s wrong</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("quickActions.reportIssue")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("quickActions.reportIssueDesc")}</p>
           </div>
         </Link>
         <Link
@@ -164,8 +167,8 @@ export default function SupportPage() {
             <Ticket className="h-5 w-5 text-slate-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">My Tickets</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Track your reports</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("quickActions.myTickets")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("quickActions.myTicketsDesc")}</p>
           </div>
         </Link>
       </div>
@@ -178,7 +181,7 @@ export default function SupportPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search for help articles..."
+            placeholder={t("searchPlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-11 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
           />
         </div>
@@ -196,10 +199,10 @@ export default function SupportPage() {
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
             )}
           >
-            All
+            {t("allCategories")}
           </button>
           {categories.map((cat) => {
-            const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.general;
+            const config = CATEGORY_ICONS[cat] || CATEGORY_ICONS.general;
             return (
               <button
                 key={cat}
@@ -211,7 +214,7 @@ export default function SupportPage() {
                     : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 )}
               >
-                {config.label}
+                {t(`categories.${cat}`)}
               </button>
             );
           })}
@@ -227,23 +230,23 @@ export default function SupportPage() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center">
           <HelpCircle className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
           <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-            {search ? "No articles found for your search" : "No help articles available yet"}
+            {search ? t("empty.noArticlesSearch") : t("empty.noArticles")}
           </p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Try a different search term or report your issue directly
+            {t("empty.tryDifferent")}
           </p>
           <Link
             href="/support/new"
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
           >
             <MessageSquarePlus className="h-4 w-4" />
-            Report an Issue
+            {t("article.reportIssue")}
           </Link>
         </div>
       ) : (
         <div className="space-y-2">
           {filteredArticles.map((article) => {
-            const config = CATEGORY_CONFIG[article.category] || CATEGORY_CONFIG.general;
+            const config = CATEGORY_ICONS[article.category] || CATEGORY_ICONS.general;
             const Icon = config.icon;
             return (
               <button
@@ -258,7 +261,7 @@ export default function SupportPage() {
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                     {article.title}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{config.label}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t(`categories.${article.category}`)}</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
               </button>

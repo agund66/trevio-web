@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import {
@@ -19,16 +20,20 @@ import {
 import { cn } from "@/lib/utils";
 import type { SupportStatus } from "@/lib/types";
 
-const STATUS_CONFIG: Record<
+type TranslateFn = (key: string) => string;
+
+function getStatusConfig(t: TranslateFn): Record<
   SupportStatus,
   { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
-> = {
-  open: { label: "Open", icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
-  in_progress: { label: "In Progress", icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
-  waiting_user: { label: "Awaiting Your Reply", icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
-  resolved: { label: "Resolved", icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
-  closed: { label: "Closed", icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
-};
+> {
+  return {
+    open: { label: t('statusOpen'), icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+    in_progress: { label: t('statusInProgress'), icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
+    waiting_user: { label: t('statusAwaitingReply'), icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
+    resolved: { label: t('statusResolved'), icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
+    closed: { label: t('statusClosed'), icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
+  };
+}
 
 function formatTime(ts: number): string {
   if (!ts) return "";
@@ -43,6 +48,7 @@ function formatTime(ts: number): string {
 
 export default function TicketDetailPage() {
   const { support } = useServices();
+  const t = useTranslations("support");
   const params = useParams();
   const ticketId = params.id as string;
   const queryClient = useQueryClient();
@@ -87,7 +93,7 @@ export default function TicketDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["myTickets"] });
     },
     onError: (e) => {
-      setError(e instanceof Error ? e.message : "Failed to send message");
+      setError(e instanceof Error ? e.message : t('failedToSendMessage'));
     },
   });
 
@@ -107,15 +113,15 @@ export default function TicketDetailPage() {
   if (!ticket) {
     return (
       <div className="mx-auto max-w-2xl p-4 md:p-6">
-        <p className="text-sm text-slate-500 dark:text-slate-400">Ticket not found or you don&apos;t have access.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('ticketNotFound')}</p>
         <Link href="/support/tickets" className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-trevio-600 dark:text-trevio-400">
-          <ChevronLeft className="h-4 w-4" /> Back to My Tickets
+          <ChevronLeft className="h-4 w-4" /> {t('backToMyTickets')}
         </Link>
       </div>
     );
   }
 
-  const statusConfig = STATUS_CONFIG[ticket.status];
+  const statusConfig = getStatusConfig(t)[ticket.status];
   const StatusIcon = statusConfig.icon;
   const isClosed = ticket.status === "closed";
 
@@ -127,7 +133,7 @@ export default function TicketDetailPage() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
       >
         <ChevronLeft className="h-4 w-4" />
-        Back to My Tickets
+        {t('backToMyTickets')}
       </Link>
 
       <div className="mb-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
@@ -142,9 +148,9 @@ export default function TicketDetailPage() {
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-300">{ticket.description}</p>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-          <span>Category: <span className="font-medium text-slate-600 dark:text-slate-300">{ticket.category.replace(/_/g, " ")}</span></span>
+          <span>{t('categoryLabel')} <span className="font-medium text-slate-600 dark:text-slate-300">{ticket.category.replace(/_/g, " ")}</span></span>
           <span>•</span>
-          <span>Created: {formatTime(ticket.createdAt)}</span>
+          <span>{t('createdLabel')} {formatTime(ticket.createdAt)}</span>
           {ticket.context?.groupName && (
             <>
               <span>•</span>
@@ -164,7 +170,7 @@ export default function TicketDetailPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-4 border-slate-200 border-t-trevio-600" />
           </div>
         ) : !messages || messages.length === 0 ? (
-          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">No messages yet</p>
+          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">{t('noMessagesYet')}</p>
         ) : (
           <div className="space-y-4">
             {messages.map((msg) => {
@@ -178,7 +184,7 @@ export default function TicketDetailPage() {
                       : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-sm"
                   )}>
                     {!isUser && (
-                      <p className="text-xs font-semibold text-trevio-600 dark:text-trevio-400 mb-0.5">Support Team</p>
+                      <p className="text-xs font-semibold text-trevio-600 dark:text-trevio-400 mb-0.5">{t('supportTeam')}</p>
                     )}
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.body}</p>
                     <p className={cn("mt-1 text-[10px]", isUser ? "text-trevio-200" : "text-slate-400 dark:text-slate-500")}>
@@ -197,7 +203,7 @@ export default function TicketDetailPage() {
       {isClosed && (
         <div className="mb-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            This ticket is closed. Send a message below to reopen it.
+            {t('closedTicketNotice')}
           </p>
         </div>
       )}
@@ -216,7 +222,7 @@ export default function TicketDetailPage() {
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
-            placeholder={isClosed ? "Send a message to reopen this ticket..." : "Type your reply..."}
+            placeholder={isClosed ? t('reopenPlaceholder') : t('replyPlaceholder')}
             rows={2}
             maxLength={2000}
             className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
@@ -235,7 +241,7 @@ export default function TicketDetailPage() {
           </button>
         </div>
         <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-          Press Ctrl+Enter to send
+          {t('replyHelpText')}
         </p>
       </div>
     </div>

@@ -9,6 +9,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "../../firebase";
 import type { AuthService } from "../interfaces/auth-service";
 import type { User, UserRole } from "../../types";
+import { DEFAULT_CURRENCY } from "../../constants/currency";
 
 export class FirebaseAuthService implements AuthService {
   async signInWithGoogle(): Promise<string> {
@@ -53,7 +54,7 @@ export class FirebaseAuthService implements AuthService {
         lastName,
         username: "",
         photoURL: firebaseUser.photoURL || "",
-        defaultCurrency: "INR",
+        defaultCurrency: DEFAULT_CURRENCY,
         fcmToken: "",
         acceptedTnC: false,
         role: "user",
@@ -102,7 +103,7 @@ export class FirebaseAuthService implements AuthService {
         lastName,
         username: "",
         photoURL: firebaseUser.photoURL || "",
-        defaultCurrency: "INR",
+        defaultCurrency: DEFAULT_CURRENCY,
         fcmToken: "",
         acceptedTnC: false,
         role: "user",
@@ -122,7 +123,7 @@ export class FirebaseAuthService implements AuthService {
         lastName,
         username: "",
         photoURL: firebaseUser.photoURL || "",
-        defaultCurrency: "INR",
+        defaultCurrency: DEFAULT_CURRENCY,
         acceptedTnC: false,
         role: "user",
         blocked: false,
@@ -141,7 +142,7 @@ export class FirebaseAuthService implements AuthService {
       lastName: data.lastName || "",
       username: data.username || "",
       photoURL: data.photoURL || "",
-      defaultCurrency: data.defaultCurrency || "INR",
+      defaultCurrency: data.defaultCurrency || DEFAULT_CURRENCY,
       acceptedTnC: data.acceptedTnC || false,
       role: (data.role as UserRole) || "user",
       blocked: data.blocked || false,

@@ -3,20 +3,24 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { Plus, Users, Plane, Dumbbell, Coffee, AlertCircle, LogIn } from "lucide-react";
 import type { GroupTemplate } from "@/lib/types";
 import { JoinGroupDialog } from "@/components/join-group-dialog";
+import { queryKeys } from "@/lib/constants/query-keys";
 
 export default function GroupsPage() {
+  const t = useTranslations("groups");
+  const td = useTranslations("dashboard");
   const { group } = useServices();
   const { formatBase } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   const { data: groups, isLoading, error } = useQuery({
-    queryKey: ["groups"],
+    queryKey: queryKeys.groups,
     queryFn: () => group.getUserGroups(),
   });
 
@@ -31,21 +35,21 @@ export default function GroupsPage() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Groups</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("list.title")}</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowJoinDialog(true)}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 md:px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             <LogIn className="h-4 w-4" />
-            <span className="hidden sm:inline">Join Group</span>
+            <span className="hidden sm:inline">{td("joinGroup")}</span>
           </button>
           <Link
             href="/groups/create"
             className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-3 md:px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Group</span>
+            <span className="hidden sm:inline">{td("newGroup")}</span>
           </Link>
         </div>
       </div>
@@ -58,13 +62,13 @@ export default function GroupsPage() {
         <div className="flex min-h-[50vh] items-center justify-center text-center">
           <div className="max-w-md">
             <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Failed to load groups</h2>
+            <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">{td("error.failedToLoad")}</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{(error as Error).message}</p>
             <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["groups"] })}
+              onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.groups })}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
             >
-              Try Again
+              {td("error.tryAgain")}
             </button>
           </div>
         </div>
@@ -81,10 +85,10 @@ export default function GroupsPage() {
                 : "text-slate-500 dark:text-slate-400";
             const balanceText =
               balance > 0.01
-                ? `owes you ${formatBase(balance)}`
+                ? `${t("list.owesYou")} ${formatBase(balance)}`
                 : balance < -0.01
-                ? `you owe ${formatBase(Math.abs(balance))}`
-                : "settled up";
+                ? `${t("list.youOwe")} ${formatBase(Math.abs(balance))}`
+                : t("list.settledUp");
 
             return (
               <Link
@@ -103,12 +107,12 @@ export default function GroupsPage() {
                       </h3>
                       {g.archived && (
                         <span className="shrink-0 rounded-lg bg-slate-200 dark:bg-slate-700 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-                          Archived
+                          {t("list.archived")}
                         </span>
                       )}
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
+                      {t("list.membersCount", { count: g.memberCount })}
                     </p>
                   </div>
                 </div>
@@ -124,16 +128,16 @@ export default function GroupsPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700">
             <Users className="h-7 w-7 text-slate-400 dark:text-slate-500" />
           </div>
-          <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-100">No groups yet</h3>
+          <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-100">{td("empty.noGroups")}</h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Create your first group to start splitting bills with friends.
+            {t("list.emptyHint")}
           </p>
           <Link
             href="/groups/create"
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
           >
             <Plus className="h-4 w-4" />
-            Create Group
+            {td("empty.createGroup")}
           </Link>
         </div>
       )}

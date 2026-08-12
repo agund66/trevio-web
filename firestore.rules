@@ -3,195 +3,264 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ─── Helper Functions ─────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function isNotBlocked(uid) {
+      return userDoc(uid).exists()
+        && userDoc(uid).data.blocked != true;
+    }
+
+    function isSuperadmin(uid) {
+      return isSignedIn()
+        && userDoc(uid).exists()
+        && userDoc(uid).data.blocked != true
+        && userDoc(uid).data.role == "superadmin";
+    }
+
+    function memberDoc(groupId, uid) {
+      return get(/databases/$(database)/documents/groups/$(groupId)/members/$(uid));
+    }
+
+    function isActiveMember(groupId, uid) {
+      return isSignedIn()
+        && memberDoc(groupId, uid).exists()
+        && memberDoc(groupId, uid).data.status == "active";
+    }
+
+    function isGroupAdmin(groupId, uid) {
+      return isSignedIn()
+        && memberDoc(groupId, uid).exists()
+        && memberDoc(groupId, uid).data.role == "admin"
+        && memberDoc(groupId, uid).data.status == "active";
+    }
+
+    function groupDoc(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId));
+    }
+
     // ─── Config ─────────────────────────────────────────────────────
     // General config docs: any authenticated user can read, superadmin can write.
     match /config/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin";
+      allow read: if isSignedIn();
+      allow write: if isSuperadmin(request.auth.uid);
     }
 
-    // Exchange rate cache (config/exchangeRates): any authenticated user
-    // can read and write, since rate caching is triggered by normal users
-    // during expense/settlement creation with non-base currencies.
+    // Exchange rate cache: any authenticated, non-blocked user can read.
+    // Writes are restricted to superadmins to prevent rate tampering.
+    // Clients fetch from the API and use rates in-memory; write failures
+    // are handled gracefully (best-effort caching).
+    // TODO: Move to a scheduled Cloud Function for automatic rate updates.
     match /config/exchangeRates {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if isSignedIn() && isNotBlocked(request.auth.uid);
+      allow write: if isSuperadmin(request.auth.uid);
     }
 
     // ─── Users ───────────────────────────────────────────────────────
     // Any authenticated user can read user profiles (needed for member
     // display names, photos, activity attribution, settlement names).
     // A user can create/delete their own document.
-    // Self-update allowed but CANNOT change role or blocked (prevent privilege escalation).
+    // Self-create: role MUST be "user" and blocked MUST be false (prevent
+    // privilege escalation via crafted user documents).
+    // Self-update allowed but CANNOT change role or blocked.
     // Superadmins can update any field (block/unblock/promote/demote).
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && (
-        // Self-update: cannot change role or blocked fields
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == "user"
+        && request.resource.data.blocked == false;
+      allow update: if isSignedIn() && (
         (request.auth.uid == uid
+          && isNotBlocked(request.auth.uid)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'blocked']))
-        // Superadmin can update any field
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+        || isSuperadmin(request.auth.uid)
       );
-      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow delete: if isSignedIn() && request.auth.uid == uid;
 
       // ─── Notifications (subcollection) ───────────────────────────
       // Only the owner can read their notifications.
-      // Any authenticated user can create a notification for another user
-      // (e.g. invitations, settlement alerts) but only the owner can update
-      // (mark as read).
+      // Any authenticated, non-blocked user can create a notification
+      // for another user (e.g. invitations, settlement alerts) but only
+      // the owner can update (mark as read).
       match /notifications/{notificationId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null && request.auth.uid == uid;
-        allow delete: if request.auth != null && request.auth.uid == uid;
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
+        allow update: if isSignedIn() && request.auth.uid == uid;
+        allow delete: if isSignedIn() && request.auth.uid == uid;
       }
     }
 
     // ─── Collection Group: members ────────────────────────────────
     // Top-level rule for collectionGroup("members") queries used by
-    // getUserGroups(). Firestore needs a wildcard path rule to verify
-    // that the query is safe across all possible parent paths.
+    // getUserGroups(). Only allows reading own member docs.
+    // Within-group reads of other members' docs are handled by the
+    // more specific /groups/{groupId}/members/{uid} rule below.
     match /{path=**}/members/{memberUid} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn() && (
+        memberUid == request.auth.uid
+        || resource.data.uid == request.auth.uid
+      );
     }
 
     // ─── Usernames ──────────────────────────────────────────────────
     // Any authenticated user can check if a username is available.
-    // Any authenticated user can create/delete their own username entries.
+    // Any authenticated, non-blocked user can create/delete their own
+    // username entries.
     match /usernames/{username} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && isNotBlocked(request.auth.uid)
         && request.resource.data.uid == request.auth.uid;
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && resource.data.uid == request.auth.uid;
       allow update: if false; // usernames are immutable - delete & recreate
     }
 
     // ─── Groups ─────────────────────────────────────────────────────
     // Any authenticated user can read group docs (needed for invite code
-    // lookup during join flow). Active members can update any group field.
+    // lookup during join flow).
+    // Active members can update group metadata fields only (name,
+    // description, monthlyBudget, currency, archived, archivedAt, updatedAt).
     // Non-members can only update memberCount, totalExpenses, updatedAt
-    // (for batch writes during join/accept/decline flows where membership
-    // is being established in the same batch).
-    // Group admin can delete the group.
+    // (for batch writes during join/accept/decline/expense flows where
+    // membership is being established or financial totals are updated).
+    // Only active group admins can delete the group.
     match /groups/{groupId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && (
-        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active"
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
+      allow update: if isSignedIn() && isNotBlocked(request.auth.uid) && (
+        (isActiveMember(groupId, request.auth.uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'monthlyBudget', 'currency', 'archived', 'archivedAt', 'updatedAt']))
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'totalExpenses', 'updatedAt'])
       );
-      allow delete: if request.auth != null
-        && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == "admin";
+      allow delete: if isGroupAdmin(groupId, request.auth.uid);
 
       // ─── Members (subcollection) ────────────────────────────────
-      // Users can read their own member doc (for join/accept flow membership
-      // checks). Active members can read any member doc (for member lists,
-      // balances, etc.).
-      // Self-join (create with own UID) or active member adding offline member.
-      // Self-update: cannot change role or balance (prevent privilege escalation).
-      // Active member update: can only change balance (for recalculation batch writes).
-      // Self-delete for leaving; admin delete for cleanup; active member delete offline docs.
+      // Users can read their own member doc or any member doc if they
+      // are an active member of the group.
+      // Self-join (create with own UID):
+      //   - During group creation (group doesn't exist yet): role can
+      //     be "admin" (the creator becomes admin).
+      //   - Joining an existing group: role MUST be "member" (prevent
+      //     self-assigning admin role on existing groups).
+      // Active member adding offline member: must set isOffline=true
+      // and role="member".
+      // Self-update: cannot change role or balance (prevent escalation).
+      // Active member update: can only change balance (recalculation).
+      // Admin update: can change role, uid, isOffline, status,
+      //   displayName, photoURL, updatedAt (for admin transfer, member
+      //   removal, and offline conversion).
+      // Self-delete for leaving; admin delete for cleanup; active
+      // member delete offline docs.
       match /members/{uid} {
-        allow read: if request.auth != null && (
+        allow read: if isSignedIn() && (
           request.auth.uid == uid
-          || get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active"
+          || isActiveMember(groupId, request.auth.uid)
         );
-        allow create: if request.auth != null
-          && (
-            request.auth.uid == uid
-            || get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active"
-          );
-        allow update: if request.auth != null && (
-          // Self-update: cannot change role or balance
+        allow create: if isSignedIn() && isNotBlocked(request.auth.uid) && (
+          // Group creation: self-join with admin role (group doesn't exist yet)
           (request.auth.uid == uid
+            && request.resource.data.role == "admin"
+            && !groupDoc(groupId).exists())
+          // Self-join existing group: must be "member" role
+          || (request.auth.uid == uid
+            && request.resource.data.role == "member"
+            && groupDoc(groupId).exists())
+          // Active member adding offline member
+          || (isActiveMember(groupId, request.auth.uid)
+            && request.resource.data.isOffline == true
+            && request.resource.data.role == "member")
+        );
+        allow update: if isSignedIn() && isNotBlocked(request.auth.uid) && (
+          // Self-update: cannot change role or balance.
+          // Cannot self-update if current status is "removed" or "left"
+          // (prevents re-activation after admin removal or voluntary leave).
+          (request.auth.uid == uid
+            && resource.data.status != "removed"
+            && resource.data.status != "left"
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'balance']))
           // Active member: can only update balance (recalculation)
-          || (get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active"
+          || (isActiveMember(groupId, request.auth.uid)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']))
-          // Admin: can update role (for admin transfer)
-          || (get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == "admin"
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt']))
+          // Admin: can update role, uid, isOffline, status, displayName,
+          // photoURL, updatedAt (for admin transfer, member removal,
+          // offline conversion)
+          || (isGroupAdmin(groupId, request.auth.uid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'uid', 'isOffline', 'status', 'displayName', 'photoURL', 'updatedAt']))
         );
-        allow delete: if request.auth != null && (
+        allow delete: if isSignedIn() && isNotBlocked(request.auth.uid) && (
           request.auth.uid == uid
-          || get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == "admin"
+          || isGroupAdmin(groupId, request.auth.uid)
           || (resource.data.isOffline == true
-            && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active")
+            && isActiveMember(groupId, request.auth.uid))
         );
       }
 
       // ─── Expenses (subcollection) ───────────────────────────────
-      // Only active group members can read/create/update/delete expenses.
+      // Only active, non-blocked group members can read/create/update/delete expenses.
       match /expenses/{expenseId} {
-        allow read: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow create: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow update: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow delete: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
+        allow read: if isActiveMember(groupId, request.auth.uid);
+        allow create: if isActiveMember(groupId, request.auth.uid)
+          && isNotBlocked(request.auth.uid);
+        allow update: if isActiveMember(groupId, request.auth.uid)
+          && isNotBlocked(request.auth.uid);
+        allow delete: if isActiveMember(groupId, request.auth.uid)
+          && isNotBlocked(request.auth.uid);
       }
 
       // ─── Settlements (subcollection) ────────────────────────────
-      // Only active group members can read/create/update settlements.
-      // Admin can delete (for group deletion).
+      // Only active, non-blocked group members can read/create/update settlements.
+      // Active admin can delete (for group deletion).
       match /settlements/{settlementId} {
-        allow read: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow create: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow update: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow delete: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == "admin";
+        allow read: if isActiveMember(groupId, request.auth.uid);
+        allow create: if isActiveMember(groupId, request.auth.uid)
+          && isNotBlocked(request.auth.uid);
+        allow update: if isActiveMember(groupId, request.auth.uid)
+          && isNotBlocked(request.auth.uid);
+        allow delete: if isGroupAdmin(groupId, request.auth.uid);
       }
 
       // ─── Trip (subcollection) ─────────────────────────────────────
-      // Only active group members can read/write trip data.
+      // Only active, non-blocked group members can read/write trip data.
       match /trip/{docId} {
-        allow read: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow write: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
+        allow read: if isActiveMember(groupId, request.auth.uid);
+        allow write: if isActiveMember(groupId, request.auth.uid)
+          && isNotBlocked(request.auth.uid);
       }
 
       // ─── Activities (subcollection) ─────────────────────────────
       // Only active group members can read activities.
-      // Activities are immutable. Active members can read.
-      // Create: must be auth'd AND (active member OR group creator).
-      // The creator OR condition handles group creation/join batches where
-      // membership is established in the same batch as the activity.
-      // Admin can delete (for group deletion).
+      // Any authenticated, non-blocked user can create activities (needed
+      // for group creation and join flows where membership is established
+      // in the same batch as the activity). Service code validates
+      // membership before creating activities.
+      // Activities are immutable. Active admin can delete (for group deletion).
       match /activities/{activityId} {
-        allow read: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active";
-        allow create: if request.auth != null
-          && (
-            get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.status == "active"
-            || get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid
-          );
+        allow read: if isActiveMember(groupId, request.auth.uid);
+        allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
         allow update: if false; // activities are immutable
-        allow delete: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == "admin";
+        allow delete: if isGroupAdmin(groupId, request.auth.uid);
       }
     }
 
     // ─── Invitations ────────────────────────────────────────────────
     // Only the invited user or the inviter can read an invitation.
-    // Any authenticated user can create an invitation (when inviting
-    // someone to a group). Only the invited user can update the status
-    // (accept/decline).
+    // Any authenticated, non-blocked user can create an invitation (when
+    // inviting someone to a group). Only the invited user can update the
+    // status (accept/decline).
     match /invitations/{invitationId} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (resource.data.toUid == request.auth.uid
             || resource.data.invitedByUid == request.auth.uid);
-      allow create: if request.auth != null;
-      allow update: if request.auth != null
+      allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
+      allow update: if isSignedIn()
         && resource.data.toUid == request.auth.uid;
       allow delete: if false;
     }
@@ -200,23 +269,21 @@ service cloud.firestore {
     // Any authenticated user can read broadcasts (targeting is filtered
     // client-side). Only superadmins can create or update (stop) broadcasts.
     match /broadcasts/{broadcastId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin";
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin";
+      allow read: if isSignedIn();
+      allow create: if isSuperadmin(request.auth.uid);
+      allow update: if isSuperadmin(request.auth.uid);
 
       // ─── Reads (subcollection) ──────────────────────────────────
       // Users can read their own read/acknowledgment records.
       // Superadmins can read all reads (for read count queries).
       // Users can create/update their own read records (acknowledge).
       match /reads/{uid} {
-        allow read: if request.auth != null && (
+        allow read: if isSignedIn() && (
           request.auth.uid == uid
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+          || isSuperadmin(request.auth.uid)
         );
-        allow create: if request.auth != null && request.auth.uid == uid;
-        allow update: if request.auth != null && request.auth.uid == uid;
+        allow create: if isSignedIn() && request.auth.uid == uid;
+        allow update: if isSignedIn() && request.auth.uid == uid;
         allow delete: if false;
       }
     }
@@ -228,19 +295,17 @@ service cloud.firestore {
     // can update any ticket (status changes, priority, etc.).
     // Tickets are never deleted (audit trail for money-related issues).
     match /supportTickets/{ticketId} {
-      allow read: if request.auth != null && (
+      allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+        || isSuperadmin(request.auth.uid)
       );
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
+        && isNotBlocked(request.auth.uid)
         && request.resource.data.userId == request.auth.uid;
-      allow update: if request.auth != null && (
-        // User can update own ticket (e.g. mark read, reopen by replying)
-        // but cannot change priority (admin-only field)
+      allow update: if isSignedIn() && (
         (resource.data.userId == request.auth.uid
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['priority']))
-        // Superadmin can update any field
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+        || isSuperadmin(request.auth.uid)
       );
       allow delete: if false;
 
@@ -249,13 +314,13 @@ service cloud.firestore {
       // Either can create a message (user reply or admin response).
       // Messages are immutable (audit trail).
       match /messages/{messageId} {
-        allow read: if request.auth != null && (
+        allow read: if isSignedIn() && (
           get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId == request.auth.uid
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+          || isSuperadmin(request.auth.uid)
         );
-        allow create: if request.auth != null && (
+        allow create: if isSignedIn() && (
           get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId == request.auth.uid
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin"
+          || isSuperadmin(request.auth.uid)
         );
         allow update: if false;
         allow delete: if false;
@@ -266,13 +331,10 @@ service cloud.firestore {
     // Top-level helpArticles collection. Any authenticated user can read
     // active articles. Only superadmins can create/update/delete articles.
     match /helpArticles/{articleId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin";
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin";
-      allow delete: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superadmin";
+      allow read: if isSignedIn();
+      allow create: if isSuperadmin(request.auth.uid);
+      allow update: if isSuperadmin(request.auth.uid);
+      allow delete: if isSuperadmin(request.auth.uid);
     }
   }
 }

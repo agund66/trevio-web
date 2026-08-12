@@ -1,6 +1,7 @@
 "use client";
 
 import { Award, Users, Lightbulb } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { HouseholdGamification } from "@/lib/types";
 
 interface GamificationCardProps {
@@ -8,13 +9,13 @@ interface GamificationCardProps {
   isToday?: boolean;
 }
 
-const BADGE_LABELS: Record<string, string> = {
-  streak_champion: "Streak Champion",
-  budget_master: "Budget Master",
-  all_stars: "All Stars",
-};
-
 export function GamificationCard({ gamification, isToday = true }: GamificationCardProps) {
+  const t = useTranslations("household");
+  const BADGE_LABELS: Record<string, string> = {
+    streak_champion: t('gamification.streakChampionTitle'),
+    budget_master: t('gamification.budgetMasterTitle'),
+    all_stars: t('gamification.allStarsTitle'),
+  };
   const participationPct = Math.min(gamification.participationToday, 100);
 
   return (

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { LoadMoreButton } from "@/components/load-more-button";
 import {
   Ticket,
@@ -18,16 +20,20 @@ import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/date";
 import type { SupportStatus, SupportPriority } from "@/lib/types";
 
-const STATUS_CONFIG: Record<
+type TranslateFn = (key: string) => string;
+
+function getStatusConfig(t: TranslateFn): Record<
   SupportStatus,
   { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
-> = {
-  open: { label: "Open", icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
-  in_progress: { label: "In Progress", icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
-  waiting_user: { label: "Awaiting Your Reply", icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
-  resolved: { label: "Resolved", icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
-  closed: { label: "Closed", icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
-};
+> {
+  return {
+    open: { label: t('statusOpen'), icon: CircleDot, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+    in_progress: { label: t('statusInProgress'), icon: Clock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
+    waiting_user: { label: t('statusAwaitingReply'), icon: MessageCircle, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
+    resolved: { label: t('statusResolved'), icon: CheckCircle2, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
+    closed: { label: t('statusClosed'), icon: XCircle, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-700" },
+  };
+}
 
 const PRIORITY_COLORS: Record<SupportPriority, string> = {
   urgent: "bg-red-500",
@@ -42,11 +48,12 @@ function formatTime(ts: number): string {
 
 export default function MyTicketsPage() {
   const { support } = useServices();
+  const t = useTranslations("support");
 
   const ticketsPagination = usePaginatedQuery({
     queryKey: ["myTickets"],
     queryFn: (pageSize, lastId) => support.getMyTickets(pageSize, lastId),
-    pageSize: 20,
+    pageSize: DEFAULT_PAGE_SIZE,
     extractItems: (r) => r.tickets,
     extractHasMore: (r) => r.hasMore,
     extractLastId: (r) => r.lastTicketId,
@@ -63,7 +70,7 @@ export default function MyTicketsPage() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
       >
         <ChevronLeft className="h-4 w-4" />
-        Back to Help Center
+        {t('backToHelpCenter')}
       </Link>
 
       <div className="mb-6 flex items-center justify-between">
@@ -72,10 +79,10 @@ export default function MyTicketsPage() {
             <Ticket className="h-5 w-5 text-slate-600 dark:text-slate-300" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">My Tickets</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('myTickets')}</h1>
             {unreadCount > 0 && (
               <p className="text-sm text-trevio-600 dark:text-trevio-400">
-                {unreadCount} new {unreadCount === 1 ? "update" : "updates"}
+                {t('newUpdates', { count: unreadCount })}
               </p>
             )}
           </div>
@@ -85,7 +92,7 @@ export default function MyTicketsPage() {
           className="inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
         >
           <MessageSquarePlus className="h-4 w-4" />
-          New
+          {t('newBadge')}
         </Link>
       </div>
 
@@ -97,23 +104,23 @@ export default function MyTicketsPage() {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center">
           <Ticket className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
           <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-            No tickets yet
+            {t('noTicketsYet')}
           </p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            When you report an issue, it will appear here
+            {t('noTicketsYetDesc')}
           </p>
           <Link
             href="/support/new"
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
           >
             <MessageSquarePlus className="h-4 w-4" />
-            Report an Issue
+            {t('reportIssue')}
           </Link>
         </div>
       ) : (
         <div className="space-y-2">
           {tickets.map((ticket) => {
-            const statusConfig = STATUS_CONFIG[ticket.status];
+            const statusConfig = getStatusConfig(t)[ticket.status];
             const StatusIcon = statusConfig.icon;
             return (
               <Link
@@ -140,7 +147,7 @@ export default function MyTicketsPage() {
                       </p>
                       {ticket.unreadByUser && (
                         <span className="shrink-0 rounded-full bg-trevio-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                          NEW
+                          {t('newBadge')}
                         </span>
                       )}
                     </div>

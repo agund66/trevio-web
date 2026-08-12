@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Phone, Check, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { COUNTRY_CODES, getCountryByCode, validatePhoneNumber } from "@/lib/utils";
+import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
 
 interface PhoneSetupDialogProps {
   open: boolean;
@@ -14,7 +16,9 @@ interface PhoneSetupDialogProps {
 export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
   const { user: userService } = useServices();
   const { user, refreshUser } = useAuth();
-  const [countryCode, setCountryCode] = useState("IN");
+  const t = useTranslations("auth.phoneSetup");
+  const tc = useTranslations("common");
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -23,7 +27,7 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
 
   useEffect(() => {
     if (open && user) {
-      setCountryCode(user.countryCode || "IN");
+      setCountryCode(user.countryCode || DEFAULT_COUNTRY_CODE);
       setPhoneNumber(user.phoneNumber || "");
       setError(null);
       setTouched(false);
@@ -38,12 +42,12 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
   const handleSave = async () => {
     setTouched(true);
     if (!validation.valid) {
-      setError(validation.error || "Invalid phone number");
+      setError(validation.error || tc("errors.somethingWentWrong"));
       return;
     }
 
     if (!user) {
-      setError("User session expired. Please sign in again.");
+      setError(t("userSessionExpired"));
       setSaving(false);
       return;
     }
@@ -59,7 +63,7 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
       await refreshUser();
       onComplete();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save phone number");
+      setError(e instanceof Error ? e.message : t("failedToSave"));
       setSaving(false);
     }
   };
@@ -73,18 +77,18 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
             <Phone className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Add Mobile Number</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Required for UPI payments</p>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("title")}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t("subtitle")}</p>
           </div>
         </div>
 
         <div className="px-6 py-5 space-y-4">
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Your mobile number is used so friends can pay you via UPI directly from their payment app. It&apos;s also used as a fallback when you don&apos;t have a UPI ID set.
+            {t("description")}
           </p>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Mobile Number</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t("mobileNumber")}</label>
             <div className="flex gap-2">
               <div className="relative">
                 <button
@@ -125,7 +129,7 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
                   setTouched(false);
                 }}
                 onBlur={() => setTouched(true)}
-                placeholder={`${country.phoneLength}-digit number`}
+                placeholder={t('phonePlaceholder', { phoneLength: country.phoneLength })}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
                 autoFocus
               />
@@ -136,7 +140,7 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
             {validation.valid && (
               <p className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
                 <Check className="h-4 w-4" />
-                Valid {country.phoneLength}-digit number
+                {t("validNumber", { phoneLength: country.phoneLength })}
               </p>
             )}
           </div>
@@ -150,7 +154,7 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
             disabled={!validation.valid || saving}
             className="w-full rounded-xl bg-trevio-600 py-3.5 text-sm font-semibold text-white transition hover:bg-trevio-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? "Saving..." : "Continue"}
+            {saving ? tc("actions.saving") : tc("actions.continue")}
           </button>
         </div>
       </div>

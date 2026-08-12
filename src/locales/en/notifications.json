@@ -1,0 +1,21 @@
+{
+  "title": "Notifications",
+  "markAllRead": "Mark all read",
+  "empty": "No notifications yet",
+  "unread": "Unread",
+  "error": {
+    "failedToLoad": "Failed to load notifications",
+    "tryAgain": "Try Again"
+  },
+  "broadcast": {
+    "showLess": "Show less",
+    "readMore": "Read more"
+  },
+  "invitation": {
+    "acceptAndJoin": "Accept & Join",
+    "decline": "Decline",
+    "openGroup": "Open Group →",
+    "viewGroup": "View Group →",
+    "declined": "Declined"
+  }
+}
