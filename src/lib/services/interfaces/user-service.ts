@@ -9,4 +9,5 @@ export interface UserService {
   searchUsers(query: string): Promise<UserSearchResult[]>;
   updateFcmToken(token: string): Promise<void>;
   deleteAccount(): Promise<void>;
+  syncUserProfileToGroups(): Promise<void>;
 }

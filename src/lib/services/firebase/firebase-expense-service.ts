@@ -15,7 +15,7 @@ import {
 import { db, auth } from "../../firebase";
 import type { ExpenseService } from "../interfaces/expense-service";
 import type { Expense, SplitEntry, SplitType, RecurringConfig, ItemizedSplitData, TransactionType, GroupTemplate } from "../../types";
-import { calculateSplits, calculateBalances } from "../../utils/calculations";
+import { calculateSplits, calculateBalances, simplifyDebts } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 import { toMillis } from "../../utils/date";
 import { FIRESTORE_BATCH_LIMIT } from "../../constants/firestore";
@@ -80,12 +80,34 @@ export class FirebaseExpenseService implements ExpenseService {
     const expenseRef = doc(collection(groupRef, "expenses"));
     const transactionType: TransactionType = params.transactionType ?? "expense";
 
+    // Fetch current user's profile for the activity log,
+    // and payer's profile for denormalized paidByName on the expense doc.
+    // In the common case paidBy == uid, so only one fetch is needed.
+    let displayName = "";
+    let photoURL = "";
+    let paidByName = "";
+    if (params.paidBy === uid) {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      displayName = userDoc.data()?.displayName || "";
+      photoURL = userDoc.data()?.photoURL || "";
+      paidByName = displayName;
+    } else {
+      const [currentUserDoc, payerDoc] = await Promise.all([
+        getDoc(doc(db, "users", uid)),
+        getDoc(doc(db, "users", params.paidBy)),
+      ]);
+      displayName = currentUserDoc.data()?.displayName || "";
+      photoURL = currentUserDoc.data()?.photoURL || "";
+      paidByName = payerDoc.data()?.displayName || "Unknown";
+    }
+
     const batch = writeBatch(db);
     batch.set(expenseRef, {
       description: params.description,
       amount: params.amount,
       currency: params.currency,
       paidBy: params.paidBy,
+      paidByName,
       splitType: params.splitType,
       splits: calculatedSplits,
       category: params.category || "other",
@@ -110,6 +132,8 @@ export class FirebaseExpenseService implements ExpenseService {
       type: activityType,
       description: activityDesc,
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { expenseId: expenseRef.id, amount: params.amount, description: params.description },
       createdAt: now,
     });
@@ -132,52 +156,58 @@ export class FirebaseExpenseService implements ExpenseService {
       await this.recalculateBalances(params.groupId);
     }
 
-    // Notify all active group members except the creator (non-blocking — don't fail expense creation if notifications fail)
-    try {
-      const groupName = (groupDoc.data()?.name as string) ?? "";
-      const creatorDoc = await getDoc(doc(db, "users", uid));
-      const creatorName = (creatorDoc.data()?.displayName as string) ?? "Someone";
-      const membersSnapshot = await getDocs(
-        firestoreQuery(collection(groupRef, "members"), where("status", "==", "active"))
-      );
-      let notifyBatch = writeBatch(db);
-      let count = 0;
-      for (const memberDoc of membersSnapshot.docs) {
-        const memberUid = memberDoc.id;
-        if (memberUid === uid) continue;
-        const notifType = transactionType === "income" ? "income_added" : "expense_added";
-        const notifTitle = transactionType === "income" ? "New Income Added" : "New Expense Added";
-        const notifBody = transactionType === "income"
-          ? `${creatorName} added income "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`
-          : `${creatorName} added "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`;
+    // Notify all active group members except the creator.
+    // Fire-and-forget: launched as a floating promise so the caller sees
+    // success immediately after the expense + balance recalculation
+    // completes, without waiting for notification batch commits.
+    const expenseId = expenseRef.id;
+    const groupName = (groupDoc.data()?.name as string) ?? "";
+    void (async () => {
+      try {
+        const creatorDoc = await getDoc(doc(db, "users", uid));
+        const creatorName = (creatorDoc.data()?.displayName as string) ?? "Someone";
+        const membersSnapshot = await getDocs(
+          firestoreQuery(collection(groupRef, "members"), where("status", "==", "active"))
+        );
+        let notifyBatch = writeBatch(db);
+        let count = 0;
+        for (const memberDoc of membersSnapshot.docs) {
+          const memberUid = memberDoc.id;
+          if (memberUid === uid) continue;
+          const notifType = transactionType === "income" ? "income_added" : "expense_added";
+          const notifTitle = transactionType === "income" ? "New Income Added" : "New Expense Added";
+          const notifBody = transactionType === "income"
+            ? `${creatorName} added income "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`
+            : `${creatorName} added "${params.description}" (${params.currency} ${params.amount}) in "${groupName}"`;
 
-        notifyBatch.set(doc(collection(db, "users", memberUid, "notifications")), {
-          type: notifType,
-          title: notifTitle,
-          body: notifBody,
-          data: {
-            groupId: params.groupId,
-            groupName,
-            expenseId: expenseRef.id,
+          notifyBatch.set(doc(collection(db, "users", memberUid, "notifications")), {
             type: notifType,
-          },
-          read: false,
-          createdAt: now,
-        });
-        count++;
-        if (count % FIRESTORE_BATCH_LIMIT === 0) {
-          await notifyBatch.commit();
-          notifyBatch = writeBatch(db);
+            title: notifTitle,
+            body: notifBody,
+            data: {
+              groupId: params.groupId,
+              groupName,
+              expenseId,
+              type: notifType,
+            },
+            read: false,
+            createdAt: now,
+          });
+          count++;
+          if (count % FIRESTORE_BATCH_LIMIT === 0) {
+            await notifyBatch.commit();
+            notifyBatch = writeBatch(db);
+          }
         }
+        if (count % FIRESTORE_BATCH_LIMIT !== 0) {
+          await notifyBatch.commit();
+        }
+      } catch (notifError) {
+        console.warn("Failed to send expense notifications:", notifError);
       }
-      if (count % FIRESTORE_BATCH_LIMIT !== 0) {
-        await notifyBatch.commit();
-      }
-    } catch (notifError) {
-      console.warn("Failed to send expense notifications:", notifError);
-    }
+    })();
 
-    return expenseRef.id;
+    return expenseId;
   }
 
   async updateExpense(params: {
@@ -230,7 +260,12 @@ export class FirebaseExpenseService implements ExpenseService {
     if (params.description) updateData.description = params.description;
     if (params.amount) updateData.amount = params.amount;
     if (params.currency) updateData.currency = params.currency;
-    if (params.paidBy) updateData.paidBy = params.paidBy;
+    if (params.paidBy) {
+      updateData.paidBy = params.paidBy;
+      // Denormalize the new payer's display name onto the expense doc.
+      const paidByUserDoc = await getDoc(doc(db, "users", params.paidBy));
+      updateData.paidByName = paidByUserDoc.data()?.displayName || "";
+    }
     if (params.category) updateData.category = params.category;
     if (params.note !== undefined) updateData.note = params.note;
     if (params.transactionType !== undefined) updateData.transactionType = params.transactionType;
@@ -307,10 +342,16 @@ export class FirebaseExpenseService implements ExpenseService {
       ? `Updated income: ${params.description ?? oldExpense.description}`
       : `Updated expense: ${params.description ?? oldExpense.description}`;
 
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     batch.set(doc(collection(groupRef, "activities")), {
       type: updateActivityType,
       description: updateActivityDesc,
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { expenseId: params.expenseId, groupId: params.groupId },
       createdAt: now,
     });
@@ -345,6 +386,11 @@ export class FirebaseExpenseService implements ExpenseService {
     if (!isCreator && !isAdmin) throw new Error("Only the expense creator or group admin can delete this expense");
 
     const now = Date.now();
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
     batch.delete(expenseRef);
 
@@ -372,6 +418,8 @@ export class FirebaseExpenseService implements ExpenseService {
       type: deleteActivityType,
       description: deleteActivityDesc,
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { expenseId, groupId, amount: expenseData.amount },
       createdAt: now,
     });
@@ -432,6 +480,7 @@ export class FirebaseExpenseService implements ExpenseService {
         recurring: (data.recurring as RecurringConfig) ?? undefined,
         itemizedData: (data.itemizedData as ItemizedSplitData) ?? undefined,
         transactionType: (data.transactionType as TransactionType) ?? "expense",
+        paidByName: (data.paidByName as string) ?? "",
       };
     });
 
@@ -505,12 +554,26 @@ export class FirebaseExpenseService implements ExpenseService {
     });
 
     const balances = calculateBalances(expenses, settlements, memberUids);
+    const simplifiedDebts = simplifyDebts(balances);
 
     const balanceEntries = Array.from(balances.entries());
     const BATCH_SIZE = FIRESTORE_BATCH_LIMIT;
+
+    // If there are no balance entries, still store simplifiedDebts on the group doc
+    if (balanceEntries.length === 0) {
+      const batch = writeBatch(db);
+      batch.update(groupRef, { simplifiedDebts });
+      await batch.commit();
+      return;
+    }
+
     for (let i = 0; i < balanceEntries.length; i += BATCH_SIZE) {
       const chunk = balanceEntries.slice(i, i + BATCH_SIZE);
       const batch = writeBatch(db);
+      // Store simplifiedDebts on the group doc in the first batch
+      if (i === 0) {
+        batch.update(groupRef, { simplifiedDebts });
+      }
       for (const [memberUid, balance] of chunk) {
         batch.update(doc(groupRef, "members", memberUid), {
           balance: Math.round(balance * 100) / 100,

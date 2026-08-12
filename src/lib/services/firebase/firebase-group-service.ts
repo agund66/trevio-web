@@ -32,6 +32,9 @@ export class FirebaseGroupService implements GroupService {
 
     const userDoc = await getDoc(doc(db, "users", uid));
     const userCurrency = userDoc.data()?.defaultCurrency || DEFAULT_CURRENCY;
+    const displayName = userDoc.data()?.displayName || "";
+    const username = userDoc.data()?.username || "";
+    const photoURL = userDoc.data()?.photoURL || "";
 
     const now = Date.now();
     const inviteCode = generateInviteCode();
@@ -58,15 +61,21 @@ export class FirebaseGroupService implements GroupService {
     batch.set(groupRef, groupData);
     batch.set(doc(groupRef, "members", uid), {
       uid,
+      displayName,
+      username,
+      photoURL,
       role: "admin",
       joinedAt: now,
       balance: 0,
       status: "active",
+      isOffline: false,
     });
     batch.set(doc(collection(groupRef, "activities")), {
       type: "group_created",
       description: "Group created",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { groupName: name.trim() },
       createdAt: now,
     });
@@ -105,15 +114,32 @@ export class FirebaseGroupService implements GroupService {
     const now = Date.now();
     const batch = writeBatch(db);
 
+    // Fetch user profile for denormalization onto member doc
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const username = userDoc.data()?.username || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     if (memberDoc.exists() && memberDoc.data()?.status === "pending") {
-      batch.update(doc(groupDoc.ref, "members", uid), { status: "active", joinedAt: now });
+      batch.update(doc(groupDoc.ref, "members", uid), {
+        status: "active",
+        joinedAt: now,
+        displayName,
+        username,
+        photoURL,
+        isOffline: false,
+      });
     } else {
       batch.set(doc(groupDoc.ref, "members", uid), {
         uid,
+        displayName,
+        username,
+        photoURL,
         role: "member",
         joinedAt: now,
         balance: 0,
         status: "active",
+        isOffline: false,
       });
       batch.update(groupDoc.ref, {
         memberCount: increment(1),
@@ -124,6 +150,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_joined",
       description: "Member joined via invite code",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { groupId },
       createdAt: now,
     });
@@ -179,12 +207,21 @@ export class FirebaseGroupService implements GroupService {
     const groupRef = doc(db, "groups", groupId);
     const pendingMemberDoc = await getDoc(doc(groupRef, "members", toUid));
     if (!pendingMemberDoc.exists()) {
+      // Fetch invitee's profile for denormalization
+      const inviteeDoc = await getDoc(doc(db, "users", toUid));
+      const inviteeName = inviteeDoc.data()?.displayName || "";
+      const inviteeUsername = inviteeDoc.data()?.username || "";
+      const inviteePhoto = inviteeDoc.data()?.photoURL || "";
       await setDoc(doc(groupRef, "members", toUid), {
         uid: toUid,
+        displayName: inviteeName,
+        username: inviteeUsername,
+        photoURL: inviteePhoto,
         role: "member",
         joinedAt: now,
         balance: 0,
         status: "pending",
+        isOffline: false,
       });
       await updateDoc(groupRef, { memberCount: increment(1), updatedAt: now });
     }
@@ -223,12 +260,33 @@ export class FirebaseGroupService implements GroupService {
     const batch = writeBatch(db);
     batch.update(doc(db, "invitations", invitationId), { status: "accepted" });
 
+    // Fetch user profile for denormalization onto member doc
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const username = userDoc.data()?.username || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     const existingMemberDoc = await getDoc(doc(groupDoc.ref, "members", uid));
     if (existingMemberDoc.exists() && existingMemberDoc.data()?.status === "pending") {
-      batch.update(doc(groupDoc.ref, "members", uid), { status: "active", joinedAt: now });
+      batch.update(doc(groupDoc.ref, "members", uid), {
+        status: "active",
+        joinedAt: now,
+        displayName,
+        username,
+        photoURL,
+        isOffline: false,
+      });
     } else {
       batch.set(doc(groupDoc.ref, "members", uid), {
-        uid, role: "member", joinedAt: now, balance: 0, status: "active",
+        uid,
+        displayName,
+        username,
+        photoURL,
+        role: "member",
+        joinedAt: now,
+        balance: 0,
+        status: "active",
+        isOffline: false,
       });
       batch.update(groupDoc.ref, {
         memberCount: increment(1),
@@ -239,6 +297,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_joined",
       description: "Member joined via invitation",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { groupId, invitationId },
       createdAt: now,
     });
@@ -287,6 +347,11 @@ export class FirebaseGroupService implements GroupService {
 
     const memberData = memberDoc.data()!;
     const now = Date.now();
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
 
     if (memberData.role === "admin") {
@@ -315,6 +380,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_left",
       description: "Member left the group",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { groupId },
       createdAt: now,
     });
@@ -351,13 +418,13 @@ export class FirebaseGroupService implements GroupService {
         const memberData = groupsSnapshot.docs[index].data() as Record<string, unknown>;
         groups.push({
           groupId: groupDoc.id,
-          name: data.name as string,
-          description: data.description as string,
-          template: data.template as GroupTemplate,
-          currency: data.currency as string,
-          createdBy: data.createdBy as string,
-          inviteCode: data.inviteCode as string,
-          memberCount: data.memberCount as number,
+          name: (data.name as string) ?? "",
+          description: (data.description as string) ?? "",
+          template: (data.template as GroupTemplate) ?? "casual",
+          currency: (data.currency as string) ?? "INR",
+          createdBy: (data.createdBy as string) ?? "",
+          inviteCode: (data.inviteCode as string) ?? "",
+          memberCount: (data.memberCount as number) ?? 0,
           totalExpenses: data.totalExpenses as number,
           yourBalance: memberData.balance as number ?? 0,
           yourRole: memberData.role as string ?? "member",
@@ -384,14 +451,14 @@ export class FirebaseGroupService implements GroupService {
     const data = groupDoc.data() as Record<string, unknown>;
     return {
       groupId,
-      name: data.name as string,
-      description: data.description as string,
-      template: data.template as GroupTemplate,
-      currency: data.currency as string,
-      inviteCode: data.inviteCode as string,
-      createdBy: data.createdBy as string,
-      memberCount: data.memberCount as number,
-      totalExpenses: data.totalExpenses as number,
+      name: (data.name as string) ?? "",
+      description: (data.description as string) ?? "",
+      template: (data.template as GroupTemplate) ?? "casual",
+      currency: (data.currency as string) ?? "INR",
+      inviteCode: (data.inviteCode as string) ?? "",
+      createdBy: (data.createdBy as string) ?? "",
+      memberCount: (data.memberCount as number) ?? 0,
+      totalExpenses: (data.totalExpenses as number) ?? 0,
       archived: (data.archived as boolean) ?? false,
       monthlyBudget: (data.monthlyBudget as number) ?? undefined,
       budgetCategories: (data.budgetCategories as Record<string, number>) ?? undefined,
@@ -429,27 +496,15 @@ export class FirebaseGroupService implements GroupService {
 
     const activities: Activity[] = [];
 
-    const uniqueUserIds = [...new Set(snapshot.docs.map((d) => (d.data() as Record<string, unknown>).userId as string).filter(Boolean))];
-    const userDocs = await Promise.all(
-      uniqueUserIds.map((userId) => getDoc(doc(db, "users", userId)))
-    );
-    const userMap = new Map<string, Record<string, unknown>>();
-    userDocs.forEach((userDoc, i) => {
-      if (userDoc.exists()) {
-        userMap.set(uniqueUserIds[i], userDoc.data() as Record<string, unknown>);
-      }
-    });
-
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as Record<string, unknown>;
-      const userData = userMap.get((data.userId as string) ?? "");
       activities.push({
         activityId: docSnap.id,
         type: (data.type as string) ?? "unknown",
         description: (data.description as string) ?? "",
         userId: (data.userId as string) ?? "",
-        userName: (userData?.displayName as string) ?? "Someone",
-        userPhotoURL: (userData?.photoURL as string) ?? "",
+        userName: (data.userName as string) ?? "Someone",
+        userPhotoURL: (data.userPhotoURL as string) ?? "",
         data: (data.data as Record<string, unknown>) ?? {},
         createdAt: toMillis(data.createdAt),
       });
@@ -592,6 +647,11 @@ export class FirebaseGroupService implements GroupService {
     if (targetMemberDoc.data()?.status !== "active") throw new Error("Target user is not an active member");
 
     const now = Date.now();
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
     batch.update(doc(groupRef, "members", uid), { role: "member", updatedAt: now });
     batch.update(doc(groupRef, "members", newAdminUid), { role: "admin", updatedAt: now });
@@ -599,6 +659,8 @@ export class FirebaseGroupService implements GroupService {
       type: "admin_transferred",
       description: "Admin role transferred",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { newAdminUid },
       createdAt: now,
     });
@@ -621,6 +683,11 @@ export class FirebaseGroupService implements GroupService {
 
     const now = Date.now();
     const memberRef = doc(collection(groupRef, "members"));
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const creatorDisplayName = userDoc.data()?.displayName || "";
+    const creatorPhotoURL = userDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
     batch.set(memberRef, {
       uid: "",
@@ -640,6 +707,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_added",
       description: `Added offline member "${displayName.trim()}"`,
       userId: uid,
+      userName: creatorDisplayName,
+      userPhotoURL: creatorPhotoURL,
       data: { groupId, memberName: displayName.trim() },
       createdAt: now,
     });
@@ -661,6 +730,12 @@ export class FirebaseGroupService implements GroupService {
 
     const memberData = memberDoc.data() as Record<string, unknown>;
     const now = Date.now();
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const username = userDoc.data()?.username || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
 
     if (existingMemberDoc.exists()) {
@@ -670,7 +745,8 @@ export class FirebaseGroupService implements GroupService {
       batch.update(groupRef, { memberCount: increment(-1), updatedAt: now });
     } else {
       // No existing doc — create one with offline member's data
-      const claimedData = { ...memberData, uid, isOffline: false, claimedAt: now, claimedBy: uid };
+      // but denormalize the claiming user's username/photoURL
+      const claimedData = { ...memberData, uid, username, photoURL, isOffline: false, claimedAt: now, claimedBy: uid };
       batch.set(doc(groupRef, "members", uid), claimedData);
       batch.delete(doc(groupRef, "members", memberDocId));
     }
@@ -678,6 +754,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_claimed",
       description: "Member claimed offline profile",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { groupId, memberDocId },
       createdAt: now,
     });
@@ -703,6 +781,15 @@ export class FirebaseGroupService implements GroupService {
 
     const memberData = memberDoc.data() as Record<string, unknown>;
     const now = Date.now();
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+    // Fetch target user's profile for denormalization on the linked member doc
+    const targetUserDoc = await getDoc(doc(db, "users", realUid));
+    const targetUsername = targetUserDoc.data()?.username || "";
+    const targetPhotoURL = targetUserDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
 
     if (existingMemberDoc.exists()) {
@@ -712,7 +799,8 @@ export class FirebaseGroupService implements GroupService {
       batch.update(groupRef, { memberCount: increment(-1), updatedAt: now });
     } else {
       // No existing doc — create one with offline member's data
-      const linkedData = { ...memberData, uid: realUid, isOffline: false, claimedAt: now, claimedBy: uid };
+      // but denormalize the target user's username/photoURL
+      const linkedData = { ...memberData, uid: realUid, username: targetUsername, photoURL: targetPhotoURL, isOffline: false, claimedAt: now, claimedBy: uid };
       batch.set(doc(groupRef, "members", realUid), linkedData);
       batch.delete(doc(groupRef, "members", memberDocId));
     }
@@ -720,6 +808,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_linked",
       description: "Admin linked offline profile to user",
       userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { groupId, memberDocId, linkedUid: realUid },
       createdAt: now,
     });
@@ -754,6 +844,11 @@ export class FirebaseGroupService implements GroupService {
     const hasExpenses = !expensesSnapshot.empty;
 
     const now = Date.now();
+
+    const userDoc = await getDoc(doc(db, "users", callerUid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
     const batch = writeBatch(db);
 
     if (hasExpenses) {
@@ -777,6 +872,8 @@ export class FirebaseGroupService implements GroupService {
       type: "member_removed",
       description: `Removed member "${memberData.displayName}"`,
       userId: callerUid,
+      userName: displayName,
+      userPhotoURL: photoURL,
       data: { removedUid: memberUid, memberName: memberData.displayName, convertedToOffline: hasExpenses },
       createdAt: now,
     });

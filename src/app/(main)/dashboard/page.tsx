@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { JoinGroupDialog } from "@/components/join-group-dialog";
+import { ListItemSkeleton } from "@/components/skeleton";
 import { Plus, Users, Plane, Dumbbell, Coffee, Home, TrendingUp, TrendingDown, Wallet, ArrowRight, AlertCircle, LogIn } from "lucide-react";
 import { queryKeys } from "@/lib/constants/query-keys";
 import type { GroupTemplate } from "@/lib/types";
@@ -21,8 +22,6 @@ export default function DashboardPage() {
   const { data: groups, isLoading, error } = useQuery({
     queryKey: queryKeys.groups,
     queryFn: () => group.getUserGroups(),
-    refetchOnWindowFocus: true,
-    staleTime: 0,
   });
 
   const totalOwed = groups?.filter((g) => g.yourBalance > 0).reduce((sum, g) => sum + g.yourBalance, 0) ?? 0;
@@ -38,6 +37,14 @@ export default function DashboardPage() {
       case "household": return Home;
       default: return Coffee;
     }
+  };
+
+  const prefetchGroup = (groupId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ["groupInfo", groupId],
+      queryFn: () => group.getGroupInfo(groupId),
+      staleTime: 30_000,
+    });
   };
 
   return (
@@ -115,9 +122,10 @@ export default function DashboardPage() {
       {/* Groups */}
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
-          ))}
+          <ListItemSkeleton />
+          <ListItemSkeleton />
+          <ListItemSkeleton />
+          <ListItemSkeleton />
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -145,6 +153,7 @@ export default function DashboardPage() {
               <Link
                 key={g.groupId}
                 href={`/groups/${g.groupId}`}
+                onMouseEnter={() => prefetchGroup(g.groupId)}
                 className={`block rounded-2xl border p-3 md:p-4 transition hover:shadow-sm ${
                   isHouseholdGroup
                     ? "border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10 hover:border-teal-300 dark:hover:border-teal-700"

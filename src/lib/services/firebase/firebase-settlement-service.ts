@@ -99,12 +99,19 @@ export class FirebaseSettlementService implements SettlementService {
       ? (toMemberDoc.data()?.displayName as string) ?? "Someone"
       : (toUserDoc.data()?.displayName as string) ?? "Someone";
 
+    // Denormalize payer/payee display names onto the settlement doc
+    // for read-path efficiency (avoids per-doc member lookups).
+    settlementData.fromName = fromUserName;
+    settlementData.toName = toUserName;
+
     const batch = writeBatch(db);
     batch.set(settlementRef, settlementData);
     batch.set(doc(collection(groupRef, "activities")), {
       type: "settlement_added",
       description: `${fromUserName} settled ${params.currency} ${params.amount} with ${toUserName}`,
       userId: uid,
+      userName: (memberDoc.data()?.displayName as string) ?? "",
+      userPhotoURL: (memberDoc.data()?.photoURL as string) ?? "",
       data: {
         settlementId: settlementRef.id,
         fromUid: params.fromUid,
@@ -159,7 +166,15 @@ export class FirebaseSettlementService implements SettlementService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
-    const debts = await this.calculateSimplifiedDebts(groupId);
+    // Read simplifiedDebts from the group doc (stored during recalculateBalances).
+    // Fall back to full computation for older docs that don't have the field.
+    const groupDoc = await getDoc(groupRef);
+    const storedDebts = groupDoc.data()?.simplifiedDebts as
+      | Array<{ fromUid: string; toUid: string; amount: number }>
+      | undefined;
+    const debts = storedDebts && Array.isArray(storedDebts)
+      ? storedDebts
+      : await this.calculateSimplifiedDebts(groupId);
 
     const allUids = debts.flatMap((d) => [d.fromUid, d.toUid]).filter(Boolean);
     const uniqueUids = [...new Set(allUids)];
@@ -184,39 +199,15 @@ export class FirebaseSettlementService implements SettlementService {
       const fromIsOffline = fromMemberData?.isOffline === true;
       const toIsOffline = toMemberData?.isOffline === true;
 
-      let fromName: string;
-      let fromPhotoURL: string;
-      let fromUpiId: string;
-      if (fromIsOffline) {
-        fromName = (fromMemberData?.displayName as string) ?? "Unknown";
-        fromPhotoURL = "";
-        fromUpiId = "";
-      } else {
-        const fromData = userMap.get(debt.fromUid);
-        fromName = (fromData?.displayName as string) ?? "Unknown";
-        fromPhotoURL = (fromData?.photoURL as string) ?? "";
-        fromUpiId = (fromData?.upiId as string) ?? "";
-      }
+      const fromName = (fromMemberData?.displayName as string) ?? "Unknown";
+      const fromPhotoURL = (fromMemberData?.photoURL as string) ?? "";
+      const fromUpiId = fromIsOffline ? "" : ((userMap.get(debt.fromUid)?.upiId as string) ?? "");
 
-      let toName: string;
-      let toPhotoURL: string;
-      let toUpiId: string;
-      let toPhoneNumber: string;
-      let toCountryCode: string;
-      if (toIsOffline) {
-        toName = (toMemberData?.displayName as string) ?? "Unknown";
-        toPhotoURL = "";
-        toUpiId = "";
-        toPhoneNumber = "";
-        toCountryCode = "";
-      } else {
-        const toData = userMap.get(debt.toUid);
-        toName = (toData?.displayName as string) ?? "Unknown";
-        toPhotoURL = (toData?.photoURL as string) ?? "";
-        toUpiId = (toData?.upiId as string) ?? "";
-        toPhoneNumber = (toData?.phoneNumber as string) ?? "";
-        toCountryCode = (toData?.countryCode as string) ?? "";
-      }
+      const toName = (toMemberData?.displayName as string) ?? "Unknown";
+      const toPhotoURL = (toMemberData?.photoURL as string) ?? "";
+      const toUpiId = toIsOffline ? "" : ((userMap.get(debt.toUid)?.upiId as string) ?? "");
+      const toPhoneNumber = toIsOffline ? "" : ((userMap.get(debt.toUid)?.phoneNumber as string) ?? "");
+      const toCountryCode = toIsOffline ? "" : ((userMap.get(debt.toUid)?.countryCode as string) ?? "");
 
       return {
         ...debt,
@@ -250,43 +241,18 @@ export class FirebaseSettlementService implements SettlementService {
       )
     );
 
-    const onlineMemberIds = membersSnapshot.docs
-      .filter((d) => (d.data() as Record<string, unknown>).isOffline !== true)
-      .map((d) => d.id);
-
-    const userDocs = await Promise.all(
-      onlineMemberIds.map((memberUid) => getDoc(doc(db, "users", memberUid)))
-    );
-    const userMap = new Map<string, Record<string, unknown>>();
-    userDocs.forEach((d, i) => {
-      if (d.exists()) userMap.set(onlineMemberIds[i], d.data() as Record<string, unknown>);
-    });
-
     const members = membersSnapshot.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
       const isOffline = data.isOffline === true;
-      if (isOffline) {
-        return {
-          uid: d.id,
-          displayName: (data.displayName as string) ?? "Unknown",
-          username: "",
-          photoURL: "",
-          balance: (data.balance as number) ?? 0,
-          role: (data.role as string) ?? "member",
-          status: (data.status as string) ?? "active",
-          isOffline: true,
-        } as Member;
-      }
-      const userData = userMap.get(d.id);
       return {
         uid: d.id,
-        displayName: (userData?.displayName as string) ?? "Unknown",
-        username: (userData?.username as string) ?? "",
-        photoURL: (userData?.photoURL as string) ?? "",
+        displayName: (data.displayName as string) ?? "Unknown",
+        username: (data.username as string) ?? "",
+        photoURL: (data.photoURL as string) ?? "",
         balance: (data.balance as number) ?? 0,
         role: (data.role as string) ?? "member",
         status: (data.status as string) ?? "active",
-        isOffline: false,
+        isOffline,
       } as Member;
     });
 
@@ -328,18 +294,13 @@ export class FirebaseSettlementService implements SettlementService {
     }).filter(Boolean);
     const uniqueUids = [...new Set(allUids)];
 
-    const [memberDocs, userDocs] = await Promise.all([
-      Promise.all(uniqueUids.map((u) => getDoc(doc(groupRef, "members", u)))),
-      Promise.all(uniqueUids.map((u) => getDoc(doc(db, "users", u)))),
-    ]);
+    const memberDocs = await Promise.all(
+      uniqueUids.map((u) => getDoc(doc(groupRef, "members", u)))
+    );
 
     const memberMap = new Map<string, Record<string, unknown>>();
     memberDocs.forEach((d, i) => {
       if (d.exists()) memberMap.set(uniqueUids[i], d.data() as Record<string, unknown>);
-    });
-    const userMap = new Map<string, Record<string, unknown>>();
-    userDocs.forEach((d, i) => {
-      if (d.exists()) userMap.set(uniqueUids[i], d.data() as Record<string, unknown>);
     });
 
     const settlements = snapshot.docs.map((d) => {
@@ -347,24 +308,13 @@ export class FirebaseSettlementService implements SettlementService {
       const fromUid = (data.fromUid as string) ?? "";
       const toUid = (data.toUid as string) ?? "";
 
+      // Prefer denormalized names on the settlement doc; fall back to
+      // member-doc lookups for older docs that don't have these fields.
       const fromMemberData = memberMap.get(fromUid);
       const toMemberData = memberMap.get(toUid);
-      const fromIsOffline = fromMemberData?.isOffline === true;
-      const toIsOffline = toMemberData?.isOffline === true;
 
-      let fromName: string;
-      if (fromIsOffline) {
-        fromName = (fromMemberData?.displayName as string) ?? "Unknown";
-      } else {
-        fromName = (userMap.get(fromUid)?.displayName as string) ?? "Unknown";
-      }
-
-      let toName: string;
-      if (toIsOffline) {
-        toName = (toMemberData?.displayName as string) ?? "Unknown";
-      } else {
-        toName = (userMap.get(toUid)?.displayName as string) ?? "Unknown";
-      }
+      const fromName = (data.fromName as string) ?? (fromMemberData?.displayName as string) ?? "Unknown";
+      const toName = (data.toName as string) ?? (toMemberData?.displayName as string) ?? "Unknown";
 
       return {
         settlementId: d.id,
@@ -453,12 +403,25 @@ export class FirebaseSettlementService implements SettlementService {
     });
 
     const balances = calculateBalances(expenses, settlements, memberUids);
+    const simplifiedDebts = simplifyDebts(balances);
 
     const balanceEntries = Array.from(balances.entries());
+
+    // If there are no balance entries, still store simplifiedDebts on the group doc
+    if (balanceEntries.length === 0) {
+      const batch = writeBatch(db);
+      batch.update(groupRef, { simplifiedDebts });
+      await batch.commit();
+      return;
+    }
 
     for (let i = 0; i < balanceEntries.length; i += FIRESTORE_BATCH_LIMIT) {
       const chunk = balanceEntries.slice(i, i + FIRESTORE_BATCH_LIMIT);
       const batch = writeBatch(db);
+      // Store simplifiedDebts on the group doc in the first batch
+      if (i === 0) {
+        batch.update(groupRef, { simplifiedDebts });
+      }
       for (const [memberUid, balance] of chunk) {
         batch.update(doc(groupRef, "members", memberUid), {
           balance: Math.round(balance * 100) / 100,

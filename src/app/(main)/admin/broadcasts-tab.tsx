@@ -91,10 +91,10 @@ export function BroadcastsTab() {
     try {
       const all = await broadcast.getAllBroadcasts();
       setBroadcasts(all);
-      const counts: Record<string, number> = {};
-      for (const b of all) {
-        counts[b.id] = await broadcast.getReadCount(b.id);
-      }
+      const readCounts = await Promise.all(
+        all.map((b) => broadcast.getReadCount(b.id).then((count) => [b.id, count] as const))
+      );
+      const counts = Object.fromEntries(readCounts);
       setReadCounts(counts);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('broadcasts.failedToLoad'));

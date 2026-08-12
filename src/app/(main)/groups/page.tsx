@@ -9,6 +9,7 @@ import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { Plus, Users, Plane, Dumbbell, Coffee, AlertCircle, LogIn } from "lucide-react";
 import type { GroupTemplate } from "@/lib/types";
 import { JoinGroupDialog } from "@/components/join-group-dialog";
+import { ListItemSkeleton } from "@/components/skeleton";
 import { queryKeys } from "@/lib/constants/query-keys";
 
 export default function GroupsPage() {
@@ -55,8 +56,11 @@ export default function GroupsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 dark:border-slate-700 border-t-trevio-600" />
+        <div className="space-y-3">
+          <ListItemSkeleton />
+          <ListItemSkeleton />
+          <ListItemSkeleton />
+          <ListItemSkeleton />
         </div>
       ) : error ? (
         <div className="flex min-h-[50vh] items-center justify-center text-center">

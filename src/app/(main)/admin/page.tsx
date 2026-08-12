@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Shield, Megaphone, LifeBuoy } from "lucide-react";
-import { UsersTab } from "./users-tab";
-import { BroadcastsTab } from "./broadcasts-tab";
-import { SupportTab } from "./support-tab";
 import { cn } from "@/lib/utils";
+
+const UsersTab = dynamic(() => import("./users-tab").then((mod) => mod.UsersTab));
+const BroadcastsTab = dynamic(() => import("./broadcasts-tab").then((mod) => mod.BroadcastsTab));
+const SupportTab = dynamic(() => import("./support-tab").then((mod) => mod.SupportTab));
 
 type AdminTab = {
   id: string;

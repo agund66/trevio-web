@@ -137,7 +137,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
       allow update: if isSignedIn() && isNotBlocked(request.auth.uid) && (
         (isActiveMember(groupId, request.auth.uid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'monthlyBudget', 'currency', 'archived', 'archivedAt', 'updatedAt']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'monthlyBudget', 'currency', 'archived', 'archivedAt', 'simplifiedDebts', 'updatedAt']))
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'totalExpenses', 'updatedAt'])
       );
       allow delete: if isGroupAdmin(groupId, request.auth.uid);
@@ -153,6 +153,8 @@ service cloud.firestore {
       // Active member adding offline member: must set isOffline=true
       // and role="member".
       // Self-update: cannot change role or balance (prevent escalation).
+      //   Can update denormalized profile fields (displayName, username,
+      //   photoURL, isOffline) for profile sync.
       // Active member update: can only change balance (recalculation).
       // Admin update: can change role, uid, isOffline, status,
       //   displayName, photoURL, updatedAt (for admin transfer, member
@@ -177,9 +179,22 @@ service cloud.firestore {
           || (isActiveMember(groupId, request.auth.uid)
             && request.resource.data.isOffline == true
             && request.resource.data.role == "member")
+          // Invitation system: pending member doc created by inviter
+          || (isActiveMember(groupId, request.auth.uid)
+            && request.resource.data.role == "member"
+            && request.resource.data.status == "pending")
+          // Admin linking offline member to a real user (claim/link flow):
+          // admin creates a doc with the target user's UID, isOffline=false,
+          // role="member", status="active"
+          || (isGroupAdmin(groupId, request.auth.uid)
+            && request.resource.data.role == "member"
+            && request.resource.data.isOffline == false
+            && request.resource.data.status == "active")
         );
         allow update: if isSignedIn() && isNotBlocked(request.auth.uid) && (
           // Self-update: cannot change role or balance.
+          // Can update denormalized profile fields (displayName, username,
+          // photoURL, isOffline) for profile sync.
           // Cannot self-update if current status is "removed" or "left"
           // (prevents re-activation after admin removal or voluntary leave).
           (request.auth.uid == uid
@@ -190,10 +205,10 @@ service cloud.firestore {
           || (isActiveMember(groupId, request.auth.uid)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']))
           // Admin: can update role, uid, isOffline, status, displayName,
-          // photoURL, updatedAt (for admin transfer, member removal,
-          // offline conversion)
+          // photoURL, username, updatedAt (for admin transfer, member
+          // removal, offline conversion, profile sync)
           || (isGroupAdmin(groupId, request.auth.uid)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'uid', 'isOffline', 'status', 'displayName', 'photoURL', 'updatedAt']))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'uid', 'isOffline', 'status', 'displayName', 'photoURL', 'username', 'updatedAt']))
         );
         allow delete: if isSignedIn() && isNotBlocked(request.auth.uid) && (
           request.auth.uid == uid

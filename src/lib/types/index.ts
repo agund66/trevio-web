@@ -88,6 +88,7 @@ export interface Expense {
   transactionType?: TransactionType;
   originalAmount?: number;
   originalCurrency?: string;
+  paidByName?: string;
 }
 
 export type RecurringFrequency = "weekly" | "monthly";

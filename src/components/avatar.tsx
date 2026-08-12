@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 interface AvatarProps {
   photoURL?: string;
@@ -14,11 +15,14 @@ export function Avatar({ photoURL, displayName, className = "h-9 w-9", textClass
 
   if (photoURL && !imgError) {
     return (
-      <img
+      <Image
         src={photoURL}
         alt={displayName}
+        width={40}
+        height={40}
         className={`rounded-full shrink-0 ${className}`}
         referrerPolicy="no-referrer"
+        unoptimized
         onError={() => setImgError(true)}
       />
     );

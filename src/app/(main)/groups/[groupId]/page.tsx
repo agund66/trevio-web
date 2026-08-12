@@ -10,13 +10,17 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
 import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, UserX, CloudOff, BarChart3, Plane, Home, CalendarDays, TrendingUp } from "lucide-react";
-import type { UserSearchResult, Activity, Settlement, SplitType, Expense, TransactionType } from "@/lib/types";
+import Image from "next/image";
+import dynamic from "next/dynamic";
+import type { UserSearchResult, Activity, Settlement, SimplifiedDebt, SplitType, Expense, TransactionType } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
+import { CardSkeleton } from "@/components/skeleton";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
-import { TripView } from "@/components/trip-view";
+const TripView = dynamic(() => import("@/components/trip-view").then((mod) => mod.TripView));
 import { Avatar } from "@/components/avatar";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
+import { useGroupInfoSubscription, useGroupBalancesSubscription, useGroupExpensesSubscription } from "@/lib/hooks/use-group-detail-subscription";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { computeGamification } from "@/lib/utils/household-analytics";
 import { formatRelativeTime, formatShortDate } from "@/lib/utils/date";
@@ -38,6 +42,12 @@ export default function GroupDetailPage() {
   const router = useRouter();
   const groupId = params.groupId as string;
   const { expense, settlement, group, user: userService } = useServices();
+  // Real-time subscriptions for groupInfo and balances — feed into
+  // React Query cache so the useQuery calls below return cached data
+  // instantly (from IndexedDB) and update silently from server.
+  useGroupInfoSubscription(groupId);
+  useGroupBalancesSubscription(groupId);
+  useGroupExpensesSubscription(groupId);
   const { user: currentUser } = useAuth();
   const { formatBase, formatOriginal, formatDate: formatDateFn, userCurrency, rates, convertToUserCurrency, convertBase, isLoading: ratesLoading } = useCurrencyDisplay();
   const queryClient = useQueryClient();
@@ -125,6 +135,28 @@ export default function GroupDetailPage() {
         currency: BASE_CURRENCY,
         method: debt.method,
       }),
+    onMutate: (debt) => {
+      const debtsKey = ["debts", groupId];
+      // Snapshot the current debts so we can roll back on error
+      const previousDebts = queryClient.getQueryData<SimplifiedDebt[]>(debtsKey);
+      if (previousDebts) {
+        // Optimistically remove the settled debt from the list
+        queryClient.setQueryData<SimplifiedDebt[]>(
+          debtsKey,
+          previousDebts.filter(
+            (d) => !(d.fromUid === debt.fromUid && d.toUid === debt.toUid && Math.abs(d.amount - debt.amount) < 0.01)
+          )
+        );
+      }
+      return { previousDebts };
+    },
+    onError: (e: Error, _vars, context) => {
+      // Roll back the optimistic debt removal if the mutation failed
+      if (context?.previousDebts) {
+        queryClient.setQueryData(["debts", groupId], context.previousDebts);
+      }
+      setActionError(e.message);
+    },
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: ["debts", groupId] });
@@ -135,7 +167,6 @@ export default function GroupDetailPage() {
       activitiesPagination.refresh();
       settlementsPagination.refresh();
     },
-    onError: (e: Error) => setActionError(e.message),
   });
 
   const activitiesPagination = usePaginatedQuery({
@@ -391,8 +422,9 @@ export default function GroupDetailPage() {
       </button>
 
       {groupInfoLoading ? (
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-trevio-200 dark:border-slate-700 border-t-trevio-600" />
+        <div className="space-y-4">
+          <CardSkeleton />
+          <CardSkeleton />
         </div>
       ) : groupInfoError ? (
         <div className="flex min-h-[50vh] items-center justify-center text-center">
@@ -1107,7 +1139,7 @@ export default function GroupDetailPage() {
                     <p className="text-sm text-slate-900 dark:text-slate-100">{a.description}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {a.userPhotoURL && (
-                        <img src={a.userPhotoURL} alt={a.userName} className="h-4 w-4 rounded-full" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        <Image src={a.userPhotoURL} alt={a.userName} width={16} height={16} className="h-4 w-4 rounded-full" referrerPolicy="no-referrer" unoptimized onError={() => {}} />
                       )}
                       <span className="text-xs text-slate-400 dark:text-slate-500">{a.userName}{a.userId === currentUser?.uid && ` ${tcommon('youLabel')}`}</span>
                       <span className="text-xs text-slate-300 dark:text-slate-600">&middot;</span>

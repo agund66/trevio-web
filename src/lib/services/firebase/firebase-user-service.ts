@@ -61,6 +61,8 @@ export class FirebaseUserService implements UserService {
       countryCode: user.countryCode || "",
       updatedAt: Date.now(),
     });
+
+    await this.syncUserProfileToGroups();
   }
 
   async acceptTnC(): Promise<string> {
@@ -169,7 +171,46 @@ export class FirebaseUserService implements UserService {
       });
     });
 
+    await this.syncUserProfileToGroups();
+
     return normalized;
+  }
+
+  async syncUserProfileToGroups(): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+    if (!userDoc.exists()) return;
+
+    const displayName = userDoc.data()?.displayName || "";
+    const username = userDoc.data()?.username || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+
+    const membersSnapshot = await getDocs(
+      firestoreQuery(
+        collectionGroup(db, "members"),
+        where("uid", "==", uid),
+        where("status", "==", "active")
+      )
+    );
+
+    const memberDocs = membersSnapshot.docs.filter(
+      (d) => (d.data() as Record<string, unknown>).isOffline !== true
+    );
+
+    for (let i = 0; i < memberDocs.length; i += FIRESTORE_BATCH_LIMIT_MULTI_OP) {
+      const chunk = memberDocs.slice(i, i + FIRESTORE_BATCH_LIMIT_MULTI_OP);
+      const batch = writeBatch(db);
+      for (const memberDoc of chunk) {
+        batch.update(memberDoc.ref, {
+          displayName,
+          username,
+          photoURL,
+        });
+      }
+      await batch.commit();
+    }
   }
 
   async searchUsers(query: string): Promise<UserSearchResult[]> {

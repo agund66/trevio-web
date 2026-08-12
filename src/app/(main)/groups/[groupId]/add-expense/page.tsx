@@ -8,7 +8,7 @@ import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat, Receipt, TrendingDown, TrendingUp } from "lucide-react";
-import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem, TransactionType } from "@/lib/types";
+import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem, TransactionType, Expense } from "@/lib/types";
 import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
 import { getCategories, getCategoryLabel } from "@/lib/utils/household-categories";
 import { getCurrencySymbol } from "@/lib/utils/currency";
@@ -204,6 +204,37 @@ export default function AddExpensePage() {
         itemizedData: splitType === "itemized" ? itemizedData : undefined,
         transactionType: isHousehold ? transactionType : undefined,
       });
+    },
+    onMutate: () => {
+      const expenseKey = ["expenses", groupId];
+      // Snapshot the current expenses so we can roll back on error
+      const previousExpenses = queryClient.getQueryData<Expense[]>(expenseKey);
+      if (previousExpenses) {
+        const tempExpense: Expense = {
+          expenseId: `temp-${Date.now()}`,
+          description,
+          amount: numericAmount,
+          currency,
+          paidBy: paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid || "",
+          splitType,
+          splits: buildSplits(),
+          category,
+          createdBy: user?.uid ?? "",
+          date: new Date(expenseDate).getTime(),
+          note: note.trim() || undefined,
+          recurring: isRecurring ? { frequency: recurringFreq } : undefined,
+          itemizedData: splitType === "itemized" ? itemizedData : undefined,
+          transactionType: isHousehold ? transactionType : undefined,
+        };
+        queryClient.setQueryData<Expense[]>(expenseKey, [tempExpense, ...previousExpenses]);
+      }
+      return { previousExpenses };
+    },
+    onError: (_err, _vars, context) => {
+      // Roll back the optimistic expense if the mutation failed
+      if (context?.previousExpenses) {
+        queryClient.setQueryData(["expenses", groupId], context.previousExpenses);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });

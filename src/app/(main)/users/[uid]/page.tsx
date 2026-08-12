@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { useServices } from "@/lib/services/service-provider";
 import { ArrowLeft, Mail, AtSign, Wallet, Phone } from "lucide-react";
 import { getCountryByCode } from "@/lib/utils";
@@ -16,6 +17,7 @@ export default function PublicProfilePage() {
   const { user: userService } = useServices();
   const t = useTranslations("profile");
   const tc = useTranslations("common");
+  const [photoError, setPhotoError] = useState(false);
 
   const { data: profileUser, isLoading } = useQuery({
     queryKey: ["publicProfile", uid],
@@ -57,12 +59,13 @@ export default function PublicProfilePage() {
 
       <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="bg-gradient-to-br from-trevio-500 to-trevio-700 p-6 flex flex-col items-center text-center">
-          {profileUser.photoURL ? (
-            <img src={profileUser.photoURL} alt={profileUser.displayName} className="h-20 w-20 rounded-full border-4 border-white/30" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; const fallback = e.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = 'flex'; }} />
-          ) : null}
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold text-white" style={{ display: profileUser.photoURL ? 'none' : 'flex' }}>
-            {profileUser.displayName.charAt(0).toUpperCase()}
-          </div>
+          {profileUser.photoURL && !photoError ? (
+            <Image src={profileUser.photoURL} alt={profileUser.displayName} width={80} height={80} className="h-20 w-20 rounded-full border-4 border-white/30" referrerPolicy="no-referrer" unoptimized onError={() => setPhotoError(true)} />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold text-white">
+              {profileUser.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <h1 className="mt-3 text-xl font-bold text-white">{profileUser.displayName}</h1>
           <p className="text-sm text-white/80">@{profileUser.username}</p>
         </div>

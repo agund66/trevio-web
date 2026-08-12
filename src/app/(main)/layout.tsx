@@ -12,6 +12,7 @@ import { Home, Bell, User, LogOut, Users, Shield, Moon, Sun } from "lucide-react
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { useFcmNotifications } from "@/lib/hooks/use-fcm-notifications";
+import { useUserGroupsSubscription } from "@/lib/hooks/use-user-groups-subscription";
 import { OfflineBanner } from "@/components/offline-banner";
 import { useTranslations } from "next-intl";
 
@@ -24,6 +25,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
   useFcmNotifications();
+  // Real-time subscription for user's groups — feeds into React Query
+  // cache at queryKeys.groups so dashboard and groups list see live
+  // updates without manual refetching.
+  useUserGroupsSubscription();
 
   useEffect(() => {
     if (loading) return;
