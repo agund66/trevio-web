@@ -11,6 +11,8 @@ import { ListItemSkeleton } from "@/components/skeleton";
 import { Plus, Users, Plane, Dumbbell, Coffee, Home, TrendingUp, TrendingDown, Wallet, ArrowRight, AlertCircle, LogIn } from "lucide-react";
 import { queryKeys } from "@/lib/constants/query-keys";
 import type { GroupTemplate } from "@/lib/types";
+import { useAuth } from "@/lib/hooks/use-auth";
+import { Avatar } from "@/components/avatar";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
@@ -18,6 +20,7 @@ export default function DashboardPage() {
   const { group } = useServices();
   const { formatBase } = useCurrencyDisplay();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: groups, isLoading, error } = useQuery({
     queryKey: queryKeys.groups,
@@ -50,7 +53,12 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
+        <div className="flex items-center gap-3">
+          <Link href="/profile" className="md:hidden">
+            <Avatar photoURL={user?.photoURL} displayName={user?.displayName || ""} className="h-10 w-10" />
+          </Link>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowJoinDialog(true)}

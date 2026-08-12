@@ -8,7 +8,7 @@ import { useServices } from "@/lib/services/service-provider";
 import { TrevioLogo } from "@/components/trevio-logo";
 import { BroadcastPopup } from "@/components/broadcast-popup";
 import { Avatar } from "@/components/avatar";
-import { Home, Bell, User, LogOut, Users, Shield, Moon, Sun } from "lucide-react";
+import { Home, Bell, LogOut, Users, Shield, Moon, Sun, MoreHorizontal, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { useFcmNotifications } from "@/lib/hooks/use-fcm-notifications";
@@ -24,6 +24,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { theme, mode, toggleTheme } = useTheme();
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
+  const tp = useTranslations("profile");
   useFcmNotifications();
   // Real-time subscription for user's groups — feeds into React Query
   // cache at queryKeys.groups so dashboard and groups list see live
@@ -60,14 +61,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { href: "/groups", label: t("nav.groups"), icon: Users },
     { href: "/notifications", label: t("nav.notifications"), icon: Bell },
     ...(user.role === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
+    { href: "/support", label: tp("actions.helpSupport"), icon: HelpCircle },
+    { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
   ];
 
   const mobileNavItems = [
     { href: "/dashboard", label: t("nav.home"), icon: Home },
     { href: "/groups", label: t("nav.groups"), icon: Users },
     { href: "/notifications", label: t("nav.notifications"), icon: Bell },
-    { href: "/profile", label: t("nav.profile"), icon: User },
-    ...(user.role === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
+    { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
   ];
 
   return (

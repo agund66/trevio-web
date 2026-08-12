@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { Edit3, Check, X, FileText, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor, LogOut, LifeBuoy } from "lucide-react";
+import { Edit3, Check, X, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
-import { TermsDialog } from "@/components/terms-dialog";
 import { Avatar } from "@/components/avatar";
 import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber } from "@/lib/utils";
 import { SUPPORTED_CURRENCIES, getCurrencySymbol } from "@/lib/utils/currency";
@@ -35,7 +33,6 @@ export default function ProfilePage() {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [upiTouched, setUpiTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [currencySearch, setCurrencySearch] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -419,47 +416,16 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setShowTerms(true)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                <FileText className="h-4 w-4" />
-                {t("actions.terms")}
-              </button>
-
-              <Link
-                href="/support"
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                <LifeBuoy className="h-4 w-4" />
-                {t("actions.helpSupport")}
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <Trash2 className="h-4 w-4" />
                 {t("deleteAccount.button")}
               </button>
-
-              <button
-                onClick={signOut}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 md:hidden"
-              >
-                <LogOut className="h-4 w-4" />
-                {t("actions.signOut")}
-              </button>
             </div>
           </div>
         </div>
       )}
-
-      <TermsDialog
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-      />
 
       {/* Currency change confirmation dialog (Point 3) */}
       {showCurrencyChangeConfirm && pendingCurrency && (

@@ -12,6 +12,7 @@ import household from "./household.json";
 import notifications from "./notifications.json";
 import support from "./support.json";
 import admin from "./admin.json";
+import more from "./more.json";
 import validation from "./validation.json";
 import categories from "./categories.json";
 import countries from "./countries.json";
@@ -28,6 +29,7 @@ const en = {
   notifications,
   support,
   admin,
+  more,
   validation,
   categories,
   countries,
