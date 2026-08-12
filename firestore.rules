@@ -64,7 +64,8 @@ service cloud.firestore {
 
     // ─── Users ───────────────────────────────────────────────────────
     // Any authenticated user can read user profiles (needed for member
-    // display names, photos, activity attribution, settlement names).
+    // display names, photos, activity attribution, settlement names,
+    // and user search by username).
     // A user can create/delete their own document.
     // Self-create: role MUST be "user" and blocked MUST be false (prevent
     // privilege escalation via crafted user documents).
@@ -87,8 +88,9 @@ service cloud.firestore {
       // ─── Notifications (subcollection) ───────────────────────────
       // Only the owner can read their notifications.
       // Any authenticated, non-blocked user can create a notification
-      // for another user (e.g. invitations, settlement alerts) but only
-      // the owner can update (mark as read).
+      // for another user (e.g. invitations, settlement alerts, expense
+      // notifications, support responses) but only the owner can update
+      // (mark as read) or delete.
       match /notifications/{notificationId} {
         allow read: if isSignedIn() && request.auth.uid == uid;
         allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
@@ -99,7 +101,9 @@ service cloud.firestore {
 
     // ─── Collection Group: members ────────────────────────────────
     // Top-level rule for collectionGroup("members") queries used by
-    // getUserGroups(). Only allows reading own member docs.
+    // getUserGroups(), syncUserProfileToGroups(), and real-time
+    // subscription hooks. Only allows reading own member docs (where
+    // the doc ID or uid field matches the authenticated user).
     // Within-group reads of other members' docs are handled by the
     // more specific /groups/{groupId}/members/{uid} rule below.
     match /{path=**}/members/{memberUid} {
@@ -110,9 +114,10 @@ service cloud.firestore {
     }
 
     // ─── Usernames ──────────────────────────────────────────────────
-    // Any authenticated user can check if a username is available.
+    // Any authenticated user can check if a username is available
+    // (needed for invitation-by-username lookup and uniqueness checks).
     // Any authenticated, non-blocked user can create/delete their own
-    // username entries.
+    // username entries. Usernames are immutable (no update).
     match /usernames/{username} {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
@@ -125,9 +130,11 @@ service cloud.firestore {
 
     // ─── Groups ─────────────────────────────────────────────────────
     // Any authenticated user can read group docs (needed for invite code
-    // lookup during join flow).
+    // lookup during join flow and for group list subscriptions).
+    // Any authenticated, non-blocked user can create a group.
     // Active members can update group metadata fields only (name,
-    // description, monthlyBudget, currency, archived, archivedAt, updatedAt).
+    // description, monthlyBudget, currency, budgetCategories, archived,
+    // archivedAt, simplifiedDebts, updatedAt).
     // Non-members can only update memberCount, totalExpenses, updatedAt
     // (for batch writes during join/accept/decline/expense flows where
     // membership is being established or financial totals are updated).
@@ -137,30 +144,42 @@ service cloud.firestore {
       allow create: if isSignedIn() && isNotBlocked(request.auth.uid);
       allow update: if isSignedIn() && isNotBlocked(request.auth.uid) && (
         (isActiveMember(groupId, request.auth.uid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'monthlyBudget', 'currency', 'archived', 'archivedAt', 'simplifiedDebts', 'updatedAt']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'monthlyBudget', 'currency', 'budgetCategories', 'archived', 'archivedAt', 'simplifiedDebts', 'updatedAt']))
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'totalExpenses', 'updatedAt'])
       );
       allow delete: if isGroupAdmin(groupId, request.auth.uid);
 
       // ─── Members (subcollection) ────────────────────────────────
       // Users can read their own member doc or any member doc if they
-      // are an active member of the group.
+      // are an active member of the group (needed for balance display,
+      // member lists, activity attribution).
+      //
       // Self-join (create with own UID):
       //   - During group creation (group doesn't exist yet): role can
       //     be "admin" (the creator becomes admin).
       //   - Joining an existing group: role MUST be "member" (prevent
       //     self-assigning admin role on existing groups).
       // Active member adding offline member: must set isOffline=true
-      // and role="member".
+      //   and role="member".
+      // Invitation system: pending member doc created by inviter with
+      //   role="member", status="pending".
+      // Admin linking offline member to a real user (claim/link flow):
+      //   admin creates a doc with the target user's UID, isOffline=false,
+      //   role="member", status="active".
+      //
       // Self-update: cannot change role or balance (prevent escalation).
       //   Can update denormalized profile fields (displayName, username,
-      //   photoURL, isOffline) for profile sync.
+      //   photoURL, isOffline, status, joinedAt) for profile sync and
+      //   join/accept/decline/leave flows.
+      //   Cannot self-update if current status is "removed" or "left"
+      //   (prevents re-activation after admin removal or voluntary leave).
       // Active member update: can only change balance (recalculation).
-      // Admin update: can change role, uid, isOffline, status,
-      //   displayName, photoURL, updatedAt (for admin transfer, member
-      //   removal, and offline conversion).
+      // Admin update: can change role, uid, isOffline, status, displayName,
+      //   photoURL, username, updatedAt (for admin transfer, member
+      //   removal, offline conversion, profile sync).
+      //
       // Self-delete for leaving; admin delete for cleanup; active
-      // member delete offline docs.
+      //   member delete offline docs.
       match /members/{uid} {
         allow read: if isSignedIn() && (
           request.auth.uid == uid
@@ -194,7 +213,8 @@ service cloud.firestore {
         allow update: if isSignedIn() && isNotBlocked(request.auth.uid) && (
           // Self-update: cannot change role or balance.
           // Can update denormalized profile fields (displayName, username,
-          // photoURL, isOffline) for profile sync.
+          // photoURL, isOffline, status, joinedAt) for profile sync and
+          // join/accept/decline/leave flows.
           // Cannot self-update if current status is "removed" or "left"
           // (prevents re-activation after admin removal or voluntary leave).
           (request.auth.uid == uid
@@ -219,31 +239,54 @@ service cloud.firestore {
       }
 
       // ─── Expenses (subcollection) ───────────────────────────────
-      // Only active, non-blocked group members can read/create/update/delete expenses.
+      // Only active, non-blocked group members can read/create expenses.
+      // Update: only the expense creator or group admin can edit.
+      //   Exception: active members can update only paidBy and splits
+      //   fields (needed for migrateMemberReferences during
+      //   claim/link offline member flows).
+      // Delete: only the expense creator or group admin.
       match /expenses/{expenseId} {
         allow read: if isActiveMember(groupId, request.auth.uid);
         allow create: if isActiveMember(groupId, request.auth.uid)
           && isNotBlocked(request.auth.uid);
-        allow update: if isActiveMember(groupId, request.auth.uid)
-          && isNotBlocked(request.auth.uid);
-        allow delete: if isActiveMember(groupId, request.auth.uid)
-          && isNotBlocked(request.auth.uid);
+        allow update: if isSignedIn() && isNotBlocked(request.auth.uid)
+          && isActiveMember(groupId, request.auth.uid)
+          && (
+            // Creator or admin can update any field
+            resource.data.createdBy == request.auth.uid
+            || isGroupAdmin(groupId, request.auth.uid)
+            // Active member can update only paidBy and splits (for
+            // migrateMemberReferences during claim/link offline member)
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paidBy', 'splits'])
+          );
+        allow delete: if isSignedIn() && isNotBlocked(request.auth.uid)
+          && isActiveMember(groupId, request.auth.uid)
+          && (
+            resource.data.createdBy == request.auth.uid
+            || isGroupAdmin(groupId, request.auth.uid)
+          );
       }
 
       // ─── Settlements (subcollection) ────────────────────────────
-      // Only active, non-blocked group members can read/create/update settlements.
+      // Only active, non-blocked group members can read/create settlements.
+      // Settlements are immutable once created (no direct update API).
+      //   Exception: active members can update only fromUid and toUid
+      //   fields (needed for migrateMemberReferences during
+      //   claim/link offline member flows).
       // Active admin can delete (for group deletion).
       match /settlements/{settlementId} {
         allow read: if isActiveMember(groupId, request.auth.uid);
         allow create: if isActiveMember(groupId, request.auth.uid)
           && isNotBlocked(request.auth.uid);
-        allow update: if isActiveMember(groupId, request.auth.uid)
-          && isNotBlocked(request.auth.uid);
+        allow update: if isSignedIn() && isNotBlocked(request.auth.uid)
+          && isActiveMember(groupId, request.auth.uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fromUid', 'toUid']);
         allow delete: if isGroupAdmin(groupId, request.auth.uid);
       }
 
       // ─── Trip (subcollection) ─────────────────────────────────────
       // Only active, non-blocked group members can read/write trip data.
+      // The service code uses setDoc with merge for create/update.
       match /trip/{docId} {
         allow read: if isActiveMember(groupId, request.auth.uid);
         allow write: if isActiveMember(groupId, request.auth.uid)
@@ -269,7 +312,7 @@ service cloud.firestore {
     // Only the invited user or the inviter can read an invitation.
     // Any authenticated, non-blocked user can create an invitation (when
     // inviting someone to a group). Only the invited user can update the
-    // status (accept/decline).
+    // status (accept/decline). Invitations are never deleted (audit trail).
     match /invitations/{invitationId} {
       allow read: if isSignedIn()
         && (resource.data.toUid == request.auth.uid
@@ -292,6 +335,7 @@ service cloud.firestore {
       // Users can read their own read/acknowledgment records.
       // Superadmins can read all reads (for read count queries).
       // Users can create/update their own read records (acknowledge).
+      // Read records are never deleted.
       match /reads/{uid} {
         allow read: if isSignedIn() && (
           request.auth.uid == uid
@@ -306,8 +350,9 @@ service cloud.firestore {
     // ─── Support Tickets ───────────────────────────────────────────
     // Users can read only their own tickets. Superadmins can read all.
     // Users create tickets only for themselves (userId == auth.uid).
-    // Users can update their own tickets (e.g. reopen). Superadmins
-    // can update any ticket (status changes, priority, etc.).
+    // Users can update their own tickets (e.g. reopen, mark read) but
+    //   cannot change priority. Superadmins can update any ticket
+    //   (status changes, priority, mark read, etc.).
     // Tickets are never deleted (audit trail for money-related issues).
     match /supportTickets/{ticketId} {
       allow read: if isSignedIn() && (
