@@ -13,13 +13,13 @@ service cloud.firestore {
     }
 
     function isNotBlocked(uid) {
-      return userDoc(uid).exists()
+      return exists(/databases/$(database)/documents/users/$(uid))
         && userDoc(uid).data.blocked != true;
     }
 
     function isSuperadmin(uid) {
       return isSignedIn()
-        && userDoc(uid).exists()
+        && exists(/databases/$(database)/documents/users/$(uid))
         && userDoc(uid).data.blocked != true
         && userDoc(uid).data.role == "superadmin";
     }
@@ -30,19 +30,15 @@ service cloud.firestore {
 
     function isActiveMember(groupId, uid) {
       return isSignedIn()
-        && memberDoc(groupId, uid).exists()
+        && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
         && memberDoc(groupId, uid).data.status == "active";
     }
 
     function isGroupAdmin(groupId, uid) {
       return isSignedIn()
-        && memberDoc(groupId, uid).exists()
+        && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
         && memberDoc(groupId, uid).data.role == "admin"
         && memberDoc(groupId, uid).data.status == "active";
-    }
-
-    function groupDoc(groupId) {
-      return get(/databases/$(database)/documents/groups/$(groupId));
     }
 
     // ─── Config ─────────────────────────────────────────────────────
@@ -189,11 +185,11 @@ service cloud.firestore {
           // Group creation: self-join with admin role (group doesn't exist yet)
           (request.auth.uid == uid
             && request.resource.data.role == "admin"
-            && !groupDoc(groupId).exists())
+            && !exists(/databases/$(database)/documents/groups/$(groupId)))
           // Self-join existing group: must be "member" role
           || (request.auth.uid == uid
             && request.resource.data.role == "member"
-            && groupDoc(groupId).exists())
+            && exists(/databases/$(database)/documents/groups/$(groupId)))
           // Active member adding offline member
           || (isActiveMember(groupId, request.auth.uid)
             && request.resource.data.isOffline == true
