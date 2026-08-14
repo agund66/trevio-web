@@ -10,7 +10,6 @@ import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { Avatar } from "@/components/avatar";
 import { CountryPhoneInput } from "@/components/country-phone-input";
 import { getCountryByCode, getCurrencyForCountry, getTimezoneForCountry, validateUpiId, validatePhoneNumber } from "@/lib/utils";
-import { getCurrencySymbol } from "@/lib/utils/currency";
 import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
 import { queryKeys } from "@/lib/constants/query-keys";
 import type { User } from "@/lib/types";
@@ -265,7 +264,6 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
               <ProfileRow label={t("fields.username")} value={`@${user.username}`} />
               <ProfileRow label={t("fields.email")} value={user.email} />
-              <ProfileRow label={t("fields.defaultCurrency")} value={`${getCurrencySymbol(user.defaultCurrency)} ${user.defaultCurrency}`} />
               <ProfileRow
                 label={t("fields.mobileNumber")}
                 value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : tc("status.notSet")}
