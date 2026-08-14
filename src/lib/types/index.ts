@@ -20,6 +20,7 @@ export interface User {
   upiId?: string;
   phoneNumber?: string;
   countryCode?: string;
+  timezone?: string;
 }
 
 export interface Group {

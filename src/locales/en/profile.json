@@ -9,7 +9,8 @@
     "mobileNumber": "Mobile Number",
     "upiId": "UPI ID",
     "upiIdOptional": "UPI ID (optional)",
-    "phonePlaceholder": "{phoneLength}-digit number"
+    "phonePlaceholder": "{phoneLength}-digit number",
+    "countryHint": "Currency: {currency} · Timezone: {timezone}"
   },
   "payment": {
     "title": "Payment Info",
@@ -33,7 +34,6 @@
     "validFormat": "Valid UPI ID format",
     "placeholder": "yourname@okhdfcbank"
   },
-  "searchCurrency": "Search currency...",
   "deleteAccount": {
     "title": "Delete Account?",
     "confirm": "This will permanently delete your account, remove you from all groups, and erase your data. This action cannot be undone.",
@@ -44,12 +44,6 @@
     "terms": "Terms",
     "helpSupport": "Help & Support",
     "signOut": "Sign Out"
-  },
-  "currencyChange": {
-    "title": "Change Default Currency?",
-    "confirm": "Past expenses will keep their original currency. New expenses and groups will use {currency}. Balances will be displayed in {currency}.",
-    "confirmButton": "Change Currency",
-    "keepCurrent": "Keep Current"
   },
   "userNotFound": "User not found."
 }

@@ -16,13 +16,18 @@ export function getLocaleForCurrency(currency: string): string {
 export function formatDate(
   timestamp: number,
   currency: string,
-  includeTime: boolean = false
+  includeTime: boolean = false,
+  timezone?: string
 ): string {
   if (!timestamp) return "";
   const locale = getLocaleForCurrency(currency);
   const date = new Date(timestamp);
+  const tzOptions: Intl.DateTimeFormatOptions = timezone
+    ? { timeZone: timezone }
+    : {};
   if (includeTime) {
     return date.toLocaleString(locale, {
+      ...tzOptions,
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -31,6 +36,7 @@ export function formatDate(
     });
   }
   return date.toLocaleDateString(locale, {
+    ...tzOptions,
     year: "numeric",
     month: "short",
     day: "numeric",

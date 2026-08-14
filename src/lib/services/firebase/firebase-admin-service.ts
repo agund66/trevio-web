@@ -13,6 +13,7 @@ import { db, auth } from "../../firebase";
 import type { AdminService } from "../interfaces/admin-service";
 import type { User, UserRole } from "../../types";
 import { DEFAULT_CURRENCY } from "../../constants/currency";
+import { DEFAULT_TIMEZONE } from "../../constants/countries";
 
 export class FirebaseAdminService implements AdminService {
   async getAllUsers(pageSize: number = 50, lastUserUid?: string): Promise<{ users: User[]; hasMore: boolean; lastUserUid: string | null }> {
@@ -49,6 +50,7 @@ export class FirebaseAdminService implements AdminService {
         upiId: (data.upiId as string) || "",
         phoneNumber: (data.phoneNumber as string) || "",
         countryCode: (data.countryCode as string) || "",
+        timezone: (data.timezone as string) || DEFAULT_TIMEZONE,
       } as User;
     });
     return {

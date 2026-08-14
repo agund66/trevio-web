@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Phone, Check, ChevronDown } from "lucide-react";
+import { Phone } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { COUNTRY_CODES, getCountryByCode, validatePhoneNumber } from "@/lib/utils";
+import { getCurrencyForCountry, getTimezoneForCountry, validatePhoneNumber } from "@/lib/utils";
 import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
+import { CountryPhoneInput } from "@/components/country-phone-input";
 
 interface PhoneSetupDialogProps {
   open: boolean;
@@ -20,7 +21,6 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
   const tc = useTranslations("common");
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
@@ -36,8 +36,8 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
 
   if (!open) return null;
 
-  const country = getCountryByCode(countryCode);
   const validation = validatePhoneNumber(phoneNumber, countryCode);
+  const isIndiaSelected = countryCode === "IN";
 
   const handleSave = async () => {
     setTouched(true);
@@ -59,6 +59,8 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
         ...user,
         phoneNumber: phoneNumber.replace(/\D/g, ""),
         countryCode,
+        defaultCurrency: getCurrencyForCountry(countryCode),
+        timezone: getTimezoneForCountry(countryCode),
       });
       await refreshUser();
       onComplete();
@@ -78,72 +80,28 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("title")}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{t("subtitle")}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isIndiaSelected ? t("subtitle") : t("subtitleGeneric")}
+            </p>
           </div>
         </div>
 
         <div className="px-6 py-5 space-y-4">
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            {t("description")}
+            {isIndiaSelected ? t("description") : t("descriptionGeneric")}
           </p>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t("mobileNumber")}</label>
-            <div className="flex gap-2">
-              <div className="relative">
-                <button
-                  onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                  className="flex h-[46px] items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <span className="text-lg">{country.flag}</span>
-                  <span>{country.dialCode}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                </button>
-                {showCountryDropdown && (
-                  <div className="absolute top-full left-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg max-h-60 overflow-y-auto">
-                    {COUNTRY_CODES.map((c) => (
-                      <button
-                        key={c.code}
-                        onClick={() => {
-                          setCountryCode(c.code);
-                          setShowCountryDropdown(false);
-                          setTouched(false);
-                        }}
-                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700 ${
-                          c.code === countryCode ? "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300" : "text-slate-700 dark:text-slate-200"
-                        }`}
-                      >
-                        <span className="text-lg">{c.flag}</span>
-                        <span className="flex-1">{c.name}</span>
-                        <span className="text-slate-400 dark:text-slate-500">{c.dialCode}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => {
-                  setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, country.phoneLength));
-                  setTouched(false);
-                }}
-                onBlur={() => setTouched(true)}
-                placeholder={t('phonePlaceholder', { phoneLength: country.phoneLength })}
-                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
-                autoFocus
-              />
-            </div>
-            {touched && !validation.valid && (
-              <p className="text-sm text-red-500 dark:text-red-400">{validation.error}</p>
-            )}
-            {validation.valid && (
-              <p className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
-                <Check className="h-4 w-4" />
-                {t("validNumber", { phoneLength: country.phoneLength })}
-              </p>
-            )}
-          </div>
+          <CountryPhoneInput
+            countryCode={countryCode}
+            onCountryChange={(code) => { setCountryCode(code); setTouched(false); }}
+            phoneNumber={phoneNumber}
+            onPhoneChange={setPhoneNumber}
+            onPhoneBlur={() => setTouched(true)}
+            touched={touched}
+            validation={validation}
+            label={t("mobileNumber")}
+            autoFocus
+          />
 
           {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
         </div>

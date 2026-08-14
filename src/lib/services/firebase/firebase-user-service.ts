@@ -22,6 +22,7 @@ import type { User, UserSearchResult, UserRole } from "../../types";
 import { generateBaseUsername } from "../../utils/calculations";
 import { FIRESTORE_BATCH_LIMIT_MULTI_OP } from "../../constants/firestore";
 import { DEFAULT_CURRENCY } from "../../constants/currency";
+import { DEFAULT_TIMEZONE } from "../../constants/countries";
 
 export class FirebaseUserService implements UserService {
   async getUser(uid: string): Promise<User> {
@@ -43,6 +44,7 @@ export class FirebaseUserService implements UserService {
       upiId: data.upiId || "",
       phoneNumber: data.phoneNumber || "",
       countryCode: data.countryCode || "",
+      timezone: data.timezone || DEFAULT_TIMEZONE,
     };
   }
 
@@ -59,6 +61,7 @@ export class FirebaseUserService implements UserService {
       upiId: user.upiId || "",
       phoneNumber: user.phoneNumber || "",
       countryCode: user.countryCode || "",
+      timezone: user.timezone || DEFAULT_TIMEZONE,
       updatedAt: Date.now(),
     });
 

@@ -5,12 +5,12 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useServices } from "@/lib/services/service-provider";
-import { Edit3, Check, X, Phone, ChevronDown, Smartphone, Search, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor } from "lucide-react";
+import { Edit3, Check, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { Avatar } from "@/components/avatar";
-import { COUNTRY_CODES, getCountryByCode, validateUpiId, validatePhoneNumber } from "@/lib/utils";
-import { SUPPORTED_CURRENCIES, getCurrencySymbol } from "@/lib/utils/currency";
-import { DEFAULT_CURRENCY } from "@/lib/constants/currency";
+import { CountryPhoneInput } from "@/components/country-phone-input";
+import { getCountryByCode, getCurrencyForCountry, getTimezoneForCountry, validateUpiId, validatePhoneNumber } from "@/lib/utils";
+import { getCurrencySymbol } from "@/lib/utils/currency";
 import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
 import { queryKeys } from "@/lib/constants/query-keys";
 import type { User } from "@/lib/types";
@@ -26,25 +26,18 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [defaultCurrency, setDefaultCurrency] = useState(DEFAULT_CURRENCY);
   const [upiId, setUpiId] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [upiTouched, setUpiTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
-  const [currencySearch, setCurrencySearch] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [showCurrencyChangeConfirm, setShowCurrencyChangeConfirm] = useState(false);
-  const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
 
   if (!user) return null;
 
   const startEdit = () => {
     setDisplayName(user.displayName);
-    setDefaultCurrency(user.defaultCurrency);
     setUpiId(user.upiId || "");
     setPhoneNumber(user.phoneNumber || "");
     setCountryCode(user.countryCode || DEFAULT_COUNTRY_CODE);
@@ -58,30 +51,8 @@ export default function ProfilePage() {
   const editCountry = getCountryByCode(countryCode);
   const isIndiaSelected = editCountry.code === "IN";
 
-  const handleCurrencySelect = (code: string) => {
-    if (code !== user.defaultCurrency) {
-      setPendingCurrency(code);
-      setShowCurrencyChangeConfirm(true);
-      setShowCurrencyDropdown(false);
-      setCurrencySearch("");
-    } else {
-      setDefaultCurrency(code);
-      setShowCurrencyDropdown(false);
-      setCurrencySearch("");
-    }
-  };
-
-  const confirmCurrencyChange = () => {
-    if (pendingCurrency) {
-      setDefaultCurrency(pendingCurrency);
-    }
-    setPendingCurrency(null);
-    setShowCurrencyChangeConfirm(false);
-  };
-
   const handleCountrySelect = (code: string) => {
     setCountryCode(code);
-    setShowCountryDropdown(false);
     setPhoneTouched(false);
   };
 
@@ -107,10 +78,11 @@ export default function ProfilePage() {
       const updated: User = {
         ...user,
         displayName,
-        defaultCurrency,
+        defaultCurrency: getCurrencyForCountry(countryCode),
         upiId,
         phoneNumber: phoneNumber.replace(/\D/g, ""),
         countryCode,
+        timezone: getTimezoneForCountry(countryCode),
       };
       await userService.updateUser(updated);
       await refreshUser();
@@ -123,8 +95,6 @@ export default function ProfilePage() {
       setSaving(false);
     }
   };
-
-  const currencies = SUPPORTED_CURRENCIES;
 
   const country = getCountryByCode(user.countryCode || DEFAULT_COUNTRY_CODE);
   const hasUpiId = !!(user.upiId && user.upiId.trim());
@@ -159,120 +129,18 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t("fields.defaultCurrency")}</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
-                className="flex w-full items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm focus:border-trevio-500 focus:outline-none"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="text-lg font-semibold text-trevio-600 dark:text-trevio-400">
-                    {getCurrencySymbol(defaultCurrency)}
-                  </span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{defaultCurrency}</span>
-                  <span className="text-slate-500 dark:text-slate-400">
-                    {currencies.find((c) => c.code === defaultCurrency)?.name}
-                  </span>
-                </span>
-                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showCurrencyDropdown ? "rotate-180" : ""}`} />
-              </button>
-              {showCurrencyDropdown && (
-                <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg max-h-64 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2">
-                      <Search className="h-4 w-4 text-slate-400" />
-                      <input
-                        type="text"
-                        value={currencySearch}
-                        onChange={(e) => setCurrencySearch(e.target.value)}
-                        placeholder={t("searchCurrency")}
-                        className="flex-1 bg-transparent text-sm text-slate-900 dark:text-slate-100 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="overflow-y-auto">
-                    {currencies
-                      .filter((c) =>
-                        c.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
-                        c.name.toLowerCase().includes(currencySearch.toLowerCase())
-                      )
-                      .map((c) => (
-                        <button
-                          key={c.code}
-                          type="button"
-                          onClick={() => handleCurrencySelect(c.code)}
-                          className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 ${
-                            defaultCurrency === c.code ? "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300" : "text-slate-700 dark:text-slate-300"
-                          }`}
-                        >
-                          <span className="text-lg font-semibold w-6 text-center">{c.symbol}</span>
-                          <span className="font-medium w-12">{c.code}</span>
-                          <span className="text-slate-500 dark:text-slate-400">{c.name}</span>
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              {t("fields.mobileNumber")} <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-2">
-              <div className="relative">
-                <button
-                  onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                  className="flex h-[46px] items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <span className="text-lg">{editCountry.flag}</span>
-                  <span>{editCountry.dialCode}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                {showCountryDropdown && (
-                  <div className="absolute top-full left-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg max-h-60 overflow-y-auto">
-                    {COUNTRY_CODES.map((c) => (
-                      <button
-                        key={c.code}
-                        onClick={() => handleCountrySelect(c.code)}
-                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800 ${
-                          c.code === countryCode ? "bg-trevio-50 dark:bg-trevio-900/30 text-trevio-700 dark:text-trevio-300" : "text-slate-700 dark:text-slate-300"
-                        }`}
-                      >
-                        <span className="text-lg">{c.flag}</span>
-                        <span className="flex-1">{c.name}</span>
-                        <span className="text-slate-400 dark:text-slate-500">{c.dialCode}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => {
-                  setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, editCountry.phoneLength));
-                  setPhoneTouched(false);
-                }}
-                onBlur={() => setPhoneTouched(true)}
-                placeholder={t('fields.phonePlaceholder', { phoneLength: editCountry.phoneLength })}
-                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
-              />
-            </div>
-            {phoneTouched && !phoneValidation.valid && (
-              <p className="mt-1.5 text-sm text-red-500">{phoneValidation.error}</p>
-            )}
-            {phoneValidation.valid && phoneNumber && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
-                <Check className="h-4 w-4" />
-                {t("validation.validPhone", { phoneLength: editCountry.phoneLength })}
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-              {isIndiaSelected ? t("payment.mobileUsedForUpi") : t("fields.mobileNumber")}
-            </p>
+            <CountryPhoneInput
+              countryCode={countryCode}
+              onCountryChange={handleCountrySelect}
+              phoneNumber={phoneNumber}
+              onPhoneChange={(v) => { setPhoneNumber(v); setPhoneTouched(false); }}
+              onPhoneBlur={() => setPhoneTouched(true)}
+              touched={phoneTouched}
+              validation={phoneValidation}
+              label={t("fields.mobileNumber")}
+              required
+              hint={`${isIndiaSelected ? t("payment.mobileUsedForUpi") + " · " : ""}${t("fields.countryHint", { currency: getCurrencyForCountry(countryCode), timezone: getTimezoneForCountry(countryCode) })}`}
+            />
           </div>
 
           {isIndiaSelected && (
@@ -338,7 +206,7 @@ export default function ProfilePage() {
                 <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
                 <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">{t("payment.title")}</span>
               </div>
-              {hasUpiId ? (
+              {userIsInIndia && hasUpiId ? (
                 <>
                   <p className="text-sm text-trevio-600 dark:text-trevio-400">{user.upiId}</p>
                   <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaUpiId")}</p>
@@ -421,40 +289,6 @@ export default function ProfilePage() {
               >
                 <Trash2 className="h-4 w-4" />
                 {t("deleteAccount.button")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Currency change confirmation dialog (Point 3) */}
-      {showCurrencyChangeConfirm && pendingCurrency && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-100 dark:bg-trevio-900/30">
-                <Wallet className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
-              </div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("currencyChange.title")}</h2>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
-              {t("currencyChange.confirm", { currency: pendingCurrency })}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setPendingCurrency(null);
-                  setShowCurrencyChangeConfirm(false);
-                }}
-                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                {t("currencyChange.keepCurrent")}
-              </button>
-              <button
-                onClick={confirmCurrencyChange}
-                className="flex-1 rounded-xl bg-trevio-600 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
-              >
-                {t("currencyChange.confirmButton")}
               </button>
             </div>
           </div>

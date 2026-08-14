@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, Check, Search } from "lucide-react";
 import { COUNTRY_CODES, getCountryByCode, type CountryInfo } from "@/lib/constants/countries";
@@ -20,9 +20,17 @@ interface CountryPhoneInputProps {
   autoFocus?: boolean;
 }
 
+// Sort countries alphabetically by name (case-insensitive).
+const SORTED_COUNTRIES = [...COUNTRY_CODES].sort((a, b) =>
+  a.name.localeCompare(b.name)
+);
+
 /**
  * Shared country code + phone number input with searchable dropdown.
  * Replaces the duplicated country dropdowns in profile and phone-setup-dialog.
+ *
+ * Countries are sorted alphabetically. When the dropdown opens, it
+ * auto-scrolls to the currently selected country.
  */
 export function CountryPhoneInput({
   countryCode,
@@ -41,16 +49,30 @@ export function CountryPhoneInput({
   const [showDropdown, setShowDropdown] = useState(false);
   const [search, setSearch] = useState("");
   const t = useTranslations("common");
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<HTMLButtonElement>(null);
 
   const country = getCountryByCode(countryCode);
-  const filtered = search
-    ? COUNTRY_CODES.filter(
-        (c) =>
-          c.name.toLowerCase().includes(search.toLowerCase()) ||
-          c.code.toLowerCase().includes(search.toLowerCase()) ||
-          c.dialCode.includes(search)
-      )
-    : COUNTRY_CODES;
+
+  const filtered = useMemo(() => {
+    if (!search) return SORTED_COUNTRIES;
+    const lower = search.toLowerCase();
+    return SORTED_COUNTRIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(lower) ||
+        c.code.toLowerCase().includes(lower) ||
+        c.dialCode.includes(search)
+    );
+  }, [search]);
+
+  // Auto-scroll so the selected country is at the 2nd position
+  // (one item visible above it, so the user can see the list continues).
+  useEffect(() => {
+    if (showDropdown && !search && selectedRef.current && listRef.current) {
+      const itemHeight = selectedRef.current.offsetHeight;
+      listRef.current.scrollTop = selectedRef.current.offsetTop - itemHeight;
+    }
+  }, [showDropdown, search]);
 
   return (
     <div className="space-y-2">
@@ -87,10 +109,11 @@ export function CountryPhoneInput({
                     />
                   </div>
                 </div>
-                <div className="overflow-y-auto">
+                <div ref={listRef} className="overflow-y-auto">
                   {filtered.map((c: CountryInfo) => (
                     <button
                       key={c.code}
+                      ref={c.code === countryCode ? selectedRef : undefined}
                       onClick={() => {
                         onCountryChange(c.code);
                         setShowDropdown(false);

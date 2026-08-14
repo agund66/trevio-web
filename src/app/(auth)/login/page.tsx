@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { Check } from "lucide-react";
 import { TrevioIcon } from "@/components/trevio-logo";
 import { TermsDialog } from "@/components/terms-dialog";
 import { PhoneSetupDialog } from "@/components/phone-setup-dialog";
@@ -71,6 +72,21 @@ export default function LoginPage() {
             <TrevioIcon size={80} />
             <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">{t("appName")}</h1>
             <p className="mt-2 text-base text-white/85">{t("tagline")}</p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {[
+              t("featureTrack"),
+              t("featureSplit"),
+              t("featureSettle"),
+            ].map((feature) => (
+              <div key={feature} className="flex items-center gap-2.5">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+                <span className="text-sm text-white/90">{feature}</span>
+              </div>
+            ))}
           </div>
 
           <div className="flex w-full max-w-sm flex-col items-center">

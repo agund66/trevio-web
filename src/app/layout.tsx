@@ -8,8 +8,8 @@ import { I18nProvider } from "@/lib/i18n";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Trevio - Split bills. Simplify life.",
-  description: "Split expenses with friends, track who owes whom, and settle up easily.",
+  title: "Trevio - Split bills & track daily expenses.",
+  description: "Split bills with friends, track daily expenses, and settle up easily with UPI or cash.",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",

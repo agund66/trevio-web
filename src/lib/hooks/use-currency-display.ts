@@ -5,6 +5,7 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { convertCurrency, convertFromBase, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
 import { DEFAULT_CURRENCY, BASE_CURRENCY } from "@/lib/constants/currency";
+import { DEFAULT_TIMEZONE } from "@/lib/constants/countries";
 import { EXCHANGE_RATE_STALE_TIME } from "@/lib/constants/app";
 import { queryKeys } from "@/lib/constants/query-keys";
 
@@ -19,6 +20,7 @@ export function useCurrencyDisplay() {
   });
 
   const userCurrency = currentUser?.defaultCurrency || DEFAULT_CURRENCY;
+  const userTimezone = currentUser?.timezone || DEFAULT_TIMEZONE;
   const rateMap = rates?.rates;
 
   const formatBase = (amountInBase: number): string => {
@@ -51,7 +53,7 @@ export function useCurrencyDisplay() {
     convertBase,
     convertToUserCurrency,
     formatDate: (timestamp: number, includeTime: boolean = false) =>
-      formatDate(timestamp, userCurrency, includeTime),
+      formatDate(timestamp, userCurrency, includeTime, userTimezone),
     isLoading: !rates,
   };
 }

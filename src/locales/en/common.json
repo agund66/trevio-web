@@ -68,7 +68,7 @@
   "termsTitle": "Terms & Conditions",
   "understood": "Understood",
   "okGotIt": "OK, Got it",
-  "tagline": "Split bills. Simplify life.",
+  "tagline": "Split bills & track daily expenses.",
   "youLabel": "(You)",
   "broadcast": {
     "priority": {
@@ -95,7 +95,7 @@
     "acceptAndContinue": "Accept & Continue"
   },
   "shareInviteTitle": "Join \"{groupName}\" on Trevio",
-  "shareInviteText": "You've been invited to join \"{groupName}\" on Trevio. Tap to join and start splitting bills!",
+  "shareInviteText": "You've been invited to join \"{groupName}\" on Trevio. Tap to join and start splitting bills & tracking expenses together!",
   "linkCopied": "Link Copied!",
   "shareInviteLink": "Share Invite Link",
   "downloadQr": "Download QR",

@@ -105,7 +105,7 @@
     "namePaidYou": "{name} paid you",
     "namePaidName": "{name1} paid {name2}",
     "shareTitle": "Join \"{name}\" on Trevio",
-    "shareText": "You've been invited to join \"{name}\" on Trevio. Tap to join and start splitting bills!",
+    "shareText": "You've been invited to join \"{name}\" on Trevio. Tap to join and start splitting bills & tracking expenses together!",
     "copied": "Copied!",
     "inviteCodeLabel": "Code: {code}",
     "tabToday": "Today",
@@ -174,7 +174,7 @@
     "youOwe": "you owe",
     "settledUp": "settled up",
     "membersCount": "{count} {count, plural, =1 {member} other {members}}",
-    "emptyHint": "Create your first group to start splitting bills with friends."
+    "emptyHint": "Create a group to split bills with friends, or a household to track daily expenses."
   },
   "analytics": {
     "monthlySpending": "Monthly Spending",

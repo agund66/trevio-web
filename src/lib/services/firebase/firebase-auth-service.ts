@@ -10,6 +10,7 @@ import { auth, googleProvider, db } from "../../firebase";
 import type { AuthService } from "../interfaces/auth-service";
 import type { User, UserRole } from "../../types";
 import { DEFAULT_CURRENCY } from "../../constants/currency";
+import { DEFAULT_TIMEZONE } from "../../constants/countries";
 
 export class FirebaseAuthService implements AuthService {
   async signInWithGoogle(): Promise<string> {
@@ -61,6 +62,7 @@ export class FirebaseAuthService implements AuthService {
         blocked: false,
         phoneNumber: phone,
         countryCode,
+        timezone: DEFAULT_TIMEZONE,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -110,6 +112,7 @@ export class FirebaseAuthService implements AuthService {
         blocked: false,
         phoneNumber: phone,
         countryCode,
+        timezone: DEFAULT_TIMEZONE,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -130,6 +133,7 @@ export class FirebaseAuthService implements AuthService {
         upiId: "",
         phoneNumber: phone,
         countryCode,
+        timezone: DEFAULT_TIMEZONE,
       };
     }
 
@@ -149,6 +153,7 @@ export class FirebaseAuthService implements AuthService {
       upiId: data.upiId || "",
       phoneNumber: data.phoneNumber || "",
       countryCode: data.countryCode || "",
+      timezone: data.timezone || DEFAULT_TIMEZONE,
     };
   }
 

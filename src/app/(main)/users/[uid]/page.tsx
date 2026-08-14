@@ -92,7 +92,7 @@ export default function PublicProfilePage() {
           </div>
 
           {/* Payment info */}
-          {profileUser.upiId ? (
+          {profileUser.upiId && profileUser.countryCode === "IN" ? (
             <div className="flex items-center gap-3 rounded-xl bg-trevio-50 dark:bg-trevio-900/20 p-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-trevio-100 dark:bg-trevio-900/40">
                 <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />

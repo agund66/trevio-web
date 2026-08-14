@@ -5,7 +5,7 @@ import { getCountryByCode } from "./constants/countries";
 
 // Re-export country constants and helpers for backward compatibility
 // — existing imports use `from "@/lib/utils"`
-export { COUNTRY_CODES, getCountryByCode } from "./constants/countries";
+export { COUNTRY_CODES, getCountryByCode, getCurrencyForCountry, getTimezoneForCountry } from "./constants/countries";
 export type { CountryInfo } from "./constants/countries";
 
 export function cn(...inputs: ClassValue[]) {
@@ -50,10 +50,13 @@ export function validatePhoneNumber(phone: string, countryCode: string): { valid
 }
 
 export function buildUpiVpa(upiId: string, phoneNumber: string, countryCode: string): string | null {
+  // UPI is India-specific — don't build VPA for other countries
+  // even if the user has a UPI ID set (e.g. they changed country after setting one).
+  const country = getCountryByCode(countryCode);
+  if (country.code !== "IN") return null;
   if (upiId) return upiId;
   if (phoneNumber) {
-    const country = getCountryByCode(countryCode);
-    if (country.code === "IN") return `${phoneNumber}@paytm`;
+    return `${phoneNumber}@paytm`;
   }
   return null;
 }
