@@ -89,6 +89,7 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["publicProfile"] });
       queryClient.invalidateQueries({ queryKey: queryKeys.groups });
       setEditing(false);
+      setSaving(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("validation.failedToUpdate"));
       setSaving(false);
@@ -132,7 +133,7 @@ export default function ProfilePage() {
               countryCode={countryCode}
               onCountryChange={handleCountrySelect}
               phoneNumber={phoneNumber}
-              onPhoneChange={(v) => { setPhoneNumber(v); setPhoneTouched(false); }}
+              onPhoneChange={(v) => setPhoneNumber(v)}
               onPhoneBlur={() => setPhoneTouched(true)}
               touched={phoneTouched}
               validation={phoneValidation}

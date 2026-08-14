@@ -151,7 +151,7 @@ export function CountryPhoneInput({
       {showValidation && touched && validation && !validation.valid && (
         <p className="text-sm text-red-500 dark:text-red-400">{validation.error}</p>
       )}
-      {showValidation && validation?.valid && phoneNumber && (
+      {showValidation && touched && validation?.valid && phoneNumber && (
         <p className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
           <Check className="h-4 w-4" />
           {t('validNumber', { phoneLength: country.phoneLength })}
