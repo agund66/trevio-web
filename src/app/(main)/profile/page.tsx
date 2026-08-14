@@ -199,35 +199,37 @@ export default function ProfilePage() {
               <p className="text-xs text-slate-400 dark:text-slate-500">{user.email}</p>
             </div>
 
-            {/* Payment info card */}
-            <div className="rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
-                <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">{t("payment.title")}</span>
+            {/* Payment info card — UPI is India-specific, only show for India */}
+            {userIsInIndia && (
+              <div className="rounded-2xl border border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet className="h-4 w-4 text-trevio-600 dark:text-trevio-400" />
+                  <span className="text-sm font-semibold text-trevio-700 dark:text-trevio-300">{t("payment.title")}</span>
+                </div>
+                {hasUpiId ? (
+                  <>
+                    <p className="text-sm text-trevio-600 dark:text-trevio-400">{user.upiId}</p>
+                    <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaUpiId")}</p>
+                  </>
+                ) : hasPhone ? (
+                  <>
+                    <p className="text-sm text-trevio-600 dark:text-trevio-400">{country.dialCode} {user.phoneNumber}</p>
+                    <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaMobile")}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-trevio-600 dark:text-trevio-400">{t("payment.noPaymentInfo")}</p>
+                    <button
+                      onClick={startEdit}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {t("payment.setUpPaymentInfo")}
+                    </button>
+                  </>
+                )}
               </div>
-              {userIsInIndia && hasUpiId ? (
-                <>
-                  <p className="text-sm text-trevio-600 dark:text-trevio-400">{user.upiId}</p>
-                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaUpiId")}</p>
-                </>
-              ) : hasPhone ? (
-                <>
-                  <p className="text-sm text-trevio-600 dark:text-trevio-400">{country.dialCode} {user.phoneNumber}</p>
-                  <p className="mt-1 text-xs text-trevio-400 dark:text-trevio-500">{t("payment.payViaMobile")}</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-trevio-600 dark:text-trevio-400">{t("payment.noPaymentInfo")}</p>
-                  <button
-                    onClick={startEdit}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-trevio-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-trevio-700"
-                  >
-                    <Plus className="h-3 w-3" />
-                    {t("payment.setUpPaymentInfo")}
-                  </button>
-                </>
-              )}
-            </div>
+            )}
 
             {/* Appearance */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
