@@ -4,12 +4,13 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { Shield, Megaphone, LifeBuoy } from "lucide-react";
+import { Shield, Megaphone, LifeBuoy, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const UsersTab = dynamic(() => import("./users-tab").then((mod) => mod.UsersTab));
 const BroadcastsTab = dynamic(() => import("./broadcasts-tab").then((mod) => mod.BroadcastsTab));
 const SupportTab = dynamic(() => import("./support-tab").then((mod) => mod.SupportTab));
+const RemindersTab = dynamic(() => import("./reminders-tab").then((mod) => mod.RemindersTab));
 
 type AdminTab = {
   id: string;
@@ -26,6 +27,7 @@ export default function AdminDashboardPage() {
     { id: "users", label: t('usersTab'), icon: Shield },
     { id: "broadcasts", label: t('tabs.broadcasts'), icon: Megaphone },
     { id: "support", label: t('supportTab'), icon: LifeBuoy },
+    { id: "reminders", label: t('tabs.reminders'), icon: Bell },
   ];
 
   if (!currentUser) {
@@ -80,6 +82,7 @@ export default function AdminDashboardPage() {
       {activeTab === "users" && <UsersTab />}
       {activeTab === "broadcasts" && <BroadcastsTab />}
       {activeTab === "support" && <SupportTab />}
+      {activeTab === "reminders" && <RemindersTab />}
     </div>
   );
 }

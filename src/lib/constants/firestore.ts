@@ -26,6 +26,7 @@ export const COLLECTIONS = {
 
 export const CONFIG_DOCS = {
   EXCHANGE_RATES: "config/exchangeRates",
+  DAILY_REMINDER: "config/dailyReminder",
 } as const;
 
 // ─── Subcollection names ──────────────────────────────────────────

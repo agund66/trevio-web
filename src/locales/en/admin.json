@@ -9,7 +9,8 @@
   "tabs": {
     "users": "Users",
     "support": "Support",
-    "broadcasts": "Broadcasts"
+    "broadcasts": "Broadcasts",
+    "reminders": "Reminders"
   },
   "users": {
     "search": "Search users...",
