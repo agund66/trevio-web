@@ -7,6 +7,9 @@ const nextConfig = {
       { protocol: "https", hostname: "firebasestorage.googleapis.com" },
     ],
   },
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
 };
 
 module.exports = nextConfig;

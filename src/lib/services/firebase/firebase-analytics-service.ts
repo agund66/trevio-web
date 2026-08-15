@@ -17,9 +17,20 @@ export class FirebaseAnalyticsService implements AnalyticsService {
 
     const expensesRef = collection(db, "groups", groupId, "expenses");
     const q = firestoreQuery(expensesRef, orderBy("date", "desc"), limit(500));
-    const snapshot = await getDocs(q);
+
+    const [expensesSnapshot, membersSnapshot, groupInfoDoc] = await Promise.all([
+      getDocs(q),
+      getDocs(
+        firestoreQuery(
+          collection(db, "groups", groupId, "members"),
+          where("status", "in", ["active", "pending"])
+        )
+      ),
+      getDoc(doc(db, "groups", groupId)),
+    ]);
+
     const expenses: Expense[] = [];
-    snapshot.forEach((doc) => {
+    expensesSnapshot.forEach((doc) => {
       const data = doc.data() as Record<string, unknown>;
       expenses.push({
         expenseId: doc.id,
@@ -36,12 +47,6 @@ export class FirebaseAnalyticsService implements AnalyticsService {
       });
     });
 
-    const membersSnapshot = await getDocs(
-      firestoreQuery(
-        collection(db, "groups", groupId, "members"),
-        where("status", "in", ["active", "pending"])
-      )
-    );
     const members = membersSnapshot.docs.map((d) => {
       const data = d.data();
       return {
@@ -55,7 +60,6 @@ export class FirebaseAnalyticsService implements AnalyticsService {
       };
     });
 
-    const groupInfoDoc = await getDoc(doc(db, "groups", groupId));
     const groupName = groupInfoDoc.data()?.name || groupId;
 
     return computeGroupAnalytics(groupId, groupName, expenses, members, "");

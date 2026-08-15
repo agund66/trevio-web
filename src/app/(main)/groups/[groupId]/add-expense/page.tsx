@@ -13,6 +13,7 @@ import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
 import { getCategories, getCategoryLabel } from "@/lib/utils/household-categories";
 import { getCurrencySymbol } from "@/lib/utils/currency";
 import { formatDateToISO } from "@/lib/utils/date";
+import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 
 function evaluateMathExpression(tokens: string[]): number {
   const output: (number | string)[] = [];
@@ -83,6 +84,7 @@ export default function AddExpensePage() {
   const { data: groupInfo } = useQuery({
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
+    staleTime: GROUP_INFO_STALE_TIME,
   });
 
   const isHousehold = groupInfo?.template === "household";

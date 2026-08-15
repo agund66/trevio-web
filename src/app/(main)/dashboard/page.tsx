@@ -13,6 +13,7 @@ import { queryKeys } from "@/lib/constants/query-keys";
 import type { GroupTemplate } from "@/lib/types";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Avatar } from "@/components/avatar";
+import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
@@ -46,7 +47,7 @@ export default function DashboardPage() {
     queryClient.prefetchQuery({
       queryKey: ["groupInfo", groupId],
       queryFn: () => group.getGroupInfo(groupId),
-      staleTime: 30_000,
+      staleTime: GROUP_INFO_STALE_TIME,
     });
   };
 

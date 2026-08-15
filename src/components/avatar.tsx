@@ -22,7 +22,7 @@ export function Avatar({ photoURL, displayName, className = "h-9 w-9", textClass
         height={40}
         className={`rounded-full shrink-0 ${className}`}
         referrerPolicy="no-referrer"
-        unoptimized
+        sizes="40px"
         onError={() => setImgError(true)}
       />
     );

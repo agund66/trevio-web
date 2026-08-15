@@ -4,8 +4,6 @@
     "displayName": "Display Name",
     "username": "Username",
     "email": "Email",
-    "defaultCurrency": "Default Currency",
-    "currency": "Currency",
     "mobileNumber": "Mobile Number",
     "upiId": "UPI ID",
     "upiIdOptional": "UPI ID (optional)",

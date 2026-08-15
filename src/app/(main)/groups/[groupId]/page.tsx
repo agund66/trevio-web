@@ -21,7 +21,7 @@ import { Avatar } from "@/components/avatar";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
 import { useGroupInfoSubscription, useGroupBalancesSubscription, useGroupExpensesSubscription } from "@/lib/hooks/use-group-detail-subscription";
-import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
+import { DEFAULT_PAGE_SIZE, GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 import { computeGamification } from "@/lib/utils/household-analytics";
 import { formatRelativeTime, formatShortDate } from "@/lib/utils/date";
 import { DailyTab, MonthlyReportTab, EditEntrySheet, EntryDetailSheet } from "@/components/household";
@@ -87,6 +87,7 @@ export default function GroupDetailPage() {
   const { data: groupInfo, isLoading: groupInfoLoading, error: groupInfoError } = useQuery({
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
+    staleTime: GROUP_INFO_STALE_TIME,
   });
 
   const isHousehold = groupInfo?.template === "household";
@@ -308,7 +309,7 @@ export default function GroupDetailPage() {
   const isAdmin = currentUser?.uid === groupInfo?.createdBy ||
     members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);
     if (query.trim().length < 1) {
       setSearchResults([]);
@@ -320,18 +321,18 @@ export default function GroupDetailPage() {
     } catch {
       setSearchResults([]);
     }
-  };
+  }, [userService, members]);
 
-  const copyInviteCode = () => {
+  const copyInviteCode = useCallback(() => {
     if (groupInfo?.inviteCode) {
       navigator.clipboard?.writeText(groupInfo.inviteCode).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }).catch(() => {});
     }
-  };
+  }, [groupInfo?.inviteCode]);
 
-  const shareInviteLink = async () => {
+  const shareInviteLink = useCallback(async () => {
     if (!groupInfo?.inviteCode) return;
     const url = `${window.location.origin}/join/${groupInfo.inviteCode}`;
     if (navigator.share) {
@@ -348,7 +349,7 @@ export default function GroupDetailPage() {
         setTimeout(() => setShared(false), 2000);
       }).catch(() => {});
     }
-  };
+  }, [groupInfo?.inviteCode, groupInfo?.name, t]);
 
   const buildUpiLink = (upiId: string, phoneNumber: string, countryCode: string, amount: number, note: string) => {
     const vpa = buildUpiVpa(upiId, phoneNumber, countryCode);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -56,21 +56,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   if (!user) return null;
 
-  const desktopNavItems = [
+  const desktopNavItems = useMemo(() => [
     { href: "/dashboard", label: t("nav.home"), icon: Home },
     { href: "/groups", label: t("nav.groups"), icon: Users },
     { href: "/notifications", label: t("nav.notifications"), icon: Bell },
     ...(user.role === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
     { href: "/support", label: tp("actions.helpSupport"), icon: HelpCircle },
     { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
-  ];
+  ], [user.role, t, tp]);
 
-  const mobileNavItems = [
+  const mobileNavItems = useMemo(() => [
     { href: "/dashboard", label: t("nav.home"), icon: Home },
     { href: "/groups", label: t("nav.groups"), icon: Users },
     { href: "/notifications", label: t("nav.notifications"), icon: Bell },
     { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
-  ];
+  ], [t]);
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">

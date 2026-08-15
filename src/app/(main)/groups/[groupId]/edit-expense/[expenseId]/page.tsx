@@ -12,6 +12,7 @@ import type { SplitType, SplitEntry, ItemizedSplitData, TransactionType } from "
 import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
 import { getCategories, getCategoryLabel } from "@/lib/utils/household-categories";
 import { getCurrencySymbol } from "@/lib/utils/currency";
+import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 
 function evaluateMathExpression(tokens: string[]): number {
   const output: (number | string)[] = [];
@@ -85,6 +86,7 @@ export default function EditExpensePage() {
   const { data: groupInfo } = useQuery({
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
+    staleTime: GROUP_INFO_STALE_TIME,
   });
 
   const isHousehold = groupInfo?.template === "household";

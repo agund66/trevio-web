@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
 import { BASE_CURRENCY } from "@/lib/constants/currency";
+import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check, LogOut, Wallet } from "lucide-react";
 
 export default function GroupSettingsPage() {
@@ -43,6 +44,7 @@ export default function GroupSettingsPage() {
   const { data: groupInfo } = useQuery({
     queryKey: ["groupInfo", groupId],
     queryFn: () => group.getGroupInfo(groupId),
+    staleTime: GROUP_INFO_STALE_TIME,
   });
 
   const { data: members } = useQuery({
