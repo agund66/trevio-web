@@ -138,7 +138,8 @@ export function useFirestoreDocSubscription<T>(
 export function useFirestoreAsyncSubscription<T>(
   queryKey: readonly unknown[],
   queryFactory: () => Query<DocumentData>,
-  enricher: (snapshot: QuerySnapshot<DocumentData>) => Promise<T>
+  enricher: (snapshot: QuerySnapshot<DocumentData>) => Promise<T>,
+  enabled: boolean = true
 ): void {
   const queryClient = useQueryClient();
   const queryFactoryRef = useRef(queryFactory);
@@ -148,6 +149,8 @@ export function useFirestoreAsyncSubscription<T>(
   enricherRef.current = enricher;
 
   useEffect(() => {
+    if (!enabled) return;
+
     let unsubscribe: (() => void) | null = null;
     let cancelled = false;
     let emissionId = 0;
@@ -184,5 +187,5 @@ export function useFirestoreAsyncSubscription<T>(
       if (unsubscribe) unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(queryKey)]);
+  }, [JSON.stringify(queryKey), enabled]);
 }

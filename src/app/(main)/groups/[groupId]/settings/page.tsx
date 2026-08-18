@@ -7,8 +7,7 @@ import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
-import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
-import { BASE_CURRENCY } from "@/lib/constants/currency";
+import { getCurrencySymbol } from "@/lib/utils/currency";
 import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 import { ArrowLeft, Settings, Trash2, Crown, AlertCircle, Loader2, Check, LogOut, Wallet } from "lucide-react";
 
@@ -18,7 +17,7 @@ export default function GroupSettingsPage() {
   const groupId = params.groupId as string;
   const { group, settlement } = useServices();
   const { user: currentUser } = useAuth();
-  const { userCurrency, rates, convertBase, formatBase } = useCurrencyDisplay();
+  const { userCurrency, rates, formatGroup } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const t = useTranslations("groups");
   const tcommon = useTranslations("common");
@@ -28,7 +27,6 @@ export default function GroupSettingsPage() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [transferTarget, setTransferTarget] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [budget, setBudget] = useState("");
@@ -62,8 +60,8 @@ export default function GroupSettingsPage() {
   }
 
   if (groupInfo && !budgetLoaded) {
-    // Budget is stored in INR (base); convert to user's currency for display
-    const displayBudget = groupInfo.monthlyBudget != null ? String(convertBase(groupInfo.monthlyBudget)) : "";
+    // Budget is stored in the group's permanent currency.
+    const displayBudget = groupInfo.monthlyBudget != null ? String(groupInfo.monthlyBudget) : "";
     setBudget(displayBudget);
     setBudgetLoaded(true);
   }
@@ -80,13 +78,7 @@ export default function GroupSettingsPage() {
         if (budgetNum !== null && (isNaN(budgetNum) || budgetNum <= 0)) {
           throw new Error(t('settings.budgetPositive'));
         }
-        if (budgetNum !== null && userCurrency !== BASE_CURRENCY && !rates) {
-          throw new Error(t('settings.loadingRates'));
-        }
-        const budgetInBase = budgetNum !== null && rates
-          ? convertCurrency(budgetNum, userCurrency, BASE_CURRENCY, rates)
-          : budgetNum;
-        await group.updateGroupBudget(groupId, budgetInBase, null);
+        await group.updateGroupBudget(groupId, budgetNum, null);
       }
     },
     onSuccess: () => {
@@ -99,13 +91,12 @@ export default function GroupSettingsPage() {
     onError: (e: Error) => { setError(e.message); setSuccess(null); },
   });
 
-  const transferMutation = useMutation({
-    mutationFn: () => group.transferAdminRole(groupId, transferTarget),
+  const roleMutation = useMutation({
+    mutationFn: ({ memberUid, role }: { memberUid: string; role: "admin" | "member" }) =>
+      group.updateMemberRole(groupId, memberUid, role),
     onSuccess: () => {
       setError(null);
-      setSuccess(t('settings.adminTransferredSuccess'));
-      setTransferTarget("");
-      queryClient.invalidateQueries({ queryKey: ["groupInfo", groupId] });
+      setSuccess(t('settings.roleUpdated'));
       queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
       queryClient.invalidateQueries({ queryKey: ["activities", groupId] });
       if (successTimerRef.current) clearTimeout(successTimerRef.current);
@@ -133,6 +124,7 @@ export default function GroupSettingsPage() {
   });
 
   const activeMembers = members?.filter((m) => m.status === "active" && m.uid !== currentUser?.uid) ?? [];
+  const onlineActiveMembers = activeMembers.filter((m) => !m.isOffline);
 
   if (!loaded) {
     return (
@@ -260,10 +252,10 @@ export default function GroupSettingsPage() {
                   <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('settings.monthlyBudget')}</h3>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{t('settings.budgetDesc')}</p>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('settings.monthlyBudgetAmount', { currency: userCurrency })}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('settings.monthlyBudgetAmount', { currency: groupInfo?.currency || userCurrency })}</label>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                    {getCurrencySymbol(userCurrency)}
+                    {getCurrencySymbol(groupInfo?.currency || userCurrency)}
                   </span>
                   <input
                     type="number"
@@ -277,7 +269,7 @@ export default function GroupSettingsPage() {
                 </div>
                 {groupInfo?.monthlyBudget != null && groupInfo.monthlyBudget > 0 && (
                   <p className="mt-1.5 text-xs text-teal-600 dark:text-teal-400">
-                    Current budget: {formatBase(groupInfo.monthlyBudget)}
+                    Current budget: {formatGroup(groupInfo.monthlyBudget, groupInfo.currency)}
                   </p>
                 )}
               </div>
@@ -294,44 +286,53 @@ export default function GroupSettingsPage() {
           </button>
         </div>
 
-        {/* Transfer Admin Section — only for non-household groups with
-            other active members to transfer the role to. */}
-        {!isHousehold && activeMembers.length > 0 && (
+        {/* Manage Admins Section — allows admin to promote/demote members */}
+        {isAdmin && onlineActiveMembers.length > 0 && (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.transferAdmin')}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('settings.transferDesc')}</p>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('settings.manageAdmins')}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('settings.manageAdminsDesc')}</p>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            {activeMembers.map((m) => (
-              <button
-                key={m.uid}
-                onClick={() => setTransferTarget(m.uid)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                  transferTarget === m.uid
-                    ? "bg-trevio-600 text-white"
-                    : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-                }`}
-              >
-                {m.displayName.split(" ")[0]}
-              </button>
-            ))}
+          <div className="space-y-2">
+            {onlineActiveMembers.map((m) => {
+              const isMemberAdmin = m.role === "admin";
+              return (
+                <div key={m.uid} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName.split(" ")[0]}</p>
+                    {isMemberAdmin && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                        <Crown className="h-2.5 w-2.5" />
+                        {t('settings.adminBadge')}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newRole = isMemberAdmin ? "member" : "admin";
+                      const confirmMsg = isMemberAdmin
+                        ? t('settings.removeAdminConfirm', { name: m.displayName })
+                        : t('settings.makeAdminConfirm', { name: m.displayName });
+                      if (confirm(confirmMsg)) {
+                        roleMutation.mutate({ memberUid: m.uid, role: newRole });
+                      }
+                    }}
+                    disabled={roleMutation.isPending}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${
+                      isMemberAdmin
+                        ? "border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        : "border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Crown className="h-3.5 w-3.5" />
+                      {isMemberAdmin ? t('settings.removeAdmin') : t('settings.makeAdmin')}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
-          {transferTarget && (
-            <button
-              onClick={() => {
-                if (confirm(t('settings.transferAdminConfirm', { name: activeMembers.find((m) => m.uid === transferTarget)?.displayName }))) {
-                  transferMutation.mutate();
-                }
-              }}
-              disabled={transferMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-xl border-2 border-trevio-600 px-4 py-2.5 text-sm font-semibold text-trevio-600 dark:text-trevio-400 transition hover:bg-trevio-50 dark:hover:bg-trevio-900/30 disabled:opacity-50"
-            >
-              <Crown className="h-4 w-4" />
-              {transferMutation.isPending ? t('settings.transferring') : t('settings.transferAdmin')}
-            </button>
-          )}
         </div>
         )}
 

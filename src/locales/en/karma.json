@@ -1,0 +1,32 @@
+{
+  "title": "Trevio Karma",
+  "score": "Karma Score",
+  "tier": {
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold",
+    "platinum": "Platinum"
+  },
+  "makePublic": "Make my Karma public",
+  "publicDescription": "Show your Karma score on your public profile so friends can see you're a reliable splitter",
+  "notShared": "Your Karma is private — only you can see it",
+  "shared": "Your Karma is visible on your public profile",
+  "components": {
+    "reliability": "Reliability",
+    "reliabilityDesc": "Settles debts on time",
+    "generosity": "Generosity",
+    "generosityDesc": "Fronts money for the group",
+    "consistency": "Consistency",
+    "consistencyDesc": "Regular expense logging",
+    "settlementSpeed": "Settlement Speed",
+    "settlementSpeedDesc": "How fast debts are settled",
+    "groupHealth": "Group Health",
+    "groupHealthDesc": "No stale debts across groups"
+  },
+  "breakdown": "Score Breakdown",
+  "refresh": "Refresh Score",
+  "refreshing": "Refreshing...",
+  "publicBadge": "Karma Score",
+  "noData": "No Karma data yet. Refresh to compute your score.",
+  "computedAt": "Last updated {time}"
+}

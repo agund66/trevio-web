@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { TermsDialog } from "@/components/terms-dialog";
 import { Avatar } from "@/components/avatar";
-import { Shield, FileText, LifeBuoy, LogOut, ChevronRight } from "lucide-react";
+import { Shield, FileText, LifeBuoy, LogOut, ChevronRight, Sparkles } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
 type MenuItem = {
@@ -19,6 +19,7 @@ export default function MorePage() {
   const { user, signOut } = useAuth();
   const t = useTranslations("more");
   const tp = useTranslations("profile");
+  const tw = useTranslations("wrapped");
   const [showTerms, setShowTerms] = useState(false);
 
   if (!user) return null;
@@ -27,6 +28,11 @@ export default function MorePage() {
     ...(user.role === "superadmin"
       ? [{ icon: Shield as ComponentType<{ className?: string }>, label: t("adminDashboard"), href: "/admin" }]
       : []),
+    {
+      icon: Sparkles,
+      label: tw("title"),
+      href: "/wrapped",
+    },
     {
       icon: FileText,
       label: tp("actions.terms"),

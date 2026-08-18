@@ -12,6 +12,7 @@ import {
   orderBy,
   limit,
   startAfter,
+  QueryConstraint,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
 import type { SupportService } from "../interfaces/support-service";
@@ -243,56 +244,31 @@ export class FirebaseSupportService implements SupportService {
   }, pageSize: number = 50, lastTicketId?: string): Promise<{ tickets: SupportTicket[]; hasMore: boolean; lastTicketId: string | null }> {
     await this.requireSuperadmin();
 
-    const effectivePageSize = filter?.category || filter?.priority ? Math.max(pageSize * 3, 150) : pageSize;
-
-    let q = query(
-      collection(db, "supportTickets"),
-      orderBy("updatedAt", "desc"),
-      limit(effectivePageSize)
-    );
-
+    const constraints: QueryConstraint[] = [];
     if (filter?.status) {
-      q = query(
-        collection(db, "supportTickets"),
-        where("status", "==", filter.status),
-        orderBy("updatedAt", "desc"),
-        limit(effectivePageSize)
-      );
+      constraints.push(where("status", "==", filter.status));
     }
+    if (filter?.category) {
+      constraints.push(where("category", "==", filter.category));
+    }
+    if (filter?.priority) {
+      constraints.push(where("priority", "==", filter.priority));
+    }
+    constraints.push(orderBy("updatedAt", "desc"));
 
     if (lastTicketId) {
       const lastDoc = await getDoc(doc(db, "supportTickets", lastTicketId));
       if (lastDoc.exists()) {
-        if (filter?.status) {
-          q = query(
-            collection(db, "supportTickets"),
-            where("status", "==", filter.status),
-            orderBy("updatedAt", "desc"),
-            startAfter(lastDoc),
-            limit(effectivePageSize)
-          );
-        } else {
-          q = query(
-            collection(db, "supportTickets"),
-            orderBy("updatedAt", "desc"),
-            startAfter(lastDoc),
-            limit(effectivePageSize)
-          );
-        }
+        constraints.push(startAfter(lastDoc));
       }
     }
+    constraints.push(limit(pageSize));
 
+    const q = query(collection(db, "supportTickets"), ...constraints);
     const snapshot = await getDocs(q);
-    let tickets = snapshot.docs.map((d) => this.mapTicket(d.id, d.data()));
+    const tickets = snapshot.docs.map((d) => this.mapTicket(d.id, d.data()));
 
-    if (filter?.category) {
-      tickets = tickets.filter((t) => t.category === filter.category);
-    }
-    if (filter?.priority) {
-      tickets = tickets.filter((t) => t.priority === filter.priority);
-    }
-
-    const hasMore = snapshot.size === effectivePageSize && (!filter?.category || !filter?.priority || tickets.length >= pageSize);
+    const hasMore = snapshot.size === pageSize;
     const lastId = snapshot.size > 0 ? snapshot.docs[snapshot.size - 1].id : null;
     return { tickets, hasMore, lastTicketId: lastId };
   }

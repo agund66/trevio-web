@@ -3,8 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { convertCurrency, convertFromBase, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
-import { DEFAULT_CURRENCY, BASE_CURRENCY } from "@/lib/constants/currency";
+import { convertCurrency, formatCurrencySymbol, formatDate } from "@/lib/utils/currency";
+import { DEFAULT_CURRENCY } from "@/lib/constants/currency";
 import { DEFAULT_TIMEZONE } from "@/lib/constants/countries";
 import { EXCHANGE_RATE_STALE_TIME } from "@/lib/constants/app";
 import { queryKeys } from "@/lib/constants/query-keys";
@@ -23,21 +23,14 @@ export function useCurrencyDisplay() {
   const userTimezone = currentUser?.timezone || DEFAULT_TIMEZONE;
   const rateMap = rates?.rates;
 
-  const formatBase = (amountInBase: number): string => {
-    // When rates aren't loaded yet, the amount is still in base currency (INR),
-    // so showing the base currency symbol is the correct representation.
-    if (!rateMap) return formatCurrencySymbol(amountInBase, BASE_CURRENCY);
-    const converted = convertFromBase(amountInBase, userCurrency, rateMap);
-    return formatCurrencySymbol(converted, userCurrency);
+  const formatGroup = (amountInGroupCurrency: number, groupCurrency: string = userCurrency): string => {
+    if (groupCurrency === userCurrency) return formatCurrencySymbol(amountInGroupCurrency, groupCurrency);
+    if (!rateMap) return formatCurrencySymbol(amountInGroupCurrency, groupCurrency);
+    return formatCurrencySymbol(convertCurrency(amountInGroupCurrency, groupCurrency, userCurrency, rateMap), userCurrency);
   };
 
   const formatOriginal = (amount: number, currency: string): string => {
     return formatCurrencySymbol(amount, currency);
-  };
-
-  const convertBase = (amountInBase: number): number => {
-    if (!rateMap) return amountInBase;
-    return convertFromBase(amountInBase, userCurrency, rateMap);
   };
 
   const convertToUserCurrency = (amount: number, fromCurrency: string): number => {
@@ -47,10 +40,10 @@ export function useCurrencyDisplay() {
 
   return {
     userCurrency,
+    exchangeRate,
     rates: rateMap,
-    formatBase,
+    formatGroup,
     formatOriginal,
-    convertBase,
     convertToUserCurrency,
     formatDate: (timestamp: number, includeTime: boolean = false) =>
       formatDate(timestamp, userCurrency, includeTime, userTimezone),

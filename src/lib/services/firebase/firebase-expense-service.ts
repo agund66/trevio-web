@@ -62,6 +62,10 @@ export class FirebaseExpenseService implements ExpenseService {
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 
+    const groupCurrency = (groupDoc.data()?.currency as string) || "INR";
+    const payerMemberDoc = await getDoc(doc(groupRef, "members", params.paidBy));
+    const effectiveCurrency = payerMemberDoc.data()?.isOffline === true ? groupCurrency : params.currency;
+
     const calculatedSplits = calculateSplits(
       params.amount,
       params.splitType,
@@ -70,7 +74,7 @@ export class FirebaseExpenseService implements ExpenseService {
       params.itemizedData
     );
 
-    const exchangeRateToBase = await this.exchangeRateService.getRateToBase(params.currency);
+    const exchangeRateToGroupCurrency = await this.exchangeRateService.getRate(effectiveCurrency, groupCurrency);
 
     // Separate the expense date (user-selected) from the creation timestamp.
     // Using the user-selected date as createdAt would backdate activity
@@ -105,7 +109,7 @@ export class FirebaseExpenseService implements ExpenseService {
     batch.set(expenseRef, {
       description: params.description,
       amount: params.amount,
-      currency: params.currency,
+      currency: effectiveCurrency,
       paidBy: params.paidBy,
       paidByName,
       splitType: params.splitType,
@@ -114,14 +118,15 @@ export class FirebaseExpenseService implements ExpenseService {
       date: expenseDate,
       createdBy: uid,
       createdAt: now,
-      exchangeRateToBase,
+      exchangeRateToGroupCurrency,
+      amountInGroupCurrency: Math.round((params.amount * exchangeRateToGroupCurrency) * 100) / 100,
       transactionType,
       ...(params.note ? { note: params.note } : {}),
       ...(params.recurring ? { recurring: params.recurring } : {}),
       ...(params.itemizedData ? { itemizedData: params.itemizedData } : {}),
     });
 
-    const amountInBase = params.amount * exchangeRateToBase;
+    const amountInGroupCurrency = Math.round((params.amount * exchangeRateToGroupCurrency) * 100) / 100;
 
     const activityType = transactionType === "income" ? "income_added" : "expense_added";
     const activityDesc = transactionType === "income"
@@ -141,7 +146,7 @@ export class FirebaseExpenseService implements ExpenseService {
     // Only update totalExpenses for EXPENSE type (not INCOME)
     if (transactionType === "expense") {
       batch.update(groupRef, {
-        totalExpenses: increment(amountInBase),
+        totalExpenses: increment(amountInGroupCurrency),
         updatedAt: now,
       });
     } else {
@@ -270,11 +275,15 @@ export class FirebaseExpenseService implements ExpenseService {
     if (params.note !== undefined) updateData.note = params.note;
     if (params.transactionType !== undefined) updateData.transactionType = params.transactionType;
 
+    const payerMemberDoc = await getDoc(doc(groupRef, "members", params.paidBy || (oldExpense.paidBy as string)));
+    const groupCurrency = (groupDoc.data()?.currency as string) || "INR";
     const oldCurrency = oldExpense.currency as string;
-    const newCurrency = params.currency || oldCurrency;
-    if (newCurrency !== oldCurrency) {
-      updateData.exchangeRateToBase = await this.exchangeRateService.getRateToBase(newCurrency);
-    }
+    const requestedCurrency = params.currency || oldCurrency;
+    const newCurrency = payerMemberDoc.data()?.isOffline === true ? groupCurrency : requestedCurrency;
+    const newRate = await this.exchangeRateService.getRate(newCurrency, groupCurrency);
+    updateData.currency = newCurrency;
+    updateData.exchangeRateToGroupCurrency = newRate;
+    updateData.amountInGroupCurrency = Math.round((((params.amount ?? oldExpense.amount) as number) * newRate) * 100) / 100;
 
     if (params.splitType && params.memberUids) {
       updateData.splitType = params.splitType;
@@ -294,11 +303,9 @@ export class FirebaseExpenseService implements ExpenseService {
 
     const oldAmount = oldExpense.amount as number;
     const newAmount = (params.amount ?? oldAmount) as number;
-    const oldRate = (oldExpense.exchangeRateToBase as number) ?? 1;
-    const newRate = (updateData.exchangeRateToBase as number) ?? oldRate;
-    const oldAmountInBase = oldAmount * oldRate;
-    const newAmountInBase = newAmount * newRate;
-    const amountDiffInBase = newAmountInBase - oldAmountInBase;
+    const oldAmountInGroupCurrency = (oldExpense.amountInGroupCurrency as number) ?? oldAmount * ((oldExpense.exchangeRateToGroupCurrency as number) ?? 1);
+    const newAmountInGroupCurrency = (updateData.amountInGroupCurrency as number) ?? newAmount * ((updateData.exchangeRateToGroupCurrency as number) ?? 1);
+    const amountDiffInGroupCurrency = newAmountInGroupCurrency - oldAmountInGroupCurrency;
 
     // Determine old and new transaction types (default to "expense")
     const oldTransactionType = (oldExpense.transactionType as TransactionType) ?? "expense";
@@ -312,9 +319,9 @@ export class FirebaseExpenseService implements ExpenseService {
     // switching type without changing amount still updates totalExpenses.
     if (oldTransactionType === "expense" && newTransactionType === "expense") {
       // Same type expense — adjust by diff if amount changed, otherwise just touch updatedAt
-      if (amountDiffInBase !== 0) {
+      if (amountDiffInGroupCurrency !== 0) {
         batch.update(groupRef, {
-          totalExpenses: increment(amountDiffInBase),
+          totalExpenses: increment(amountDiffInGroupCurrency),
           updatedAt: now,
         });
       } else {
@@ -323,13 +330,13 @@ export class FirebaseExpenseService implements ExpenseService {
     } else if (oldTransactionType === "expense" && newTransactionType === "income") {
       // Was expense, now income — remove old amount from totalExpenses
       batch.update(groupRef, {
-        totalExpenses: increment(-oldAmountInBase),
+        totalExpenses: increment(-oldAmountInGroupCurrency),
         updatedAt: now,
       });
     } else if (oldTransactionType === "income" && newTransactionType === "expense") {
       // Was income, now expense — add full new amount to totalExpenses
       batch.update(groupRef, {
-        totalExpenses: increment(newAmountInBase),
+        totalExpenses: increment(newAmountInGroupCurrency),
         updatedAt: now,
       });
     } else {
@@ -395,14 +402,13 @@ export class FirebaseExpenseService implements ExpenseService {
     batch.delete(expenseRef);
 
     const expenseAmount = expenseData.amount as number;
-    const expenseRate = (expenseData.exchangeRateToBase as number) ?? 1;
-    const amountInBase = expenseAmount * expenseRate;
+    const amountInGroupCurrency = (expenseData.amountInGroupCurrency as number) ?? expenseAmount * ((expenseData.exchangeRateToGroupCurrency as number) ?? 1);
     const expenseTransactionType = (expenseData.transactionType as TransactionType) ?? "expense";
 
     // Only decrement totalExpenses for EXPENSE type (not INCOME)
     if (expenseTransactionType === "expense") {
       batch.update(groupRef, {
-        totalExpenses: increment(-amountInBase),
+        totalExpenses: increment(-amountInGroupCurrency),
         updatedAt: now,
       });
     } else {
@@ -474,7 +480,8 @@ export class FirebaseExpenseService implements ExpenseService {
         splits: (data.splits as Record<string, SplitEntry>) ?? {},
         category: (data.category as string) ?? "other",
         createdBy: (data.createdBy as string) ?? "",
-        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+        exchangeRateToGroupCurrency: (data.exchangeRateToGroupCurrency as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
         date: toMillis(data.date),
         note: (data.note as string) ?? "",
         recurring: (data.recurring as RecurringConfig) ?? undefined,
@@ -514,7 +521,8 @@ export class FirebaseExpenseService implements ExpenseService {
       splits: (data.splits as Record<string, SplitEntry>) ?? {},
       category: (data.category as string) ?? "other",
       createdBy: (data.createdBy as string) ?? "",
-      exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+      exchangeRateToGroupCurrency: (data.exchangeRateToGroupCurrency as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
       date: toMillis(data.date),
       note: (data.note as string) ?? "",
       recurring: (data.recurring as RecurringConfig) ?? undefined,
@@ -540,7 +548,8 @@ export class FirebaseExpenseService implements ExpenseService {
         paidBy: data.paidBy as string,
         splits: data.splits as SplitMap,
         amount: data.amount as number,
-        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+        exchangeRateToGroupCurrency: (data.exchangeRateToGroupCurrency as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
       };
     });
 

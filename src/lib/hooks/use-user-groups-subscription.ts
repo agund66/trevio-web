@@ -1,7 +1,7 @@
 "use client";
 
 import { collectionGroup, doc, getDoc, query, where } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { queryKeys } from "@/lib/constants/query-keys";
 import { useFirestoreAsyncSubscription } from "./use-firestore-query";
 import type { Group, GroupTemplate } from "@/lib/types";
@@ -23,11 +23,10 @@ import type { Group, GroupTemplate } from "@/lib/types";
  * layout) so the subscription stays active across navigation between
  * dashboard and groups list.
  */
-export function useUserGroupsSubscription(): void {
+export function useUserGroupsSubscription(uid: string | null): void {
   useFirestoreAsyncSubscription<Group[]>(
     queryKeys.groups,
     () => {
-      const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("User not authenticated");
       return query(
         collectionGroup(db, "members"),
@@ -71,6 +70,7 @@ export function useUserGroupsSubscription(): void {
         }
       });
       return groups;
-    }
+    },
+    !!uid
   );
 }

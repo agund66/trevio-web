@@ -16,7 +16,7 @@ export default function GroupsPage() {
   const t = useTranslations("groups");
   const td = useTranslations("dashboard");
   const { group } = useServices();
-  const { formatBase } = useCurrencyDisplay();
+  const { formatGroup } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
@@ -89,9 +89,9 @@ export default function GroupsPage() {
                 : "text-slate-500 dark:text-slate-400";
             const balanceText =
               balance > 0.01
-                ? `${t("list.owesYou")} ${formatBase(balance)}`
+                ? `${t("list.owesYou")} ${formatGroup(balance, g.currency)}`
                 : balance < -0.01
-                ? `${t("list.youOwe")} ${formatBase(Math.abs(balance))}`
+                ? `${t("list.youOwe")} ${formatGroup(Math.abs(balance), g.currency)}`
                 : t("list.settledUp");
 
             return (

@@ -13,6 +13,9 @@ import type { BroadcastService } from "./interfaces/broadcast-service";
 import type { AnalyticsService } from "./interfaces/analytics-service";
 import type { TripService } from "./interfaces/trip-service";
 import type { SupportService } from "./interfaces/support-service";
+import type { KarmaService } from "./interfaces/karma-service";
+import type { NudgeService } from "./interfaces/nudge-service";
+import type { WrappedService } from "./interfaces/wrapped-service";
 import { FirebaseAuthService } from "./firebase/firebase-auth-service";
 import { FirebaseUserService } from "./firebase/firebase-user-service";
 import { FirebaseGroupService } from "./firebase/firebase-group-service";
@@ -25,6 +28,9 @@ import { FirebaseBroadcastService } from "./firebase/firebase-broadcast-service"
 import { FirebaseAnalyticsService } from "./firebase/firebase-analytics-service";
 import { FirebaseTripService } from "./firebase/firebase-trip-service";
 import { FirebaseSupportService } from "./firebase/firebase-support-service";
+import { FirebaseKarmaService } from "./firebase/firebase-karma-service";
+import { FirebaseNudgeService } from "./firebase/firebase-nudge-service";
+import { FirebaseWrappedService } from "./firebase/firebase-wrapped-service";
 import { withNetworkErrorMapping } from "@/lib/utils/error-mapper";
 
 interface Services {
@@ -40,6 +46,9 @@ interface Services {
   analytics: AnalyticsService;
   trip: TripService;
   support: SupportService;
+  karma: KarmaService;
+  nudge: NudgeService;
+  wrapped: WrappedService;
 }
 
 const firebaseServices: Services = {
@@ -55,6 +64,9 @@ const firebaseServices: Services = {
   analytics: withNetworkErrorMapping(new FirebaseAnalyticsService()),
   trip: withNetworkErrorMapping(new FirebaseTripService()),
   support: withNetworkErrorMapping(new FirebaseSupportService()),
+  karma: withNetworkErrorMapping(new FirebaseKarmaService()),
+  nudge: withNetworkErrorMapping(new FirebaseNudgeService()),
+  wrapped: withNetworkErrorMapping(new FirebaseWrappedService()),
 };
 
 const ServiceContext = createContext<Services>(firebaseServices);

@@ -28,7 +28,7 @@ const SEED_ARTICLES: SeedArticle[] = [
 <li><strong>Recent expense not reflected</strong>: Try pulling to refresh or navigating away and back to the group.</li>
 <li><strong>Settlement not recorded</strong>: If you paid someone outside the app, you need to record a settlement in the app for the balance to update.</li>
 <li><strong>Wrong split type</strong>: Check the expense details — was it split equally, or by exact amounts? The split type affects everyone's share.</li>
-<li><strong>Currency conversion</strong>: If expenses are in different currencies, they're converted to the group's base currency using exchange rates. Small rounding differences may occur.</li>
+<li><strong>Currency conversion</strong>: If expenses are in different currencies, they're converted to the group's permanent currency using a locked exchange rate. Small rounding differences may occur.</li>
 </ol>
 <p>If none of these explain the issue, please report it using the "Report an Issue" option so we can investigate.</p>`,
   },
@@ -55,12 +55,12 @@ const SEED_ARTICLES: SeedArticle[] = [
     tags: ["currency", "exchange rate", "multi-currency"],
     order: 3,
     content: `<h3>Multi-Currency Support</h3>
-<p>Trevio supports expenses in different currencies within the same group. All amounts are converted to the group's base currency for balance calculations.</p>
+<p>Trevio supports expenses in different currencies within the same group. All amounts are converted to the group's permanent currency for balance calculations.</p>
 <h3>How Exchange Rates Work</h3>
 <ul>
-<li>When you add an expense in a non-base currency, Trevio fetches the current exchange rate and stores it with the expense.</li>
+<li>When you add an expense in a different currency, Trevio fetches the current exchange rate and locks it with the expense.</li>
 <li>The rate is cached for 24 hours, so multiple expenses in the same currency use the same rate.</li>
-<li>Your balance is always shown in the group's base currency.</li>
+<li>Your balance is always shown in the group's permanent currency.</li>
 </ul>
 <h3>Tips</h3>
 <ul>

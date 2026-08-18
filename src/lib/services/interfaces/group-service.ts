@@ -28,6 +28,7 @@ export interface GroupService {
   updateGroup(groupId: string, name: string, description: string): Promise<void>;
   updateGroupBudget(groupId: string, monthlyBudget: number | null, budgetCategories: Record<string, number> | null): Promise<void>;
   transferAdminRole(groupId: string, newAdminUid: string): Promise<void>;
+  updateMemberRole(groupId: string, memberUid: string, role: "admin" | "member"): Promise<void>;
   getUserGroups(): Promise<Group[]>;
   getGroupInfo(groupId: string): Promise<GroupInfo>;
   getGroupActivities(groupId: string, pageSize?: number, lastActivityId?: string): Promise<{ activities: Activity[]; hasMore: boolean; lastActivityId: string | null }>;

@@ -17,7 +17,7 @@ import { OfflineBanner } from "@/components/offline-banner";
 import { useTranslations } from "next-intl";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, signOut, refreshUser } = useAuth();
+  const { user, uid, loading, signOut, refreshUser } = useAuth();
   const { user: userService } = useServices();
   const router = useRouter();
   const pathname = usePathname();
@@ -29,7 +29,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   // Real-time subscription for user's groups — feeds into React Query
   // cache at queryKeys.groups so dashboard and groups list see live
   // updates without manual refetching.
-  useUserGroupsSubscription();
+  useUserGroupsSubscription(uid);
 
   useEffect(() => {
     if (loading) return;
@@ -46,6 +46,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
   }, [user, loading, router, userService, refreshUser, signOut]);
 
+  const userRole = user?.role;
+  const desktopNavItems = useMemo(() => [
+    { href: "/dashboard", label: t("nav.home"), icon: Home },
+    { href: "/groups", label: t("nav.groups"), icon: Users },
+    { href: "/notifications", label: t("nav.notifications"), icon: Bell },
+    ...(userRole === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
+    { href: "/support", label: tp("actions.helpSupport"), icon: HelpCircle },
+    { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
+  ], [userRole, t, tp]);
+
+  const mobileNavItems = useMemo(() => [
+    { href: "/dashboard", label: t("nav.home"), icon: Home },
+    { href: "/groups", label: t("nav.groups"), icon: Users },
+    { href: "/notifications", label: t("nav.notifications"), icon: Bell },
+    { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
+  ], [t]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -55,22 +72,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }
 
   if (!user) return null;
-
-  const desktopNavItems = useMemo(() => [
-    { href: "/dashboard", label: t("nav.home"), icon: Home },
-    { href: "/groups", label: t("nav.groups"), icon: Users },
-    { href: "/notifications", label: t("nav.notifications"), icon: Bell },
-    ...(user.role === "superadmin" ? [{ href: "/admin", label: t("nav.admin"), icon: Shield }] : []),
-    { href: "/support", label: tp("actions.helpSupport"), icon: HelpCircle },
-    { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
-  ], [user.role, t, tp]);
-
-  const mobileNavItems = useMemo(() => [
-    { href: "/dashboard", label: t("nav.home"), icon: Home },
-    { href: "/groups", label: t("nav.groups"), icon: Users },
-    { href: "/notifications", label: t("nav.notifications"), icon: Bell },
-    { href: "/more", label: t("nav.more"), icon: MoreHorizontal },
-  ], [t]);
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">

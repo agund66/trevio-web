@@ -45,6 +45,10 @@ export class FirebaseUserService implements UserService {
       phoneNumber: data.phoneNumber || "",
       countryCode: data.countryCode || "",
       timezone: data.timezone || DEFAULT_TIMEZONE,
+      karmaScore: data.karmaScore || 0,
+      karmaTier: data.karmaTier || "bronze",
+      karmaPublic: data.karmaPublic || false,
+      karmaUpdatedAt: data.karmaUpdatedAt || 0,
     };
   }
 
@@ -189,12 +193,12 @@ export class FirebaseUserService implements UserService {
     const displayName = userDoc.data()?.displayName || "";
     const username = userDoc.data()?.username || "";
     const photoURL = userDoc.data()?.photoURL || "";
+    const defaultCurrency = userDoc.data()?.defaultCurrency || DEFAULT_CURRENCY;
 
     const membersSnapshot = await getDocs(
       firestoreQuery(
         collectionGroup(db, "members"),
-        where("uid", "==", uid),
-        where("status", "==", "active")
+        where("uid", "==", uid)
       )
     );
 
@@ -210,6 +214,7 @@ export class FirebaseUserService implements UserService {
           displayName,
           username,
           photoURL,
+          currency: defaultCurrency,
         });
       }
       await batch.commit();

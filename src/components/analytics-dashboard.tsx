@@ -31,13 +31,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 interface AnalyticsDashboardProps {
   groupId: string;
   groupName: string;
+  groupCurrency: string;
   expenses: Expense[];
   members: Member[];
 }
 
-export function AnalyticsDashboard({ groupId, groupName, expenses, members }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ groupId, groupName, groupCurrency, expenses, members }: AnalyticsDashboardProps) {
   const { user } = useAuth();
-  const { formatBase } = useCurrencyDisplay();
+  const { formatGroup } = useCurrencyDisplay();
   const t = useTranslations("groups");
   const CATEGORY_LABELS: Record<string, string> = {
     food: t('analytics.food'),
@@ -63,13 +64,13 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
         <StatCard
           icon={<Receipt className="h-4 w-4" />}
           label={t('analytics.totalSpent')}
-          value={formatBase(analytics.totalExpenses)}
+          value={formatGroup(analytics.totalExpenses, groupCurrency)}
           color="trevio"
         />
         <StatCard
           icon={<BarChart3 className="h-4 w-4" />}
           label={t('analytics.avgExpense')}
-          value={formatBase(analytics.avgExpenseAmount)}
+          value={formatGroup(analytics.avgExpenseAmount, groupCurrency)}
           color="blue"
         />
         <StatCard
@@ -97,7 +98,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
             <div key={trend.month} className="flex-1 flex flex-col items-center gap-2">
               <div className="w-full flex flex-col justify-end items-center" style={{ height: "120px" }}>
                 <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                  {trend.totalAmount > 0 ? formatBase(trend.totalAmount) : ""}
+                  {trend.totalAmount > 0 ? formatGroup(trend.totalAmount, groupCurrency) : ""}
                 </div>
                 <div
                   className="w-full max-w-[60px] rounded-t-lg bg-gradient-to-t from-trevio-600 to-trevio-400 transition-all hover:from-trevio-700 hover:to-trevio-500"
@@ -133,7 +134,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {formatBase(cat.totalAmount)}
+                      {formatGroup(cat.totalAmount, groupCurrency)}
                     </span>
                     <span className="text-xs text-slate-400">{cat.percentage}%</span>
                   </div>
@@ -178,7 +179,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {formatBase(member.totalPaid)}
+                      {formatGroup(member.totalPaid, groupCurrency)}
                     </p>
                     <p className="text-[10px] text-slate-400">{t('analytics.expensesCount', { count: member.expenseCount })}</p>
                   </div>
@@ -207,7 +208,7 @@ export function AnalyticsDashboard({ groupId, groupName, expenses, members }: An
               </p>
             </div>
             <p className="text-lg font-bold text-trevio-600 dark:text-trevio-400">
-              {formatBase(analytics.highestExpense.amount)}
+              {formatGroup(analytics.highestExpense.amount, groupCurrency)}
             </p>
           </div>
         </div>

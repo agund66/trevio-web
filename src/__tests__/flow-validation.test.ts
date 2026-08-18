@@ -186,18 +186,18 @@ describe("Flow: Accept Invitation", () => {
   });
 
   it("invitation not for you rejected", () => {
-    const toUid = "u1";
-    const currentUid = "u2";
+    const toUid: string = "u1";
+    const currentUid: string = "u2";
     expect(toUid === currentUid).toBe(false);
   });
 
   it("already accepted invitation rejected", () => {
-    const status = "accepted";
+    const status: string = "accepted";
     expect(status !== "pending").toBe(true);
   });
 
   it("already declined invitation rejected", () => {
-    const status = "declined";
+    const status: string = "declined";
     expect(status !== "pending").toBe(true);
   });
 
@@ -229,13 +229,13 @@ describe("Flow: Decline Invitation", () => {
   });
 
   it("cannot decline already accepted invitation", () => {
-    const status = "accepted";
+    const status: string = "accepted";
     expect(status !== "pending").toBe(true);
   });
 
   it("cannot decline someone else's invitation", () => {
-    const toUid = "u1";
-    const currentUid = "u2";
+    const toUid: string = "u1";
+    const currentUid: string = "u2";
     expect(toUid === currentUid).toBe(false);
   });
 });
@@ -333,17 +333,20 @@ describe("Flow: Add Expense Validation", () => {
   });
 
   it("category defaults to other when empty", () => {
-    const category = "" || "other";
+    const empty: string = "";
+    const category = empty || "other";
     expect(category).toBe("other");
   });
 
   it("category preserved when provided", () => {
-    const category = "food" || "other";
+    const food: string = "food";
+    const category = food || "other";
     expect(category).toBe("food");
   });
 
   it("expense date defaults to now when not provided", () => {
-    const date = undefined ?? Date.now();
+    const noDate: number | undefined = undefined;
+    const date = noDate ?? Date.now();
     expect(typeof date).toBe("number");
   });
 
@@ -377,22 +380,22 @@ describe("Flow: Add Expense Validation", () => {
     expect(hasRecurring).toBe(false);
   });
 
-  it("exchangeRateToBase for INR is 1", () => {
+  it("exchangeRateToGroupCurrency for same currency is 1", () => {
     const rate = 1;
     expect(rate).toBe(1);
   });
 
-  it("amountInBase = amount * exchangeRateToBase", () => {
+  it("amountInGroupCurrency = amount * exchangeRateToGroupCurrency", () => {
     const amount = 100;
     const rate = 83.5;
-    const amountInBase = amount * rate;
-    expect(amountInBase).toBe(8350);
+    const amountInGroupCurrency = amount * rate;
+    expect(amountInGroupCurrency).toBe(8350);
   });
 
-  it("totalExpenses incremented by amountInBase", () => {
+  it("totalExpenses incremented by amountInGroupCurrency", () => {
     const before = 500;
-    const amountInBase = 100;
-    const after = before + amountInBase;
+    const amountInGroupCurrency = 100;
+    const after = before + amountInGroupCurrency;
     expect(after).toBe(600);
   });
 
@@ -437,7 +440,8 @@ describe("Flow: Expense Split Calculation in Add Expense", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1,
+      amountInGroupCurrency: 100,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(50);
@@ -449,7 +453,8 @@ describe("Flow: Expense Split Calculation in Add Expense", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 83.5,
+      exchangeRateToGroupCurrency: 83.5,
+      amountInGroupCurrency: 8350,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(4175);
@@ -512,15 +517,16 @@ describe("Flow: Add Settlement Validation", () => {
   });
 
   it("settlement method defaults to cash", () => {
-    const method = "" || "cash";
+    const empty: string = "";
+    const method = empty || "cash";
     expect(method).toBe("cash");
   });
 
-  it("amountInBase rounded to 2 decimals", () => {
+  it("amountInGroupCurrency rounded to 2 decimals", () => {
     const amount = 50.123456;
     const rate = 83.5;
-    const amountInBase = Math.round((amount * rate) * 100) / 100;
-    expect(amountInBase).toBe(4185.31);
+    const amountInGroupCurrency = Math.round((amount * rate) * 100) / 100;
+    expect(amountInGroupCurrency).toBe(4185.31);
   });
 
   it("settlement with UPI ref ID saves it", () => {
@@ -721,8 +727,8 @@ describe("Flow: Admin Operations Validation", () => {
   });
 
   it("admin can block another user", () => {
-    const targetUid = "u2";
-    const currentUid = "u1";
+    const targetUid: string = "u2";
+    const currentUid: string = "u1";
     expect(targetUid !== currentUid).toBe(true);
   });
 
@@ -733,8 +739,8 @@ describe("Flow: Admin Operations Validation", () => {
   });
 
   it("admin can demote another superadmin", () => {
-    const targetUid = "u2";
-    const currentUid = "u1";
+    const targetUid: string = "u2";
+    const currentUid: string = "u1";
     expect(targetUid !== currentUid).toBe(true);
   });
 
@@ -960,13 +966,13 @@ describe("Flow: Broadcast Validation", () => {
 
   it("info broadcast can be dismissed", () => {
     const priority: BroadcastPriority = "info";
-    const canDismiss = priority !== "critical";
+    const canDismiss = (priority as BroadcastPriority) !== "critical";
     expect(canDismiss).toBe(true);
   });
 
   it("maintenance broadcast can be dismissed", () => {
     const priority: BroadcastPriority = "maintenance";
-    const canDismiss = priority !== "critical";
+    const canDismiss = (priority as BroadcastPriority) !== "critical";
     expect(canDismiss).toBe(true);
   });
 
@@ -1170,7 +1176,7 @@ describe("Flow: Transfer Admin Role Validation", () => {
   });
 
   it("non-admin cannot transfer role", () => {
-    const role = "member";
+    const role: string = "member";
     expect(role === "admin").toBe(false);
   });
 
@@ -1186,7 +1192,7 @@ describe("Flow: Transfer Admin Role Validation", () => {
   });
 
   it("cannot transfer to pending member", () => {
-    const targetStatus = "pending";
+    const targetStatus: string = "pending";
     expect(targetStatus !== "active").toBe(true);
   });
 
@@ -1223,7 +1229,7 @@ describe("Flow: Delete Group Validation", () => {
   });
 
   it("non-admin cannot delete group", () => {
-    const role = "member";
+    const role: string = "member";
     expect(role === "admin").toBe(false);
   });
 
@@ -1281,7 +1287,7 @@ describe("Flow: Offline Member Operations", () => {
   });
 
   it("non-member cannot add offline member", () => {
-    const status = "pending";
+    const status: string = "pending";
     expect(status === "active").toBe(false);
   });
 
@@ -1292,8 +1298,8 @@ describe("Flow: Offline Member Operations", () => {
   });
 
   it("claiming offline member replaces doc with user UID", () => {
-    const oldId = "auto_123";
-    const newId = "u1";
+    const oldId: string = "auto_123";
+    const newId: string = "u1";
     expect(oldId !== newId).toBe(true);
   });
 
@@ -1347,7 +1353,7 @@ describe("Flow: Currency & Exchange Rate Validation", () => {
   });
 
   it("unknown currency defaults to rate 1", () => {
-    const currency = "XYZ";
+    const currency: string = "XYZ";
     const rate = currency === "INR" ? 1 : 1; // fallback
     expect(rate).toBe(1);
   });
@@ -1361,20 +1367,20 @@ describe("Flow: Currency & Exchange Rate Validation", () => {
   });
 
   it("next-day rates trigger new API call", () => {
-    const cachedDate = "Mon Jan 01 2024";
-    const today = "Tue Jan 02 2024";
+    const cachedDate: string = "Mon Jan 01 2024";
+    const today: string = "Tue Jan 02 2024";
     const useCache = cachedDate === today;
     expect(useCache).toBe(false);
   });
 
-  it("expense in INR has exchangeRateToBase = 1", () => {
+  it("expense in INR has exchangeRateToGroupCurrency = 1", () => {
     const currency = "INR";
     const rate = currency === "INR" ? 1 : 83.5;
     expect(rate).toBe(1);
   });
 
-  it("expense in USD has exchangeRateToBase > 1", () => {
-    const currency = "USD";
+  it("expense in USD has exchangeRateToGroupCurrency > 1", () => {
+    const currency: string = "USD";
     const rate = currency === "INR" ? 1 : 83.5;
     expect(rate).toBe(83.5);
   });
@@ -1407,14 +1413,14 @@ describe("Flow: Currency & Exchange Rate Validation", () => {
     expect(rate!).toBe(1);
   });
 
-  it("settlement amount converted to base", () => {
+  it("settlement amount converted to group currency", () => {
     const amount = 50;
     const rate = 83.5;
-    const amountInBase = Math.round((amount * rate) * 100) / 100;
-    expect(amountInBase).toBe(4175);
+    const amountInGroupCurrency = Math.round((amount * rate) * 100) / 100;
+    expect(amountInGroupCurrency).toBe(4175);
   });
 
-  it("multiple expenses with different currencies sum correctly in base", () => {
+  it("multiple expenses with different currencies sum correctly in group currency", () => {
     const expenses = [
       { amount: 100, rate: 1 },    // INR 100
       { amount: 50, rate: 83.5 },  // USD 50 = INR 4175
@@ -1486,7 +1492,7 @@ describe("Flow: Edge Case Validation", () => {
   });
 
   it("accept already-accepted invitation gets error", () => {
-    const status = "accepted";
+    const status: string = "accepted";
     expect(status !== "pending").toBe(true);
   });
 
@@ -1730,7 +1736,8 @@ describe("Flow: Cross-Platform Consistency", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1,
+      amountInGroupCurrency: 100,
     }];
     const webResult = calculateBalances(expenses, [], ["u1", "u2"]);
     const androidResult = calculateBalances(expenses, [], ["u1", "u2"]);
@@ -1809,7 +1816,7 @@ describe("Flow: Activity Feed Validation", () => {
   });
 
   it("regular member cannot delete activities", () => {
-    const role = "member";
+    const role: string = "member";
     expect(role === "admin").toBe(false);
   });
 
@@ -1932,14 +1939,14 @@ describe("Flow: Expense Note Validation", () => {
   });
 
   it("note can be added during edit", () => {
-    const originalNote = "";
-    const newNote = "Added later";
+    const originalNote: string = "";
+    const newNote: string = "Added later";
     expect(newNote !== originalNote).toBe(true);
   });
 
   it("note can be modified during edit", () => {
-    const originalNote = "Old note";
-    const newNote = "New note";
+    const originalNote: string = "Old note";
+    const newNote: string = "New note";
     expect(newNote !== originalNote).toBe(true);
   });
 
@@ -2172,7 +2179,7 @@ describe("Flow: Group Settings Validation", () => {
   });
 
   it("non-admin gets error accessing settings", () => {
-    const role = "member";
+    const role: string = "member";
     expect(role === "admin").toBe(false);
   });
 
@@ -2601,8 +2608,8 @@ describe("Flow: Update Username Edge Cases", () => {
   });
 
   it("different username proceeds with update", () => {
-    const currentUsername = "john.doe";
-    const newUsername = "jane.doe";
+    const currentUsername: string = "john.doe";
+    const newUsername: string = "jane.doe";
     const isSame = currentUsername === newUsername;
     expect(isSame).toBe(false);
   });
@@ -2827,8 +2834,8 @@ describe("Flow: Notification Pagination Validation", () => {
   });
 
   it("hasMore is false when results less than page size", () => {
-    const snapshotSize = 15;
-    const pageSize = 20;
+    const snapshotSize: number = 15;
+    const pageSize: number = 20;
     const hasMore = snapshotSize === pageSize;
     expect(hasMore).toBe(false);
   });
@@ -2973,12 +2980,12 @@ describe("Flow: Send Group Invitation Edge Cases", () => {
 // ─── Flow Validation: Add Offline Member Edge Cases ─────────────
 describe("Flow: Add Offline Member Edge Cases", () => {
   it("empty name rejected", () => {
-    const displayName = "";
+    const displayName: string = "";
     expect(!displayName || !displayName.trim()).toBe(true);
   });
 
   it("whitespace-only name rejected", () => {
-    const displayName = "   ";
+    const displayName: string = "   ";
     expect(!displayName || !displayName.trim()).toBe(true);
   });
 
@@ -3237,7 +3244,8 @@ describe("Flow: Create Group Currency Validation", () => {
   });
 
   it("defaults to INR when user has no currency set", () => {
-    const userCurrency = undefined || "INR";
+    const noCurrency: string | undefined = undefined;
+    const userCurrency = noCurrency || "INR";
     expect(userCurrency).toBe("INR");
   });
 
@@ -3254,7 +3262,7 @@ describe("Flow: Create Group Currency Validation", () => {
 
   it("group description defaults to empty string", () => {
     const description: string | undefined = undefined;
-    const trimmed = description?.trim() ?? "";
+    const trimmed = (description as string | undefined)?.trim() ?? "";
     expect(trimmed).toBe("");
   });
 
@@ -3314,9 +3322,9 @@ describe("Flow: Recalculate Balances Validation", () => {
     expect(balances.get("u2")).toBe(0);
   });
 
-  it("exchangeRateToBase defaults to 1 when missing", () => {
-    const data = { exchangeRateToBase: undefined };
-    const rate = (data.exchangeRateToBase as number) ?? 1;
+  it("exchangeRateToGroupCurrency defaults to 1 when missing", () => {
+    const data = { exchangeRateToGroupCurrency: undefined };
+    const rate = (data.exchangeRateToGroupCurrency as number | undefined) ?? 1;
     expect(rate).toBe(1);
   });
 });
@@ -3485,8 +3493,8 @@ describe("Flow: Exchange Rate Service Validation", () => {
   });
 
   it("different day fetches new rates", () => {
-    const cachedDate = "2024-01-01";
-    const today = "2024-01-02";
+    const cachedDate: string = "2024-01-01";
+    const today: string = "2024-01-02";
     const useCache = cachedDate === today;
     expect(useCache).toBe(false);
   });

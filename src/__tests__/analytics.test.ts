@@ -21,6 +21,8 @@ function makeExpense(
     description: `Expense ${id}`,
     amount,
     currency: "INR",
+    exchangeRateToGroupCurrency: 1,
+    amountInGroupCurrency: amount,
     paidBy,
     splitType: "equal",
     splits,
@@ -39,6 +41,7 @@ function makeMember(uid: string, name: string, balance = 0): Member {
     balance,
     role: "member",
     status: "active",
+    currency: "INR",
   };
 }
 

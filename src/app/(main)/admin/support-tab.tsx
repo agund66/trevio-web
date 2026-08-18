@@ -153,10 +153,13 @@ function TicketsPanel() {
   const [search, setSearch] = useState("");
 
   const ticketsPagination = usePaginatedQuery<SupportTicket, { tickets: SupportTicket[]; hasMore: boolean; lastTicketId: string | null }>({
-    queryKey: ["adminTickets", statusFilter === "all" ? "all" : statusFilter],
+    queryKey: ["adminTickets", statusFilter, categoryFilter],
     queryFn: (pageSize, lastId) =>
       support.getAllTickets(
-        statusFilter === "all" ? undefined : { status: statusFilter },
+        {
+          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+          ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
+        },
         pageSize,
         lastId,
       ),
@@ -170,18 +173,17 @@ function TicketsPanel() {
 
   const filteredTickets = useMemo(() => {
     if (!tickets) return [];
+    if (!search.trim()) return tickets;
+    const q = search.toLowerCase();
     return tickets.filter((t) => {
-      const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
-      const q = search.toLowerCase();
-      const matchesSearch =
-        !q ||
+      return (
         t.subject.toLowerCase().includes(q) ||
         t.userDisplayName.toLowerCase().includes(q) ||
         t.userEmail.toLowerCase().includes(q) ||
-        t.userUsername.toLowerCase().includes(q);
-      return matchesCategory && matchesSearch;
+        t.userUsername.toLowerCase().includes(q)
+      );
     });
-  }, [tickets, categoryFilter, search]);
+  }, [tickets, search]);
 
   const unreadCount = tickets?.filter((t) => t.unreadByAdmin).length ?? 0;
   const openCount = tickets?.filter((t) => t.status === "open" || t.status === "in_progress").length ?? 0;

@@ -6,19 +6,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
-import { convertCurrency, getCurrencySymbol } from "@/lib/utils/currency";
+import { getCurrencySymbol } from "@/lib/utils/currency";
 import { Plane, Dumbbell, Coffee, Home, Search, UserPlus, X, User, Plus, Wallet } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { useTranslations } from "next-intl";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
-import { BASE_CURRENCY } from "@/lib/constants/currency";
 
 export default function CreateGroupPage() {
   const t = useTranslations("groups");
   const tc = useTranslations("common");
   const { group, user } = useServices();
   const { user: currentUser } = useAuth();
-  const { userCurrency, rates } = useCurrencyDisplay();
+  const { userCurrency } = useCurrencyDisplay();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -89,20 +88,13 @@ export default function CreateGroupPage() {
 
   const handleCreate = async () => {
     if (!name.trim()) return;
-    // If user has non-INR currency and rates haven't loaded, block to prevent wrong budget storage
-    if (monthlyBudget.trim() && userCurrency !== BASE_CURRENCY && !rates) {
-      setError(t("create.loadingRates"));
-      return;
-    }
     setCreating(true);
     setError(null);
     try {
       const budgetNum = monthlyBudget.trim() ? parseFloat(monthlyBudget) : undefined;
-      // Convert budget from user's currency to INR (base) for storage
-      const budgetInBase = budgetNum && budgetNum > 0 && rates
-        ? convertCurrency(budgetNum, userCurrency, BASE_CURRENCY, rates)
-        : budgetNum && budgetNum > 0 ? budgetNum : undefined;
-      const result = await group.createGroup(name, description, template, selectedMembers.map((m) => m.uid), budgetInBase);
+      // The creator's default currency becomes the group's permanent currency.
+      const groupBudget = budgetNum && budgetNum > 0 ? budgetNum : undefined;
+      const result = await group.createGroup(name, description, template, selectedMembers.map((m) => m.uid), groupBudget);
       for (const offlineName of offlineMembers) {
         await group.addOfflineMember(result.groupId, offlineName);
       }

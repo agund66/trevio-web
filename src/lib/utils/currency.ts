@@ -54,6 +54,18 @@ export function convertFromBase(
   return Math.round((amountInBase * rate) * 100) / 100;
 }
 
+export function getRate(
+  sourceCurrency: string,
+  targetCurrency: string,
+  rates: Record<string, number>
+): number {
+  if (sourceCurrency === targetCurrency) return 1;
+  const sourceToBase = getRateToBase(sourceCurrency, rates);
+  const targetToBase = getRateToBase(targetCurrency, rates);
+  if (!sourceToBase || !targetToBase) return 1;
+  return sourceToBase / targetToBase;
+}
+
 export function getRateToBase(
   currency: string,
   rates: Record<string, number>

@@ -1,6 +1,6 @@
 // ─── Currency constants ───────────────────────────────────────────
-// All monetary amounts are stored in the base currency in Firestore.
-// Per-user display conversion happens at render time via exchange rates.
+// INR is used only as the external exchange-rate API base and for UPI links.
+// Groups store calculations in their permanent group currency.
 
 export const BASE_CURRENCY = "INR";
 

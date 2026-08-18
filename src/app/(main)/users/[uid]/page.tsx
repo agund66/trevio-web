@@ -9,6 +9,7 @@ import { useServices } from "@/lib/services/service-provider";
 import { ArrowLeft, Mail, AtSign, Wallet, Phone } from "lucide-react";
 import { getCountryByCode } from "@/lib/utils";
 import { Avatar } from "@/components/avatar";
+import { KarmaBadge } from "@/components/karma-badge";
 
 export default function PublicProfilePage() {
   const params = useParams();
@@ -68,6 +69,7 @@ export default function PublicProfilePage() {
           )}
           <h1 className="mt-3 text-xl font-bold text-white">{profileUser.displayName}</h1>
           <p className="text-sm text-white/80">@{profileUser.username}</p>
+          {profileUser.karmaPublic && <KarmaBadge uid={uid} />}
         </div>
 
         <div className="p-6 space-y-4">

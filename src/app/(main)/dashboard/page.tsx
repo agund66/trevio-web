@@ -13,13 +13,14 @@ import { queryKeys } from "@/lib/constants/query-keys";
 import type { GroupTemplate } from "@/lib/types";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Avatar } from "@/components/avatar";
+import { NudgeInsightsCard } from "@/components/nudge-insights-card";
 import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const { group } = useServices();
-  const { formatBase } = useCurrencyDisplay();
+  const { formatOriginal, formatGroup, convertToUserCurrency, userCurrency } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -28,10 +29,10 @@ export default function DashboardPage() {
     queryFn: () => group.getUserGroups(),
   });
 
-  const totalOwed = groups?.filter((g) => g.yourBalance > 0).reduce((sum, g) => sum + g.yourBalance, 0) ?? 0;
-  const totalOwing = groups?.filter((g) => g.yourBalance < 0).reduce((sum, g) => sum + Math.abs(g.yourBalance), 0) ?? 0;
+  const totalOwed = groups?.filter((g) => g.yourBalance > 0).reduce((sum, g) => sum + convertToUserCurrency(g.yourBalance, g.currency), 0) ?? 0;
+  const totalOwing = groups?.filter((g) => g.yourBalance < 0).reduce((sum, g) => sum + convertToUserCurrency(Math.abs(g.yourBalance), g.currency), 0) ?? 0;
   const netBalance = totalOwed - totalOwing;
-  const totalExpenses = groups?.reduce((sum, g) => sum + g.totalExpenses, 0) ?? 0;
+  const totalExpenses = groups?.reduce((sum, g) => sum + convertToUserCurrency(g.totalExpenses, g.currency), 0) ?? 0;
   const activeGroups = groups?.filter((g) => !g.archived).length ?? 0;
 
   const templateIcon = (template: GroupTemplate) => {
@@ -86,7 +87,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm font-medium text-white/80">{t("stats.netBalance")}</p>
               <p className="mt-1 text-2xl md:text-3xl font-bold text-white">
-                {netBalance >= 0 ? "+" : "-"}{formatBase(Math.abs(netBalance))}
+                {netBalance >= 0 ? "+" : "-"}{formatOriginal(Math.abs(netBalance), userCurrency)}
               </p>
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
@@ -102,21 +103,21 @@ export default function DashboardPage() {
               <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-trevio-600 dark:text-trevio-400" />
               <p className="text-xs font-medium text-trevio-700 dark:text-trevio-300">{t("stats.youllGet")}</p>
             </div>
-            <p className="text-sm md:text-lg font-bold text-trevio-600 dark:text-trevio-400">{formatBase(totalOwed)}</p>
+            <p className="text-sm md:text-lg font-bold text-trevio-600 dark:text-trevio-400">{formatOriginal(totalOwed, userCurrency)}</p>
           </div>
           <div className="rounded-xl bg-red-50 dark:bg-red-900/30 p-3 md:p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <TrendingDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-red-500 dark:text-red-400" />
               <p className="text-xs font-medium text-red-700 dark:text-red-400">{t("stats.youllPay")}</p>
             </div>
-            <p className="text-sm md:text-lg font-bold text-red-500 dark:text-red-400">{formatBase(totalOwing)}</p>
+            <p className="text-sm md:text-lg font-bold text-red-500 dark:text-red-400">{formatOriginal(totalOwing, userCurrency)}</p>
           </div>
           <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-3 md:p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <Wallet className="h-3.5 w-3.5 md:h-4 md:w-4 text-slate-600 dark:text-slate-400" />
               <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{t("stats.totalSpent")}</p>
             </div>
-            <p className="text-sm md:text-lg font-bold text-slate-700 dark:text-slate-300">{formatBase(totalExpenses)}</p>
+            <p className="text-sm md:text-lg font-bold text-slate-700 dark:text-slate-300">{formatOriginal(totalExpenses, userCurrency)}</p>
           </div>
         </div>
 
@@ -126,6 +127,11 @@ export default function DashboardPage() {
             {t("stats.acrossGroups", { count: activeGroups })}
           </p>
         )}
+      </div>
+
+      {/* Smart Nudges insights */}
+      <div className="mb-6 md:mb-8">
+        <NudgeInsightsCard />
       </div>
 
       {/* Groups */}
@@ -184,24 +190,24 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{g.name}</p>
                     <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
-                      {t("groups.members", { count: g.memberCount })} · {formatBase(g.totalExpenses)} {t("groups.total")}
+                      {t("groups.members", { count: g.memberCount })} · {formatGroup(g.totalExpenses, g.currency)} {t("groups.total")}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
                     {isHouseholdGroup ? (
                       <div className="space-y-0.5">
                         <p className="text-xs font-medium text-teal-600 dark:text-teal-400">
-                          {formatBase(g.totalExpenses)}
+                          {formatGroup(g.totalExpenses, g.currency)}
                         </p>
                         <p className="text-[10px] text-slate-400 dark:text-slate-500">{t("groups.spent")}</p>
                       </div>
                     ) : balance > 0.01 ? (
                       <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-green-600 dark:text-green-400">
-                        {t("groups.youllGet")} {formatBase(balance)}
+                        {t("groups.youllGet")} {formatGroup(balance, g.currency)}
                       </span>
                     ) : balance < -0.01 ? (
                       <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-red-500 dark:text-red-400">
-                        {t("groups.youllPay")} {formatBase(Math.abs(balance))}
+                        {t("groups.youllPay")} {formatGroup(Math.abs(balance), g.currency)}
                       </span>
                     ) : (
                       <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-2 md:px-3 py-1 text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500">
@@ -217,7 +223,7 @@ export default function DashboardPage() {
                       <span className={`text-[10px] font-semibold ${
                         budgetProgress >= 100 ? "text-red-500" : budgetProgress >= 80 ? "text-amber-500" : "text-teal-600 dark:text-teal-400"
                       }`}>
-                        {formatBase(g.totalExpenses)} / {formatBase(g.monthlyBudget)}
+                        {formatGroup(g.totalExpenses, g.currency)} / {formatGroup(g.monthlyBudget, g.currency)}
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">

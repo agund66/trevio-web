@@ -62,6 +62,7 @@ export function useGroupBalancesSubscription(groupId: string): void {
           role: (data.role as string) ?? "member",
           status: (data.status as string) ?? "active",
           isOffline,
+          currency: (data.currency as string) ?? "INR",
         };
       });
     }
@@ -89,12 +90,13 @@ export function useGroupExpensesSubscription(groupId: string): void {
           description: (data.description as string) ?? "",
           amount: (data.amount as number) ?? 0,
           currency: (data.currency as string) ?? "",
+          exchangeRateToGroupCurrency: (data.exchangeRateToGroupCurrency as number) ?? 1,
+          amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? (data.amount as number) ?? 0,
           paidBy: (data.paidBy as string) ?? "",
           splitType: (data.splitType as SplitType) ?? "equal",
           splits: (data.splits as Record<string, SplitEntry>) ?? {},
           category: (data.category as string) ?? "other",
           createdBy: (data.createdBy as string) ?? "",
-          exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
           date: toMillis(data.date),
           note: (data.note as string) ?? "",
           recurring: (data.recurring as RecurringConfig) ?? undefined,

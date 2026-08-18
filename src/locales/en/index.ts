@@ -17,6 +17,9 @@ import validation from "./validation.json";
 import categories from "./categories.json";
 import countries from "./countries.json";
 import currencies from "./currencies.json";
+import karma from "./karma.json";
+import nudges from "./nudges.json";
+import wrapped from "./wrapped.json";
 
 const en = {
   common,
@@ -34,6 +37,9 @@ const en = {
   categories,
   countries,
   currencies,
+  karma,
+  nudges,
+  wrapped,
 };
 
 export type Messages = typeof en;

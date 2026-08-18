@@ -152,7 +152,8 @@ describe("toMillis — firebase-expense-service", () => {
       splits: {},
       category: "other",
       createdBy: "u1",
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1,
+      amountInGroupCurrency: 100,
       date: dateValue,
     };
     mockGetDocs.mockResolvedValue(mkSnapshot([mkDoc("e1", docData)]));
@@ -320,7 +321,8 @@ describe("Expense mapping — getGroupExpenses", () => {
       splits,
       category: "dining",
       createdBy: "u1",
-      exchangeRateToBase: 0.012,
+      exchangeRateToGroupCurrency: 0.012,
+      amountInGroupCurrency: 1.2,
       date: { _seconds: 1700000000, _nanoseconds: 0 },
       note: "Team dinner",
       transactionType: "expense",
@@ -337,7 +339,7 @@ describe("Expense mapping — getGroupExpenses", () => {
     expect(e.splits).toEqual(splits);
     expect(e.category).toBe("dining");
     expect(e.createdBy).toBe("u1");
-    expect(e.exchangeRateToBase).toBe(0.012);
+    expect(e.exchangeRateToGroupCurrency).toBe(0.012);
     expect(e.date).toBe(1700000000 * 1000);
     expect(e.note).toBe("Team dinner");
     expect(e.transactionType).toBe("expense");
@@ -409,7 +411,7 @@ describe("Expense mapping — getGroupExpenses", () => {
     expect(e.splits).toEqual({});
     expect(e.category).toBe("other");
     expect(e.createdBy).toBe("");
-    expect(e.exchangeRateToBase).toBe(1);
+    expect(e.exchangeRateToGroupCurrency).toBe(1);
     expect(e.note).toBe("");
     expect(e.recurring).toBeUndefined();
     expect(e.itemizedData).toBeUndefined();
@@ -497,6 +499,8 @@ describe("Household type definitions", () => {
       description: "Rent",
       amount: 1000,
       currency: "INR",
+      exchangeRateToGroupCurrency: 1,
+      amountInGroupCurrency: 1000,
       paidBy: "u1",
       splitType: "equal",
       splits: {},

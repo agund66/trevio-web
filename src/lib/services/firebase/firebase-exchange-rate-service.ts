@@ -27,11 +27,18 @@ export class FirebaseExchangeRateService implements ExchangeRateService {
   }
 
   async getRateToBase(currency: string): Promise<number> {
+    return this.getRate(currency, BASE_CURRENCY);
+  }
+
+  async getRate(sourceCurrency: string, targetCurrency: string): Promise<number> {
+    if (sourceCurrency === targetCurrency) return 1;
     const { rates } = await this.getRates();
-    if (currency === BASE_CURRENCY) return 1;
-    const rate = rates[currency];
-    if (!rate) throw new Error(`Exchange rate not available for currency: ${currency}`);
-    return 1 / rate;
+    const sourceRate = sourceCurrency === BASE_CURRENCY ? 1 : rates[sourceCurrency];
+    const targetRate = targetCurrency === BASE_CURRENCY ? 1 : rates[targetCurrency];
+    if (!sourceRate || !targetRate) {
+      throw new Error(`Exchange rate not available for ${sourceCurrency} to ${targetCurrency}`);
+    }
+    return targetRate / sourceRate;
   }
 
   private async fetchAndCacheRates(dateStr: string): Promise<ExchangeRates> {

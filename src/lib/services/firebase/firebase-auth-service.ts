@@ -134,6 +134,10 @@ export class FirebaseAuthService implements AuthService {
         phoneNumber: phone,
         countryCode,
         timezone: DEFAULT_TIMEZONE,
+        karmaScore: 0,
+        karmaTier: "bronze",
+        karmaPublic: false,
+        karmaUpdatedAt: 0,
       };
     }
 
@@ -154,6 +158,10 @@ export class FirebaseAuthService implements AuthService {
       phoneNumber: data.phoneNumber || "",
       countryCode: data.countryCode || "",
       timezone: data.timezone || DEFAULT_TIMEZONE,
+      karmaScore: data.karmaScore || 0,
+      karmaTier: data.karmaTier || "bronze",
+      karmaPublic: data.karmaPublic || false,
+      karmaUpdatedAt: data.karmaUpdatedAt || 0,
     };
   }
 

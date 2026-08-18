@@ -8,6 +8,7 @@ import { useServices } from "@/lib/services/service-provider";
 import { Edit3, Check, Trash2, AlertTriangle, Plus, Wallet, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme, type ThemeMode } from "@/lib/hooks/use-theme";
 import { Avatar } from "@/components/avatar";
+import { KarmaCard } from "@/components/karma-card";
 import { CountryPhoneInput } from "@/components/country-phone-input";
 import { getCountryByCode, getCurrencyForCountry, getTimezoneForCountry, validateUpiId, validatePhoneNumber } from "@/lib/utils";
 import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
@@ -199,6 +200,9 @@ export default function ProfilePage() {
               <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
               <p className="text-xs text-slate-400 dark:text-slate-500">{user.email}</p>
             </div>
+
+            {/* Trevio Karma card */}
+            <KarmaCard />
 
             {/* Payment info card — UPI is India-specific, only show for India */}
             {userIsInIndia && (

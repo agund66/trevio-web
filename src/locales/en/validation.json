@@ -25,7 +25,7 @@
     "missingFields": "Missing required fields",
     "amountPositive": "Settlement amount must be greater than 0",
     "cannotSettleSelf": "Cannot settle with yourself",
-    "onlyInvolved": "You can only record settlements involving yourself",
+    "onlyInvolved": "You can only record settlements involving yourself or be a group admin",
     "bothMembers": "Both parties must be group members"
   },
   "user": {

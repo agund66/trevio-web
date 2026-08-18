@@ -8,4 +8,5 @@ export interface ExchangeRates {
 export interface ExchangeRateService {
   getRates(): Promise<ExchangeRates>;
   getRateToBase(currency: string): Promise<number>;
+  getRate(sourceCurrency: string, targetCurrency: string): Promise<number>;
 }

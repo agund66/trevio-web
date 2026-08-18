@@ -1,0 +1,22 @@
+{
+  "title": "Smart Nudges",
+  "insights": "Insights",
+  "noNudges": "You're all caught up! No insights right now.",
+  "dismiss": "Dismiss",
+  "generate": "Refresh Insights",
+  "viewAll": "View All Insights",
+  "viewLess": "Show Less",
+  "severity": {
+    "info": "Info",
+    "warning": "Heads Up",
+    "positive": "Great Job!"
+  },
+  "types": {
+    "stale_debt": "Pending Balance",
+    "large_expense": "Big Expense",
+    "inactive_group": "Quiet Group",
+    "settlement_reminder": "Awaiting Settlement",
+    "positive_streak": "Logging Streak",
+    "generosity_badge": "Generosity Badge"
+  }
+}

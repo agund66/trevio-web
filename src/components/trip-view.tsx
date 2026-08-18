@@ -48,14 +48,15 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 interface TripViewProps {
   groupId: string;
+  groupCurrency: string;
   members: Member[];
 }
 
-export function TripView({ groupId, members }: TripViewProps) {
+export function TripView({ groupId, groupCurrency, members }: TripViewProps) {
   const t = useTranslations("groups");
   const tCommon = useTranslations("common");
   const { trip } = useServices();
-  const { formatBase, formatOriginal, formatDate: formatDateFn, userCurrency } = useCurrencyDisplay();
+  const { formatGroup, formatOriginal, formatDate: formatDateFn, userCurrency } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const [showAddItem, setShowAddItem] = useState(false);
   const [showAddLocation, setShowAddLocation] = useState(false);
@@ -208,7 +209,7 @@ export function TripView({ groupId, members }: TripViewProps) {
                     {dayKey === "__no_date__" ? t("trip.unscheduled") : formatShortDate(new Date(dayKey).getTime())}
                   </span>
                   <span className="text-xs text-slate-400">
-                    {formatBase(items.reduce((s, i) => s + i.estimatedCost, 0))}
+                    {formatGroup(items.reduce((s, i) => s + i.estimatedCost, 0), groupCurrency)}
                   </span>
                 </div>
                 <div className="ml-4 space-y-2 border-l-2 border-slate-100 dark:border-slate-700 pl-4">
@@ -246,7 +247,7 @@ export function TripView({ groupId, members }: TripViewProps) {
                               )}
                               {item.estimatedCost > 0 && (
                                 <span className="text-xs font-medium text-trevio-600 dark:text-trevio-400">
-                                  {formatBase(item.estimatedCost)}
+                                  {formatOriginal(item.estimatedCost, item.estimatedCostCurrency || groupCurrency)}
                                 </span>
                               )}
                               {item.assignedTo.length > 0 && (

@@ -53,6 +53,8 @@ function mkExpense(
     description: overrides.description ?? "Test expense",
     amount: overrides.amount,
     currency: overrides.currency ?? "INR",
+    exchangeRateToGroupCurrency: overrides.exchangeRateToGroupCurrency ?? 1,
+    amountInGroupCurrency: overrides.amountInGroupCurrency ?? overrides.amount,
     paidBy: overrides.paidBy,
     splitType: overrides.splitType ?? "equal",
     splits: overrides.splits ?? {},
@@ -76,6 +78,7 @@ function mkMember(overrides: Partial<Member> & { uid: string }): Member {
     role: overrides.role ?? "member",
     status: overrides.status ?? "active",
     isOffline: overrides.isOffline,
+    currency: overrides.currency ?? "INR",
   };
 }
 

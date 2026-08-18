@@ -69,6 +69,7 @@ export class FirebaseGroupService implements GroupService {
       balance: 0,
       status: "active",
       isOffline: false,
+      currency: userCurrency,
     });
     batch.set(doc(collection(groupRef, "activities")), {
       type: "group_created",
@@ -119,6 +120,7 @@ export class FirebaseGroupService implements GroupService {
     const displayName = userDoc.data()?.displayName || "";
     const username = userDoc.data()?.username || "";
     const photoURL = userDoc.data()?.photoURL || "";
+    const userCurrency = userDoc.data()?.defaultCurrency || groupData.currency || DEFAULT_CURRENCY;
 
     if (memberDoc.exists() && memberDoc.data()?.status === "pending") {
       batch.update(doc(groupDoc.ref, "members", uid), {
@@ -128,6 +130,7 @@ export class FirebaseGroupService implements GroupService {
         username,
         photoURL,
         isOffline: false,
+        currency: userCurrency,
       });
     } else {
       batch.set(doc(groupDoc.ref, "members", uid), {
@@ -140,6 +143,7 @@ export class FirebaseGroupService implements GroupService {
         balance: 0,
         status: "active",
         isOffline: false,
+        currency: userCurrency,
       });
       batch.update(groupDoc.ref, {
         memberCount: increment(1),
@@ -205,6 +209,8 @@ export class FirebaseGroupService implements GroupService {
     });
 
     const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    const groupCurrency = (groupDoc.data()?.currency as string) || DEFAULT_CURRENCY;
     const pendingMemberDoc = await getDoc(doc(groupRef, "members", toUid));
     if (!pendingMemberDoc.exists()) {
       // Fetch invitee's profile for denormalization
@@ -212,6 +218,7 @@ export class FirebaseGroupService implements GroupService {
       const inviteeName = inviteeDoc.data()?.displayName || "";
       const inviteeUsername = inviteeDoc.data()?.username || "";
       const inviteePhoto = inviteeDoc.data()?.photoURL || "";
+      const inviteeCurrency = inviteeDoc.data()?.defaultCurrency || groupCurrency;
       await setDoc(doc(groupRef, "members", toUid), {
         uid: toUid,
         displayName: inviteeName,
@@ -222,6 +229,7 @@ export class FirebaseGroupService implements GroupService {
         balance: 0,
         status: "pending",
         isOffline: false,
+        currency: inviteeCurrency,
       });
       await updateDoc(groupRef, { memberCount: increment(1), updatedAt: now });
     }
@@ -265,6 +273,7 @@ export class FirebaseGroupService implements GroupService {
     const displayName = userDoc.data()?.displayName || "";
     const username = userDoc.data()?.username || "";
     const photoURL = userDoc.data()?.photoURL || "";
+    const userCurrency = userDoc.data()?.defaultCurrency || groupData.currency || DEFAULT_CURRENCY;
 
     const existingMemberDoc = await getDoc(doc(groupDoc.ref, "members", uid));
     if (existingMemberDoc.exists() && existingMemberDoc.data()?.status === "pending") {
@@ -275,6 +284,7 @@ export class FirebaseGroupService implements GroupService {
         username,
         photoURL,
         isOffline: false,
+        currency: userCurrency,
       });
     } else {
       batch.set(doc(groupDoc.ref, "members", uid), {
@@ -287,6 +297,7 @@ export class FirebaseGroupService implements GroupService {
         balance: 0,
         status: "active",
         isOffline: false,
+        currency: userCurrency,
       });
       batch.update(groupDoc.ref, {
         memberCount: increment(1),
@@ -667,6 +678,45 @@ export class FirebaseGroupService implements GroupService {
     await batch.commit();
   }
 
+  async updateMemberRole(groupId: string, memberUid: string, role: "admin" | "member"): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("User not authenticated");
+    if (!groupId || !memberUid) throw new Error("Group ID and member UID are required");
+    if (role !== "admin" && role !== "member") throw new Error("Invalid role");
+
+    const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    const currentMemberDoc = await getDoc(doc(groupRef, "members", uid));
+    if (!currentMemberDoc.exists()) throw new Error("You are not a member of this group");
+    if (currentMemberDoc.data()?.role !== "admin") throw new Error("Only group admin can change member roles");
+
+    const targetMemberDoc = await getDoc(doc(groupRef, "members", memberUid));
+    if (!targetMemberDoc.exists()) throw new Error("Target user is not a member of this group");
+    if (targetMemberDoc.data()?.status !== "active") throw new Error("Target user is not an active member");
+    if (targetMemberDoc.data()?.role === role) throw new Error(`Member is already ${role}`);
+
+    const now = Date.now();
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const displayName = userDoc.data()?.displayName || "";
+    const photoURL = userDoc.data()?.photoURL || "";
+    const targetName = targetMemberDoc.data()?.displayName || "Someone";
+
+    const batch = writeBatch(db);
+    batch.update(doc(groupRef, "members", memberUid), { role, updatedAt: now });
+    batch.set(doc(collection(groupRef, "activities")), {
+      type: role === "admin" ? "member_role_updated" : "member_role_updated",
+      description: role === "admin" ? `${targetName} is now an admin` : `${targetName} is now a member`,
+      userId: uid,
+      userName: displayName,
+      userPhotoURL: photoURL,
+      data: { memberUid, newRole: role },
+      createdAt: now,
+    });
+    await batch.commit();
+  }
+
   async addOfflineMember(groupId: string, displayName: string): Promise<string> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error("User not authenticated");
@@ -697,6 +747,7 @@ export class FirebaseGroupService implements GroupService {
       balance: 0,
       status: "active",
       isOffline: true,
+      currency: (groupDoc.data()?.currency as string) || DEFAULT_CURRENCY,
       addedBy: uid,
     });
     batch.update(groupRef, {
@@ -722,6 +773,8 @@ export class FirebaseGroupService implements GroupService {
     if (!uid) throw new Error("User not authenticated");
 
     const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    const groupCurrency = (groupDoc.data()?.currency as string) || DEFAULT_CURRENCY;
     const memberDoc = await getDoc(doc(groupRef, "members", memberDocId));
     if (!memberDoc.exists()) throw new Error("Member not found");
     if (memberDoc.data()?.isOffline !== true) throw new Error("This member is not an offline profile");
@@ -735,6 +788,7 @@ export class FirebaseGroupService implements GroupService {
     const displayName = userDoc.data()?.displayName || "";
     const username = userDoc.data()?.username || "";
     const photoURL = userDoc.data()?.photoURL || "";
+    const userCurrency = userDoc.data()?.defaultCurrency || groupCurrency;
 
     const batch = writeBatch(db);
 
@@ -742,11 +796,12 @@ export class FirebaseGroupService implements GroupService {
       // User already has a member doc (e.g. joined via invite code)
       // Keep existing doc, just delete the offline profile doc
       batch.delete(doc(groupRef, "members", memberDocId));
+      batch.update(doc(groupRef, "members", uid), { currency: userCurrency, updatedAt: now });
       batch.update(groupRef, { memberCount: increment(-1), updatedAt: now });
     } else {
       // No existing doc — create one with offline member's data
       // but denormalize the claiming user's username/photoURL
-      const claimedData = { ...memberData, uid, username, photoURL, isOffline: false, claimedAt: now, claimedBy: uid };
+      const claimedData = { ...memberData, uid, username, photoURL, currency: userCurrency, isOffline: false, claimedAt: now, claimedBy: uid };
       batch.set(doc(groupRef, "members", uid), claimedData);
       batch.delete(doc(groupRef, "members", memberDocId));
     }
@@ -770,6 +825,8 @@ export class FirebaseGroupService implements GroupService {
     if (!uid) throw new Error("User not authenticated");
 
     const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    const groupCurrency = (groupDoc.data()?.currency as string) || DEFAULT_CURRENCY;
     const adminDoc = await getDoc(doc(groupRef, "members", uid));
     if (adminDoc.data()?.role !== "admin") throw new Error("Only admins can link members");
 
@@ -789,6 +846,7 @@ export class FirebaseGroupService implements GroupService {
     const targetUserDoc = await getDoc(doc(db, "users", realUid));
     const targetUsername = targetUserDoc.data()?.username || "";
     const targetPhotoURL = targetUserDoc.data()?.photoURL || "";
+    const targetCurrency = targetUserDoc.data()?.defaultCurrency || groupCurrency;
 
     const batch = writeBatch(db);
 
@@ -796,11 +854,12 @@ export class FirebaseGroupService implements GroupService {
       // Target user already has a member doc (e.g. joined via invite code)
       // Keep existing doc, just delete the offline profile doc
       batch.delete(doc(groupRef, "members", memberDocId));
+      batch.update(doc(groupRef, "members", realUid), { currency: targetCurrency, updatedAt: now });
       batch.update(groupRef, { memberCount: increment(-1), updatedAt: now });
     } else {
       // No existing doc — create one with offline member's data
       // but denormalize the target user's username/photoURL
-      const linkedData = { ...memberData, uid: realUid, username: targetUsername, photoURL: targetPhotoURL, isOffline: false, claimedAt: now, claimedBy: uid };
+      const linkedData = { ...memberData, uid: realUid, username: targetUsername, photoURL: targetPhotoURL, currency: targetCurrency, isOffline: false, claimedAt: now, claimedBy: uid };
       batch.set(doc(groupRef, "members", realUid), linkedData);
       batch.delete(doc(groupRef, "members", memberDocId));
     }
@@ -856,6 +915,7 @@ export class FirebaseGroupService implements GroupService {
       batch.update(doc(groupRef, "members", memberUid), {
         uid: "",
         isOffline: true,
+        currency: (groupDoc.data()?.currency as string) || DEFAULT_CURRENCY,
         status: "removed",
         updatedAt: now,
       });
@@ -951,7 +1011,7 @@ export class FirebaseGroupService implements GroupService {
         paidBy: data.paidBy as string,
         splits: data.splits as Record<string, SplitEntry>,
         amount: data.amount as number,
-        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
       };
     });
 

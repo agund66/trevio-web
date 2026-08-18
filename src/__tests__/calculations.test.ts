@@ -662,7 +662,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2", "u3"]);
     expect(result.get("u1")).toBeCloseTo(66.67, 2);
@@ -672,8 +672,8 @@ describe("calculateBalances", () => {
 
   it("multiple expenses accumulate correctly", () => {
     const expenses = [
-      { paidBy: "u1", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToBase: 1 },
-      { paidBy: "u2", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToBase: 1 },
+      { paidBy: "u1", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
+      { paidBy: "u2", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
     ];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(0);
@@ -692,14 +692,14 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 83.5,
+      exchangeRateToGroupCurrency: 83.5, amountInGroupCurrency: 8350,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBeCloseTo(100 * 83.5 - 50 * 83.5, 2);
     expect(result.get("u2")).toBeCloseTo(-50 * 83.5, 2);
   });
 
-  it("expense without exchangeRateToBase defaults to 1", () => {
+  it("expense without amountInGroupCurrency defaults to amount", () => {
     const expenses = [{
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
@@ -736,7 +736,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const settlements = [{ fromUid: "u2", toUid: "u1", amount: 50 }];
     const result = calculateBalances(expenses, settlements, ["u1", "u2"]);
@@ -751,7 +751,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u2: { amount: 100 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(100);
@@ -763,7 +763,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 100 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const result = calculateBalances(expenses, [], ["u1"]);
     expect(result.get("u1")).toBe(0);
@@ -771,9 +771,9 @@ describe("calculateBalances", () => {
 
   it("multiple expenses with different payers", () => {
     const expenses = [
-      { paidBy: "u1", splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }), amount: 100, exchangeRateToBase: 1 },
-      { paidBy: "u2", splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }), amount: 100, exchangeRateToBase: 1 },
-      { paidBy: "u3", splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }), amount: 100, exchangeRateToBase: 1 },
+      { paidBy: "u1", splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
+      { paidBy: "u2", splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
+      { paidBy: "u3", splits: mkSplits({ u1: { amount: 33.33 }, u2: { amount: 33.33 }, u3: { amount: 33.34 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
     ];
     const result = calculateBalances(expenses, [], ["u1", "u2", "u3"]);
     expect(result.get("u1")).toBeCloseTo(0, 1);
@@ -786,7 +786,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 83.5,
+      exchangeRateToGroupCurrency: 83.5, amountInGroupCurrency: 8350,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(4175);
@@ -798,7 +798,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 30 }, u2: { amount: 30 }, u3: { amount: 40 } }),
       amount: 100,
-      exchangeRateToBase: 90.5,
+      exchangeRateToGroupCurrency: 90.5, amountInGroupCurrency: 9050,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2", "u3"]);
     expect(result.get("u1")).toBeCloseTo(100 * 90.5 - 30 * 90.5, 2);
@@ -818,7 +818,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const result = calculateBalances(expenses, [], ["u1", "u2", "u3"]);
     expect(result.get("u3")).toBe(0);
@@ -834,7 +834,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: {},
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const result = calculateBalances(expenses, [], ["u1"]);
     expect(result.get("u1")).toBe(100);
@@ -842,8 +842,8 @@ describe("calculateBalances", () => {
 
   it("multiple expenses with mixed currencies", () => {
     const expenses = [
-      { paidBy: "u1", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToBase: 1 },
-      { paidBy: "u2", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToBase: 83.5 },
+      { paidBy: "u1", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
+      { paidBy: "u2", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToGroupCurrency: 83.5, amountInGroupCurrency: 8350 },
     ];
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(-4125);
@@ -861,7 +861,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }));
     const result = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(result.get("u1")).toBe(2500);
@@ -873,7 +873,7 @@ describe("calculateBalances", () => {
       paidBy: "u1",
       splits: mkSplits({ u1: { amount: 0 }, u2: { amount: 100 } }),
       amount: 100,
-      exchangeRateToBase: 1,
+      exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100,
     }];
     const resultBefore = calculateBalances(expenses, [], ["u1", "u2"]);
     expect(resultBefore.get("u1")).toBe(100);
@@ -888,8 +888,8 @@ describe("calculateBalances", () => {
 
   it("handles 5 members with complex expense/settlement scenario", () => {
     const expenses = [
-      { paidBy: "u1", splits: mkSplits({ u1: { amount: 20 }, u2: { amount: 20 }, u3: { amount: 20 }, u4: { amount: 20 }, u5: { amount: 20 } }), amount: 100, exchangeRateToBase: 1 },
-      { paidBy: "u2", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToBase: 1 },
+      { paidBy: "u1", splits: mkSplits({ u1: { amount: 20 }, u2: { amount: 20 }, u3: { amount: 20 }, u4: { amount: 20 }, u5: { amount: 20 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
+      { paidBy: "u2", splits: mkSplits({ u1: { amount: 50 }, u2: { amount: 50 } }), amount: 100, exchangeRateToGroupCurrency: 1, amountInGroupCurrency: 100 },
     ];
     const settlements = [{ fromUid: "u3", toUid: "u1", amount: 20 }];
     const result = calculateBalances(expenses, settlements, UIDS);

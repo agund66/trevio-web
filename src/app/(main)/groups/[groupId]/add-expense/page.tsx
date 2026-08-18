@@ -217,6 +217,8 @@ export default function AddExpensePage() {
           description,
           amount: numericAmount,
           currency,
+          exchangeRateToGroupCurrency: 1,
+          amountInGroupCurrency: numericAmount,
           paidBy: paidByUid || activeMembers.find((m) => m.uid === user?.uid)?.uid || activeMembers[0]?.uid || "",
           splitType,
           splits: buildSplits(),

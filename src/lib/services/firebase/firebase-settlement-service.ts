@@ -17,7 +17,7 @@ import type { Member, Settlement, SimplifiedDebt, SettlementMethod, SplitEntry }
 import { calculateBalances, simplifyDebts } from "../../utils/calculations";
 import { FirebaseExchangeRateService } from "./firebase-exchange-rate-service";
 import { FIRESTORE_BATCH_LIMIT } from "../../constants/firestore";
-import { BASE_CURRENCY, DEFAULT_CURRENCY } from "../../constants/currency";
+import { DEFAULT_CURRENCY } from "../../constants/currency";
 
 type SplitMap = Record<string, SplitEntry>;
 
@@ -42,9 +42,6 @@ export class FirebaseSettlementService implements SettlementService {
       throw new Error("Settlement amount must be greater than 0");
     }
     if (params.fromUid === params.toUid) throw new Error("Cannot settle with yourself");
-    if (uid !== params.fromUid && uid !== params.toUid) {
-      throw new Error("You can only record settlements involving yourself");
-    }
 
     const groupRef = doc(db, "groups", params.groupId);
     const groupDoc = await getDoc(groupRef);
@@ -52,6 +49,12 @@ export class FirebaseSettlementService implements SettlementService {
 
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
+
+    // Allow settlement if the user is a party to it OR is a group admin
+    const isAdmin = memberDoc.data()?.role === "admin";
+    if (uid !== params.fromUid && uid !== params.toUid && !isAdmin) {
+      throw new Error("You can only record settlements involving yourself or be a group admin");
+    }
 
     const [fromMember, toMember] = await Promise.all([
       getDoc(doc(groupRef, "members", params.fromUid)),
@@ -61,8 +64,9 @@ export class FirebaseSettlementService implements SettlementService {
       throw new Error("Both parties must be group members");
     }
 
-    const rateToBase = await this.exchangeRateService.getRateToBase(params.currency);
-    const amountInBase = Math.round((params.amount * rateToBase) * 100) / 100;
+    const groupCurrency = (groupDoc.data()?.currency as string) || DEFAULT_CURRENCY;
+    const rateToGroupCurrency = await this.exchangeRateService.getRate(params.currency, groupCurrency);
+    const amountInGroupCurrency = Math.round((params.amount * rateToGroupCurrency) * 100) / 100;
 
     const now = Date.now();
     const settlementRef = doc(collection(groupRef, "settlements"));
@@ -70,10 +74,12 @@ export class FirebaseSettlementService implements SettlementService {
     const settlementData: Record<string, unknown> = {
       fromUid: params.fromUid,
       toUid: params.toUid,
-      amount: amountInBase,
-      currency: BASE_CURRENCY,
+      amount: amountInGroupCurrency,
+      currency: groupCurrency,
       originalAmount: params.amount,
       originalCurrency: params.currency,
+      exchangeRateToGroupCurrency: rateToGroupCurrency,
+      amountInGroupCurrency,
       method: params.method || "cash",
       date: now,
       createdBy: uid,
@@ -116,7 +122,7 @@ export class FirebaseSettlementService implements SettlementService {
         settlementId: settlementRef.id,
         fromUid: params.fromUid,
         toUid: params.toUid,
-        amount: amountInBase,
+        amount: amountInGroupCurrency,
       },
       createdAt: now,
     });
@@ -253,6 +259,7 @@ export class FirebaseSettlementService implements SettlementService {
         role: (data.role as string) ?? "member",
         status: (data.status as string) ?? "active",
         isOffline,
+        currency: (data.currency as string) ?? DEFAULT_CURRENCY,
       } as Member;
     });
 
@@ -323,7 +330,11 @@ export class FirebaseSettlementService implements SettlementService {
         fromName,
         toName,
         amount: (data.amount as number) ?? 0,
-        currency: (data.currency as string) ?? "",
+        currency: (data.currency as string) ?? DEFAULT_CURRENCY,
+        originalAmount: (data.originalAmount as number) ?? undefined,
+        originalCurrency: (data.originalCurrency as string) ?? undefined,
+        exchangeRateToGroupCurrency: (data.exchangeRateToGroupCurrency as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
         method: (data.method as SettlementMethod) ?? "cash",
         upiRefId: (data.upiRefId as string) ?? "",
         date: (data.date as number) ?? 0,
@@ -355,7 +366,7 @@ export class FirebaseSettlementService implements SettlementService {
         paidBy: data.paidBy as string,
         splits: data.splits as SplitMap,
         amount: data.amount as number,
-        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
       };
     });
 
@@ -389,7 +400,7 @@ export class FirebaseSettlementService implements SettlementService {
         paidBy: data.paidBy as string,
         splits: data.splits as SplitMap,
         amount: data.amount as number,
-        exchangeRateToBase: (data.exchangeRateToBase as number) ?? 1,
+        amountInGroupCurrency: (data.amountInGroupCurrency as number) ?? ((data.amount as number) || 0),
       };
     });
 

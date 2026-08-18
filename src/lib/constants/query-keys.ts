@@ -19,6 +19,17 @@ export const queryKeys = {
   // Balances (cross-group)
   balances: ["balances"] as const,
 
+  // Karma
+  karmaBreakdown: ["karmaBreakdown"] as const,
+  publicKarma: (uid: string) => ["publicKarma", uid] as const,
+
+  // Nudges
+  activeNudges: ["activeNudges"] as const,
+
+  // Wrapped
+  wrappedSummary: (year: number) => ["wrappedSummary", year] as const,
+  monthlyRecap: (year: number, month: number) => ["monthlyRecap", year, month] as const,
+
   // Exchange rates
   exchangeRates: ["exchangeRates"] as const,
 

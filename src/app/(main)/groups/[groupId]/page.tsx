@@ -49,7 +49,7 @@ export default function GroupDetailPage() {
   useGroupBalancesSubscription(groupId);
   useGroupExpensesSubscription(groupId);
   const { user: currentUser } = useAuth();
-  const { formatBase, formatOriginal, formatDate: formatDateFn, userCurrency, rates, convertToUserCurrency, convertBase, isLoading: ratesLoading } = useCurrencyDisplay();
+  const { formatGroup, formatOriginal, formatDate: formatDateFn, userCurrency, rates, convertToUserCurrency, exchangeRate, isLoading: ratesLoading } = useCurrencyDisplay();
   const queryClient = useQueryClient();
   const t = useTranslations("groups");
   const tc = useTranslations("categories");
@@ -61,7 +61,7 @@ export default function GroupDetailPage() {
     shares: t('details.shares'),
     itemized: t('details.items'),
   };
-  const [tab, setTab] = useState<"expenses" | "balances" | "analytics" | "trip" | "members" | "activity" | "today" | "monthly">("expenses");
+  const [tab, setTab] = useState<"expenses" | "balances" | "analytics" | "trip" | "members" | "activity" | "today" | "monthly">("balances");
   const [activityFilter, setActivityFilter] = useState<"all" | "settlements">("all");
   const [showInvite, setShowInvite] = useState(false);
   const [showAddOffline, setShowAddOffline] = useState(false);
@@ -99,7 +99,7 @@ export default function GroupDetailPage() {
     initialTabSwitchDone.current = false;
   }, [groupId]);
   useEffect(() => {
-    if (isHousehold && !initialTabSwitchDone.current && tab === "expenses") {
+    if (isHousehold && !initialTabSwitchDone.current && tab === "balances") {
       setTab("today");
       initialTabSwitchDone.current = true;
     }
@@ -133,7 +133,7 @@ export default function GroupDetailPage() {
         fromUid: debt.fromUid,
         toUid: debt.toUid,
         amount: debt.amount,
-        currency: BASE_CURRENCY,
+        currency: groupInfo?.currency || userCurrency,
         method: debt.method,
       }),
     onMutate: (debt) => {
@@ -261,29 +261,24 @@ export default function GroupDetailPage() {
 
   const allExpenses = useMemo(() => expensesData?.expenses ?? [], [expensesData?.expenses]);
   const householdMembers = useMemo(() => members ?? [], [members]);
+  const groupCurrency = groupInfo?.currency || userCurrency;
+  const formatGroupAmount = useCallback((amount: number) => formatGroup(amount, groupCurrency), [formatGroup, groupCurrency]);
 
-  // Convert all household expenses to the viewer's currency for display & calculation.
-  // Preserve the original amount and currency so edits can save back in the
-  // original currency instead of overwriting with the display currency.
-  // When rates aren't loaded yet, fall back to base currency (INR) — the amounts
-  // are still in base currency, so showing the base symbol is correct.
-  const displayCurrency = rates ? userCurrency : BASE_CURRENCY;
+  // Stored expense totals and budgets are in the group's permanent currency.
+  // Keep original expense amount/currency for the transaction display and edits.
+  const displayCurrency = groupCurrency;
   const convertedExpenses = useMemo(
-    () => rates
-      ? allExpenses.map((e) => ({
-          ...e,
-          amount: convertToUserCurrency(e.amount, e.currency || BASE_CURRENCY),
-          originalAmount: e.amount,
-          originalCurrency: e.currency || BASE_CURRENCY,
-        }))
-      : allExpenses,
-    [allExpenses, convertToUserCurrency, rates]
+    () => allExpenses.map((e) => ({
+      ...e,
+      amount: e.amountInGroupCurrency,
+      originalAmount: e.amount,
+      originalCurrency: e.currency || groupCurrency,
+    })),
+    [allExpenses, groupCurrency]
   );
 
-  // Budget is stored in INR (base) on the group; convert to user's currency for display.
-  // When rates aren't loaded, keep as raw INR.
   const budgetInUserCurrency = groupInfo?.monthlyBudget != null
-    ? (rates ? convertBase(groupInfo.monthlyBudget) : groupInfo.monthlyBudget)
+    ? convertToUserCurrency(groupInfo.monthlyBudget, groupCurrency)
     : undefined;
 
   const monthlySpent = useMemo(() => {
@@ -362,8 +357,17 @@ export default function GroupDetailPage() {
     return `upi://pay?${params.toString()}`;
   };
 
-  const handleUpiPay = (upiId: string, phoneNumber: string, countryCode: string, amount: number, note: string) => {
-    const link = buildUpiLink(upiId, phoneNumber, countryCode, amount, note);
+  const handleUpiPay = async (upiId: string, phoneNumber: string, countryCode: string, amount: number, note: string) => {
+    let amountInInr = amount;
+    if (groupCurrency !== BASE_CURRENCY) {
+      try {
+        amountInInr = amount * await exchangeRate.getRate(groupCurrency, BASE_CURRENCY);
+      } catch {
+        setActionError("Unable to convert the payment amount to INR for UPI");
+        return;
+      }
+    }
+    const link = buildUpiLink(upiId, phoneNumber, countryCode, amountInInr, note);
     if (link) window.location.href = link;
   };
 
@@ -380,16 +384,17 @@ export default function GroupDetailPage() {
 
   const exportCsv = () => {
     if (!expensesData?.expenses) return;
+    const escapeCsv = (val: string) => `"${val.replace(/"/g, '""')}"`;
     const header = "Date,Description,Amount,Currency,Category,Paid By,Split Type,Note\n";
     const rows = expensesData.expenses.map((e) => {
       const payer = members?.find((m) => m.uid === e.paidBy)?.displayName || t('details.unknown');
       const date = e.date ? formatShortDate(e.date) : "";
-      const desc = `"${e.description.replace(/"/g, '\\"')}"`;
-      const note = e.note ? `"${e.note.replace(/"/g, '\\"')}"` : "";
-      return `${date},${desc},${e.amount},${e.currency},${e.category},${payer},${e.splitType},${note}`;
+      const desc = escapeCsv(e.description);
+      const note = e.note ? escapeCsv(e.note) : "";
+      return [date, desc, String(e.amount), e.currency, e.category, escapeCsv(payer), e.splitType, note].join(",");
     });
     const csv = header + rows.join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -499,7 +504,7 @@ export default function GroupDetailPage() {
           {t('details.membersCount', { count: groupInfo?.memberCount || 0 })}
         </span>
         <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-          {formatBase(groupInfo?.totalExpenses || 0)} {t('details.total')}
+          {formatGroupAmount(groupInfo?.totalExpenses || 0)} {t('details.total')}
         </span>
         {groupInfo?.inviteCode && (
           <>
@@ -538,8 +543,8 @@ export default function GroupDetailPage() {
               { key: "activity" as const, label: t('details.tabActivity'), icon: ActivityIcon },
             ]
           : [
-              { key: "expenses" as const, label: t('details.expenses'), icon: Receipt },
               { key: "balances" as const, label: t('details.balances'), icon: Wallet },
+              { key: "expenses" as const, label: t('details.expenses'), icon: Receipt },
               { key: "analytics" as const, label: t('details.tabInsights'), icon: BarChart3 },
               ...(groupInfo?.template === "trip" ? [{ key: "trip" as const, label: t('details.tabTrip'), icon: Plane }] : []),
               { key: "members" as const, label: t('details.members'), icon: Users },
@@ -696,7 +701,7 @@ export default function GroupDetailPage() {
                   </span>
                 </div>
                 <span className="text-sm font-bold text-trevio-600 dark:text-trevio-400">
-                  {formatBase(filteredExpenses.reduce((sum, e) => sum + (e.exchangeRateToBase ? e.amount * e.exchangeRateToBase : e.amount), 0))}
+                  {formatGroupAmount(filteredExpenses.reduce((sum, e) => sum + e.amountInGroupCurrency, 0))}
                 </span>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 mb-2">
@@ -924,21 +929,29 @@ export default function GroupDetailPage() {
             const myBalance = members?.find((m) => m.uid === currentUser?.uid)?.balance ?? 0;
             const myDebts = debts?.filter((d) => d.fromUid === currentUser?.uid) ?? [];
             const myCredits = debts?.filter((d) => d.toUid === currentUser?.uid) ?? [];
+            const formatNames = (names: string[]) => {
+              if (names.length === 0) return "";
+              if (names.length === 1) return names[0];
+              if (names.length === 2) return `${names[0]} & ${names[1]}`;
+              return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
+            };
+            const debtorNames = myCredits.map((d) => d.fromName.split(" ")[0] || d.fromName);
+            const creditorNames = myDebts.map((d) => d.toName.split(" ")[0] || d.toName);
             return (
               <div className={`rounded-2xl p-4 md:p-5 ${myBalance > 0.01 ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : myBalance < -0.01 ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" : "bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"}`}>
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('details.yourBalance')}</p>
                 <p className={`mt-1 text-2xl md:text-3xl font-bold ${myBalance > 0.01 ? "text-green-600 dark:text-green-400" : myBalance < -0.01 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}>
-                  {myBalance > 0.01 ? "+" : ""}{formatBase(myBalance)}
+                  {myBalance > 0.01 ? "+" : ""}{formatGroupAmount(myBalance)}
                 </p>
                 <div className="mt-3 space-y-1.5">
                   {myDebts.length > 0 && (
                     <p className="text-sm text-red-600 dark:text-red-400">
-                      {t('details.youOwe')} {t('details.personCount', { count: myDebts.length })} {formatBase(myDebts.reduce((s, d) => s + d.amount, 0))}
+                      {t('details.youWillPayNames', { names: formatNames(creditorNames), amount: formatGroupAmount(myDebts.reduce((s, d) => s + d.amount, 0)) })}
                     </p>
                   )}
                   {myCredits.length > 0 && (
                     <p className="text-sm text-green-600 dark:text-green-400">
-                      {t('details.personOwesCount', { count: myCredits.length })} {t('details.you')} {formatBase(myCredits.reduce((s, d) => s + d.amount, 0))}
+                      {t('details.namesWillPayYou', { names: formatNames(debtorNames), amount: formatGroupAmount(myCredits.reduce((s, d) => s + d.amount, 0)) })}
                     </p>
                   )}
                   {myDebts.length === 0 && myCredits.length === 0 && (
@@ -948,57 +961,6 @@ export default function GroupDetailPage() {
               </div>
             );
           })()}
-          {debts && debts.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('details.suggestedSettlements')}</h3>
-              {debts.map((d, i) => {
-                const isCurrentUserDebtor = currentUser?.uid === d.fromUid;
-                const isCurrentUserCreditor = currentUser?.uid === d.toUid;
-                const paymentVpa = buildUpiVpa(d.toUpiId, d.toPhoneNumber, d.toCountryCode);
-                const canPayUpi = isCurrentUserDebtor && paymentVpa;
-                const fromFirstName = d.fromName.split(" ")[0] || d.fromName;
-                const toFirstName = d.toName.split(" ")[0] || d.toName;
-                return (
-                  <div key={`${d.fromUid}-${d.toUid}`} className={`flex items-center gap-3 rounded-2xl border p-4 flex-wrap sm:flex-nowrap ${isCurrentUserDebtor ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : isCurrentUserCreditor ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"}`}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-900 dark:text-slate-100">
-                        {isCurrentUserDebtor ? (
-                          <><span className="font-semibold text-red-600 dark:text-red-400">{t('details.youOwe')}</span> <span className="font-medium">{toFirstName}</span></>
-                        ) : isCurrentUserCreditor ? (
-                          <><span className="font-medium">{fromFirstName}</span> <span className="font-semibold text-green-600 dark:text-green-400">{t('details.owesYou')}</span></>
-                        ) : (
-                          <><span className="font-medium">{fromFirstName}</span> {t('details.owesYou')} <span className="font-medium">{toFirstName}</span></>
-                        )}
-                      </p>
-                      <p className={`text-lg font-bold ${isCurrentUserDebtor ? "text-red-600 dark:text-red-400" : isCurrentUserCreditor ? "text-green-600 dark:text-green-400" : "text-trevio-600 dark:text-trevio-400"}`}>{formatBase(d.amount)}</p>
-                      {paymentVpa && isCurrentUserDebtor && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t('details.payTo', { vpa: paymentVpa })}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      {canPayUpi && (
-                        <button
-                          onClick={() => handleUpiPay(d.toUpiId, d.toPhoneNumber, d.toCountryCode, d.amount, t('details.upiPaymentNote', { name: groupInfo?.name || t('details.settlement') }))}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white hover:bg-trevio-700"
-                        >
-                          <Smartphone className="h-4 w-4" />
-                          Pay via UPI
-                        </button>
-                      )}
-                      <button
-                        onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
-                        disabled={settleMutation.isPending}
-                        className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
-                      >
-                        {t('details.markSettled')}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {debts && debts.length === 0 && (
             <div className="flex flex-col items-center py-12 text-center">
               <Check className="h-12 w-12 text-green-500" />
@@ -1006,44 +968,126 @@ export default function GroupDetailPage() {
             </div>
           )}
 
-          {members && members.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('details.memberBalances')}</h3>
-              {members.map((m) => {
-                const isMe = currentUser?.uid === m.uid;
-                return (
-                <Link key={m.uid} href={`/users/${m.uid}`} className={`flex items-center gap-3 rounded-2xl border p-3 md:p-4 md:gap-4 transition hover:shadow-sm ${isMe ? "border-trevio-300 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-trevio-300 dark:hover:border-trevio-700"}`}>
-                  <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-8 w-8 md:h-10 md:w-10" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                      {m.displayName}
-                      {isMe && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">{tcommon('youLabel')}</span>}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
+          {debts && debts.length > 0 && members && members.length > 0 && (() => {
+            const uid = currentUser?.uid;
+            // My debts (I will pay someone)
+            const myDebtsList = debts.filter((d) => d.fromUid === uid);
+            // My credits (someone will pay me)
+            const myCreditsList = debts.filter((d) => d.toUid === uid);
+            // Other debts (not involving me) — admin can settle these
+            const otherDebts = debts.filter((d) => d.fromUid !== uid && d.toUid !== uid);
+            // All members sorted by outstanding balance
+            const sortedMembers = [...members].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+            const unsettledCount = sortedMembers.filter(m => Math.abs(m.balance) > 0.01).length;
+            const settledCount = sortedMembers.length - unsettledCount;
+
+            return (
+              <div className="space-y-6">
+                {/* Section 1: You will pay */}
+                {myDebtsList.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-red-500" />
+                      <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">{t('details.youWillPay')}</h3>
+                      <span className="text-xs text-red-400 dark:text-red-500">{formatGroupAmount(myDebtsList.reduce((s, d) => s + d.amount, 0))}</span>
+                    </div>
+                    {myDebtsList.map((d) => {
+                      const paymentVpa = buildUpiVpa(d.toUpiId, d.toPhoneNumber, d.toCountryCode);
+                      const toMember = members.find(m => m.uid === d.toUid);
+                      return (
+                        <div key={`pay-${d.fromUid}-${d.toUid}`} className="flex items-center gap-3 rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+                          <Avatar photoURL={toMember?.photoURL} displayName={d.toName} className="h-10 w-10" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">{t('details.youWillPayName', { name: d.toName.split(" ")[0] || d.toName })}</p>
+                            <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatGroupAmount(d.amount)}</p>
+                            {paymentVpa && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t('details.payTo', { vpa: paymentVpa })}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {paymentVpa && (
+                              <button
+                                onClick={() => handleUpiPay(d.toUpiId, d.toPhoneNumber, d.toCountryCode, d.amount, t('details.upiPaymentNote', { name: groupInfo?.name || t('details.settlement') }))}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white hover:bg-trevio-700"
+                              >
+                                <Smartphone className="h-4 w-4" />
+                                UPI
+                              </button>
+                            )}
+                            <button
+                              onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
+                              disabled={settleMutation.isPending}
+                              className="rounded-xl border border-red-300 dark:border-red-700 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+                            >
+                              {t('details.paidByYou')}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {m.status === "pending" ? (
-                    <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      <Clock className="h-3 w-3" />
-                      {t('details.statusPending')}
-                    </span>
-                  ) : !isHousehold && (
-                    m.balance > 0.01 ? (
-                      <span className="rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-1 text-sm font-semibold text-green-600 dark:text-green-400">
-                        {isMe ? "you'll get" : "gets"} {formatBase(m.balance)}
-                      </span>
-                    ) : m.balance < -0.01 ? (
-                      <span className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-1 text-sm font-semibold text-red-500 dark:text-red-400">
-                        {isMe ? "you'll pay" : "owes"} {formatBase(Math.abs(m.balance))}
-                      </span>
-                    ) : (
-                      <span className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400 dark:text-slate-500">{t('details.statusSettled')}</span>
-                    )
-                  )}
-                </Link>
-                );
-              })}
-            </div>
-          )}
+                )}
+
+                {/* Section 2: You will get */}
+                {myCreditsList.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                      <h3 className="text-sm font-semibold text-green-600 dark:text-green-400">{t('details.youWillGet')}</h3>
+                      <span className="text-xs text-green-500 dark:text-green-600">{formatGroupAmount(myCreditsList.reduce((s, d) => s + d.amount, 0))}</span>
+                    </div>
+                    {myCreditsList.map((d) => {
+                      const fromMember = members.find(m => m.uid === d.fromUid);
+                      return (
+                        <div key={`get-${d.fromUid}-${d.toUid}`} className="flex items-center gap-3 rounded-2xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
+                          <Avatar photoURL={fromMember?.photoURL} displayName={d.fromName} className="h-10 w-10" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">{t('details.nameWillPayYou', { name: d.fromName.split(" ")[0] || d.fromName })}</p>
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatGroupAmount(d.amount)}</p>
+                          </div>
+                          <button
+                            onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
+                            disabled={settleMutation.isPending}
+                            className="rounded-xl border border-green-300 dark:border-green-700 px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-50"
+                          >
+                            {t('details.receivedFromName', { name: d.fromName.split(" ")[0] || d.fromName })}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Section 3: Admin — settle between others */}
+                {isAdmin && otherDebts.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">{t('details.settleBetweenMembers')}</h3>
+                    {otherDebts.map((d) => {
+                      const fromFirst = d.fromName.split(" ")[0] || d.fromName;
+                      const toFirst = d.toName.split(" ")[0] || d.toName;
+                      return (
+                        <div key={`other-${d.fromUid}-${d.toUid}`} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-700 dark:text-slate-300">
+                              <span className="font-medium">{fromFirst}</span>
+                              <span className="text-slate-400 dark:text-slate-500 mx-1">{t('details.willPay')}</span>
+                              <span className="font-medium">{toFirst}</span>
+                            </p>
+                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">{formatGroupAmount(d.amount)}</p>
+                          </div>
+                          <button
+                            onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
+                            disabled={settleMutation.isPending}
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {t('details.paidByName', { name: fromFirst })}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1101,7 +1145,7 @@ export default function GroupDetailPage() {
                         {s.upiRefId && ` · Ref: ${s.upiRefId}`}
                       </p>
                     </div>
-                    <p className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">{formatBase(s.amount)}</p>
+                    <p className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">{formatGroupAmount(s.amount)}</p>
                   </div>
                 );
               })
@@ -1183,6 +1227,7 @@ export default function GroupDetailPage() {
             <AnalyticsDashboard
               groupId={groupId}
               groupName={groupInfo?.name || t('details.defaultGroupName')}
+              groupCurrency={groupCurrency}
               expenses={convertedExpenses}
               members={members}
             />
@@ -1198,7 +1243,7 @@ export default function GroupDetailPage() {
       )}
 
       {tab === "trip" && groupInfo?.template === "trip" && (
-        <TripView groupId={groupId} members={members || []} />
+        <TripView groupId={groupId} groupCurrency={groupCurrency} members={members || []} />
       )}
 
       {tab === "members" && (
@@ -1324,7 +1369,7 @@ export default function GroupDetailPage() {
                       <Avatar photoURL={m.photoURL} displayName={m.displayName} className="h-8 w-8 md:h-10 md:w-10" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.displayName}{currentUser?.uid === m.uid && <span className="ml-2 text-xs font-normal text-trevio-600 dark:text-trevio-400">{tcommon('youLabel')}</span>}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>
+                        {!m.isOffline && m.username && <p className="text-xs text-slate-500 dark:text-slate-400">@{m.username}</p>}
                       </div>
                       {isHousehold ? (
                         <span className="rounded-lg bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">{t('details.member')}</span>

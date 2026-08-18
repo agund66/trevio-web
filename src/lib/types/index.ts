@@ -21,6 +21,10 @@ export interface User {
   phoneNumber?: string;
   countryCode?: string;
   timezone?: string;
+  karmaScore?: number;
+  karmaTier?: string;
+  karmaPublic?: boolean;
+  karmaUpdatedAt?: number;
 }
 
 export interface Group {
@@ -49,6 +53,7 @@ export interface Member {
   role: string;
   status: string;
   isOffline?: boolean;
+  currency: string;
 }
 
 export interface SplitEntry {
@@ -81,7 +86,8 @@ export interface Expense {
   splits: Record<string, SplitEntry>;
   category: string;
   createdBy: string;
-  exchangeRateToBase?: number;
+  exchangeRateToGroupCurrency: number;
+  amountInGroupCurrency: number;
   date?: number;
   note?: string;
   recurring?: RecurringConfig;
@@ -113,6 +119,10 @@ export interface Settlement {
   upiRefId: string;
   date?: number;
   createdBy?: string;
+  originalAmount?: number;
+  originalCurrency?: string;
+  exchangeRateToGroupCurrency?: number;
+  amountInGroupCurrency?: number;
 }
 
 export interface SimplifiedDebt {
@@ -405,4 +415,85 @@ export interface HouseholdGamification {
   membersLoggedToday: number;
   totalMembers: number;
   insightMessage?: string;
+}
+
+// ─── Trevio Karma / Fairness Score ────────────────────────────────
+
+export interface KarmaComponents {
+  reliabilityScore: number;
+  generosityScore: number;
+  consistencyScore: number;
+  settlementSpeedScore: number;
+  groupHealthScore: number;
+}
+
+export interface KarmaBreakdown {
+  uid: string;
+  score: number;
+  tier: string;
+  components: KarmaComponents;
+  updatedAt: number;
+}
+
+// ─── Smart Nudges (AI fairness insights) ─────────────────────────
+
+export interface Nudge {
+  nudgeId: string;
+  uid: string;
+  type: string;
+  title: string;
+  body: string;
+  groupId: string;
+  groupName: string;
+  severity: "info" | "warning" | "positive";
+  actionLabel: string;
+  actionType: string;
+  actionData: Record<string, string>;
+  createdAt: number;
+  readAt: number;
+  dismissedAt: number;
+}
+
+// ─── Trevio Wrapped / Year-in-Review ─────────────────────────────
+
+export interface WrappedSummary {
+  uid: string;
+  currency?: string;
+  year: number;
+  totalSpent: number;
+  totalPaid: number;
+  totalOwed: number;
+  expenseCount: number;
+  groupCount: number;
+  topCategory: string;
+  topCategoryAmount: number;
+  topGroup: string;
+  topGroupAmount: number;
+  busiestMonth: number;
+  busiestMonthAmount: number;
+  avgExpense: number;
+  largestExpense: number;
+  largestExpenseDesc: string;
+  personality: string;
+  personalityDesc: string;
+  categoryBreakdown: Record<string, number>;
+  monthlyBreakdown: Record<number, number>;
+  groupBreakdown: Record<string, number>;
+  generatedAt: number;
+}
+
+export interface MonthlyRecap {
+  uid: string;
+  currency?: string;
+  year: number;
+  month: number;
+  totalSpent: number;
+  expenseCount: number;
+  topCategory: string;
+  topCategoryAmount: number;
+  topGroup: string;
+  topGroupAmount: number;
+  personality: string;
+  personalityDesc: string;
+  generatedAt: number;
 }
