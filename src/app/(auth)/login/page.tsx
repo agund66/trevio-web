@@ -1,13 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { Check } from "lucide-react";
-import { TrevioIcon } from "@/components/trevio-logo";
 import { TermsDialog } from "@/components/terms-dialog";
 import { PhoneSetupDialog } from "@/components/phone-setup-dialog";
+import { AuroraBackground } from "@/components/login/AuroraBackground";
+import { HeroSection } from "@/components/login/HeroSection";
+import { UseCasesSection } from "@/components/login/UseCasesSection";
+import { FeatureShowcase } from "@/components/login/FeatureShowcase";
+import { StatsBanner } from "@/components/login/StatsBanner";
+import { HowItWorks } from "@/components/login/HowItWorks";
+import { CTASection } from "@/components/login/CTASection";
+import { SplitReceiptMockup } from "@/components/login/mockups/SplitReceiptMockup";
+import { SplitMethodsMockup } from "@/components/login/mockups/SplitMethodsMockup";
+import { SettlementMockup } from "@/components/login/mockups/SettlementMockup";
+import { BudgetInsightsMockup } from "@/components/login/mockups/BudgetInsightsMockup";
 
 export default function LoginPage() {
   const { user, loading, signIn } = useAuth();
@@ -32,14 +41,14 @@ export default function LoginPage() {
     if (loading) return;
     if (user) {
       if (!user.acceptedTnC) {
-        setShowTerms(true);
+        if (!showTerms && !showPhoneSetup) setShowTerms(true);
       } else if (!user.phoneNumber) {
-        setShowPhoneSetup(true);
+        if (!showPhoneSetup) setShowPhoneSetup(true);
       } else {
         redirectToApp();
       }
     }
-  }, [user, loading, redirectToApp]);
+  }, [user, loading, redirectToApp, showTerms, showPhoneSetup]);
 
   const handleSignIn = async () => {
     setSignInError(null);
@@ -56,7 +65,14 @@ export default function LoginPage() {
   const handleTermsAccepted = () => {
     setSigningIn(false);
     setShowTerms(false);
-    // useEffect will detect updated user (from refreshUser) and show phone setup or redirect
+    // refreshUser() in TermsDialog now updates the shared AuthContext,
+    // so the useEffect above will fire and show phone setup or redirect.
+    // But also transition immediately for instant feedback.
+    if (user && !user.phoneNumber) {
+      setShowPhoneSetup(true);
+    } else {
+      redirectToApp();
+    }
   };
 
   const handlePhoneComplete = () => {
@@ -64,52 +80,66 @@ export default function LoginPage() {
     redirectToApp();
   };
 
+  // Memoize chapters to prevent unnecessary re-renders of the carousel
+  const chapters = useMemo(() => [
+    {
+      title: t("story.chapter1Title"),
+      description: t("story.chapter1Desc"),
+      imageSrc: "/login/chapter1.svg",
+      imageAlt: t("story.chapter1Title"),
+      mockup: <SplitReceiptMockup />,
+    },
+    {
+      title: t("story.chapter2Title"),
+      description: t("story.chapter2Desc"),
+      imageSrc: "/login/chapter2.svg",
+      imageAlt: t("story.chapter2Title"),
+      mockup: <SplitMethodsMockup />,
+    },
+    {
+      title: t("story.chapter3Title"),
+      description: t("story.chapter3Desc"),
+      imageSrc: "/login/chapter3.svg",
+      imageAlt: t("story.chapter3Title"),
+      mockup: <SettlementMockup />,
+    },
+    {
+      title: t("story.chapter4Title"),
+      description: t("story.chapter4Desc"),
+      imageSrc: "/login/chapter4.svg",
+      imageAlt: t("story.chapter4Title"),
+      mockup: <BudgetInsightsMockup />,
+    },
+  ], [t]);
+
   return (
     <>
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-trevio-600 to-trevio-800 px-6 py-16">
-        <div className="flex flex-col items-center gap-10">
-          <div className="flex flex-col items-center">
-            <TrevioIcon size={80} />
-            <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">{t("appName")}</h1>
-            <p className="mt-2 text-base text-white/85">{t("tagline")}</p>
-          </div>
+      <AuroraBackground />
 
-          <div className="flex flex-col gap-3">
-            {[
-              t("featureTrack"),
-              t("featureSplit"),
-              t("featureSettle"),
-            ].map((feature) => (
-              <div key={feature} className="flex items-center gap-2.5">
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20">
-                  <Check className="h-3 w-3 text-white" />
-                </div>
-                <span className="text-sm text-white/90">{feature}</span>
-              </div>
-            ))}
-          </div>
+      {/* Full-width single-column scrollable experience */}
+      <div className="relative">
+        {/* Hero — logo, headline, sign-in button, story carousel */}
+        <HeroSection
+          chapters={chapters}
+          signingIn={signingIn}
+          signInError={signInError}
+          onSignIn={handleSignIn}
+        />
 
-          <div className="flex w-full max-w-sm flex-col items-center">
-            {signingIn ? (
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
-            ) : (
-              <button
-                onClick={handleSignIn}
-                className="w-full rounded-2xl bg-white px-6 py-4 text-base font-semibold text-trevio-600 transition hover:bg-trevio-50 active:scale-[0.98]"
-              >
-                {t("continueWithGoogle")}
-              </button>
-            )}
-            {signInError && (
-              <p className="mt-3 rounded-lg bg-red-500/20 px-4 py-2 text-center text-sm text-white">
-                {signInError}
-              </p>
-            )}
-            <p className="mt-4 text-center text-sm text-white/70">
-              {t("agreeToTerms")}
-            </p>
-          </div>
-        </div>
+        {/* Use cases — 6 animated cards */}
+        <UseCasesSection />
+
+        {/* Feature showcase — alternating text + animated mockups */}
+        <FeatureShowcase />
+
+        {/* Stats banner — animated counters */}
+        <StatsBanner />
+
+        {/* How it works — 3-step animated guide */}
+        <HowItWorks />
+
+        {/* Final CTA — login button (for users who scrolled past the hero) */}
+        <CTASection onSignIn={handleSignIn} />
       </div>
 
       <TermsDialog

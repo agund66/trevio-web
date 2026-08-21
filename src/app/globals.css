@@ -39,6 +39,14 @@
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
   }
+  /* Global button press feedback — subtle scale-down on active */
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  /* Exclude elements with their own press animations */
+  button[class*="active:scale"]:active {
+    transform: none;
+  }
 }
 
 @layer base {
@@ -110,5 +118,75 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ─── Login screen: glassmorphism + animations ─────────────────── */
+
+@layer components {
+  .glass {
+    @apply backdrop-blur-xl border border-slate-200/40 dark:border-white/10;
+    background-color: rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+  }
+  .dark .glass {
+    background-color: rgba(15, 23, 42, 0.55);
+  }
+  .glass-strong {
+    @apply backdrop-blur-2xl border border-slate-200/50 dark:border-white/10;
+    background-color: rgba(255, 255, 255, 0.75);
+    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(40px);
+  }
+  .dark .glass-strong {
+    background-color: rgba(15, 23, 42, 0.65);
+  }
+}
+
+@layer utilities {
+  .noise-overlay {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+}
+
+@keyframes aurora-drift-1 {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  33% { transform: translate(15%, -10%) scale(1.1); }
+  66% { transform: translate(-10%, 15%) scale(0.95); }
+}
+@keyframes aurora-drift-2 {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  33% { transform: translate(-20%, 10%) scale(1.05); }
+  66% { transform: translate(10%, -15%) scale(1.1); }
+}
+@keyframes aurora-drift-3 {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  50% { transform: translate(10%, 20%) scale(1.15); }
+}
+@keyframes ken-burns {
+  0% { transform: scale(1) translate(0%, 0%); }
+  100% { transform: scale(1.12) translate(-2%, -2%); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+@keyframes float-up {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

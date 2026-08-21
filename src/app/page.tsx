@@ -15,7 +15,7 @@ export default function Home() {
     if (loading) return;
     if (!user) {
       router.push("/login");
-    } else if (!user.acceptedTnC) {
+    } else if (!user.acceptedTnC || !user.phoneNumber) {
       router.push("/login");
     } else {
       router.push("/dashboard");

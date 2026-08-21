@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
+import { AnimatedDialog } from "./animated-dialog";
 import { X, Download, Share2, Copy, Check } from "lucide-react";
 
 interface GroupQrCodeDialogProps {
@@ -96,12 +97,7 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+    <AnimatedDialog open={open} onClose={onClose} maxWidth="max-w-sm">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('groupQrCode')}</h2>
           <button
@@ -147,7 +143,6 @@ export function GroupQrCodeDialog({ open, onClose, groupName, inviteCode }: Grou
             {t('downloadQr')}
           </button>
         </div>
-      </div>
-    </div>
+    </AnimatedDialog>
   );
 }

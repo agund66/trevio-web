@@ -47,6 +47,11 @@ export class FirebaseSettlementService implements SettlementService {
     const groupDoc = await getDoc(groupRef);
     if (!groupDoc.exists()) throw new Error("Group not found");
 
+    // Reject settlements in archived groups
+    if (groupDoc.data()?.archived === true) {
+      throw new Error("Cannot settle up in an archived group");
+    }
+
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
 

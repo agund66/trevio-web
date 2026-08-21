@@ -1,0 +1,18 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ch2" x1="0" y1="0" x2="800" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#312e81"/>
+      <stop offset="0.5" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a5b4fc"/>
+    </linearGradient>
+    <radialGradient id="ch2glow" cx="0.7" cy="0.2" r="0.5">
+      <stop stop-color="#818cf8" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#818cf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#ch2)"/>
+  <rect width="800" height="600" fill="url(#ch2glow)"/>
+  <circle cx="150" cy="200" r="100" fill="#ffffff" fill-opacity="0.08"/>
+  <circle cx="650" cy="400" r="140" fill="#ffffff" fill-opacity="0.06"/>
+  <circle cx="400" cy="350" r="180" fill="#ffffff" fill-opacity="0.04"/>
+</svg>

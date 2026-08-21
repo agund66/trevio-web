@@ -1,11 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, createElement, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useServices } from "@/lib/services/service-provider";
 import type { User } from "@/lib/types";
 
-export function useAuth() {
+interface AuthContextValue {
+  user: User | null;
+  uid: string | null;
+  loading: boolean;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const { auth } = useServices();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -14,8 +25,8 @@ export function useAuth() {
   const signInInProgress = useRef(false);
 
   useEffect(() => {
-    auth.handleRedirectResult().then(async (uid) => {
-      if (uid) {
+    auth.handleRedirectResult().then(async (resultUid) => {
+      if (resultUid) {
         const currentUser = await auth.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
@@ -55,8 +66,6 @@ export function useAuth() {
         setUid(newUid);
         setLoading(false);
       }
-      // If newUid is "", the redirect is in progress — page will navigate away.
-      // handleRedirectResult will process the result when page reloads.
     } catch (error) {
       console.error("[Trevio] signIn error:", error);
       setLoading(false);
@@ -81,6 +90,17 @@ export function useAuth() {
     router.push("/login");
   }, [auth, router]);
 
-  return { user, uid, loading, signIn, signOut, refreshUser };
+  return createElement(
+    AuthContext.Provider,
+    { value: { user, uid, loading, signIn, signOut, refreshUser } },
+    children
+  );
 }
 
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
+}

@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (!user) return null;
 
@@ -192,7 +193,7 @@ export default function ProfilePage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left column — identity & settings */}
+          {/* Left column — identity & account info */}
           <div className="space-y-4">
             <div className="flex flex-col items-center rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
               <Avatar photoURL={user.photoURL} displayName={user.displayName} className="h-24 w-24" textClassName="text-3xl" />
@@ -201,8 +202,25 @@ export default function ProfilePage() {
               <p className="text-xs text-slate-400 dark:text-slate-500">{user.email}</p>
             </div>
 
-            {/* Trevio Karma card */}
-            <KarmaCard />
+            {/* Profile info rows */}
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+              <ProfileRow label={t("fields.username")} value={`@${user.username}`} />
+              <ProfileRow label={t("fields.email")} value={user.email} />
+              <ProfileRow
+                label={t("fields.mobileNumber")}
+                value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : tc("status.notSet")}
+                isNotSet={!hasPhone}
+                action={!hasPhone ? { label: tc("actions.add"), onClick: startEdit } : undefined}
+              />
+              {userIsInIndia && (
+                <ProfileRow
+                  label={t("fields.upiId")}
+                  value={hasUpiId ? user.upiId! : tc("status.notSet")}
+                  isNotSet={!hasUpiId}
+                  action={!hasUpiId ? { label: tc("actions.add"), onClick: startEdit } : undefined}
+                />
+              )}
+            </div>
 
             {/* Payment info card — UPI is India-specific, only show for India */}
             {userIsInIndia && (
@@ -235,6 +253,12 @@ export default function ProfilePage() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Right column — karma, preferences & actions */}
+          <div className="space-y-4">
+            {/* Trevio Karma card */}
+            <KarmaCard />
 
             {/* Appearance */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
@@ -263,39 +287,14 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Right column — actions */}
-          <div className="space-y-4">
-            {/* Profile info rows */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-              <ProfileRow label={t("fields.username")} value={`@${user.username}`} />
-              <ProfileRow label={t("fields.email")} value={user.email} />
-              <ProfileRow
-                label={t("fields.mobileNumber")}
-                value={hasPhone ? `${country.dialCode} ${user.phoneNumber}` : tc("status.notSet")}
-                isNotSet={!hasPhone}
-                action={!hasPhone ? { label: tc("actions.add"), onClick: startEdit } : undefined}
-              />
-              {userIsInIndia && (
-                <ProfileRow
-                  label={t("fields.upiId")}
-                  value={hasUpiId ? user.upiId! : tc("status.notSet")}
-                  isNotSet={!hasUpiId}
-                  action={!hasUpiId ? { label: tc("actions.add"), onClick: startEdit } : undefined}
-                />
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <Trash2 className="h-4 w-4" />
-                {t("deleteAccount.button")}
-              </button>
-            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <Trash2 className="h-4 w-4" />
+              {t("deleteAccount.button")}
+            </button>
           </div>
         </div>
       )}
@@ -312,9 +311,17 @@ export default function ProfilePage() {
             <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
               {t("deleteAccount.confirm")}
             </p>
+            {deleteError && (
+              <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+                <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteError(null);
+                }}
                 disabled={deleting}
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
               >
@@ -323,13 +330,18 @@ export default function ProfilePage() {
               <button
                 onClick={async () => {
                   setDeleting(true);
+                  setDeleteError(null);
                   try {
                     await userService.deleteAccount();
                     await signOut();
                   } catch (e) {
-                    setError((e as Error).message);
+                    const err = e as { code?: string; message?: string };
+                    if (err?.code?.includes("requires-recent-login")) {
+                      setDeleteError(t("deleteAccount.requiresRecentLogin"));
+                    } else {
+                      setDeleteError(err?.message || "Failed to delete account");
+                    }
                     setDeleting(false);
-                    setShowDeleteConfirm(false);
                   }
                 }}
                 disabled={deleting}

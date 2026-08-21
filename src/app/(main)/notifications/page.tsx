@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useNotificationPermission } from "@/lib/hooks/use-fcm-notifications";
@@ -10,11 +11,13 @@ import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/app";
 import { LoadMoreButton } from "@/components/load-more-button";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { Bell, AlertCircle, Megaphone, AlertTriangle, Wrench, Info, ChevronDown, ChevronUp, Check, X, UserPlus } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/date";
+import { staggerContainer, staggerItem } from "@/lib/utils/animations";
 import type { BroadcastMessage, BroadcastPriority } from "@/lib/types";
 
 const broadcastIcon: Record<BroadcastPriority, React.ComponentType<{ className?: string }>> = {
@@ -131,6 +134,7 @@ export default function NotificationsPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => queryClient.invalidateQueries({ queryKey: ["notifications"] })}>
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
@@ -163,7 +167,7 @@ export default function NotificationsPage() {
           {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}
         </div>
       ) : (
-        <div className="space-y-2">
+        <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-2">
           {/* Active broadcasts */}
           {activeBroadcasts.map((b) => {
             const Icon = broadcastIcon[b.priority];
@@ -174,8 +178,9 @@ export default function NotificationsPage() {
               ALLOWED_ATTR: ["href", "target", "style", "class"],
             });
             return (
-              <div
+              <motion.div
                 key={b.id}
+                variants={staggerItem}
                 className={cn("rounded-2xl border p-4", colors.border, colors.bg)}
               >
                 <div className="flex items-start gap-3">
@@ -204,7 +209,7 @@ export default function NotificationsPage() {
                   </div>
                   <Megaphone className="h-4 w-4 text-slate-300 dark:text-slate-600" />
                 </div>
-              </div>
+              </motion.div>
             );
           })}
 
@@ -218,8 +223,9 @@ export default function NotificationsPage() {
             const isAccepted = invitationStatus === "accepted";
             const isDeclined = invitationStatus === "declined";
             return (
-              <div
+              <motion.div
                 key={n.notificationId}
+                variants={staggerItem}
                 onClick={() => { if (!n.read) markReadMutation.mutate(n.notificationId); }}
                 className={`flex flex-col rounded-2xl border p-4 cursor-pointer transition ${
                   n.read ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" : "border-trevio-200 dark:border-trevio-700 bg-trevio-50 dark:bg-trevio-900/20 hover:border-trevio-300 dark:hover:border-trevio-600"
@@ -291,7 +297,7 @@ export default function NotificationsPage() {
                     </button>
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           })}
 
@@ -309,8 +315,9 @@ export default function NotificationsPage() {
             loading={notificationsPagination.loadingMore}
             hasMore={notificationsPagination.hasMore}
           />
-        </div>
+        </motion.div>
       )}
     </div>
+    </PullToRefresh>
   );
 }

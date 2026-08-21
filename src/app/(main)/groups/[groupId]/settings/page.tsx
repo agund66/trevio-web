@@ -109,7 +109,7 @@ export default function GroupSettingsPage() {
     mutationFn: () => group.deleteGroup(groupId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      router.push("/dashboard");
+      router.push("/groups");
     },
     onError: (e: Error) => { setError(e.message); },
   });
@@ -118,7 +118,7 @@ export default function GroupSettingsPage() {
     mutationFn: () => group.leaveGroup(groupId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      router.push("/dashboard");
+      router.push("/groups");
     },
     onError: (e: Error) => { setError(e.message); },
   });

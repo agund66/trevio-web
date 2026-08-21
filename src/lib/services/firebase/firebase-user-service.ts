@@ -69,7 +69,14 @@ export class FirebaseUserService implements UserService {
       updatedAt: Date.now(),
     });
 
-    await this.syncUserProfileToGroups();
+    // Sync profile changes to group member docs. This is a secondary
+    // operation — if it fails (e.g. network hiccup, index issue), the
+    // user's profile is already saved. Don't let it block the response.
+    try {
+      await this.syncUserProfileToGroups();
+    } catch (e) {
+      console.error("[Trevio] syncUserProfileToGroups failed (non-fatal):", e);
+    }
   }
 
   async acceptTnC(): Promise<string> {

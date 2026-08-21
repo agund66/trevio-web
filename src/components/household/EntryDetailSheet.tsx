@@ -46,6 +46,7 @@ interface EntryDetailSheetProps {
   onDelete: () => void;
   onClose: () => void;
   userCurrency?: string;
+  isArchived?: boolean;
 }
 
 function memberInfo(members: Member[], uid: string): Member | undefined {
@@ -59,6 +60,7 @@ export function EntryDetailSheet({
   onDelete,
   onClose,
   userCurrency = BASE_CURRENCY,
+  isArchived,
 }: EntryDetailSheetProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -228,8 +230,9 @@ export function EntryDetailSheet({
           <div className="flex gap-3">
             <button
               onClick={onEdit}
+              disabled={isArchived}
               aria-label={t('entryDetail.editEntryAria')}
-              className="flex-1 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700"
+              className="flex-1 rounded-xl bg-trevio-600 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="flex items-center justify-center gap-2">
                 <Pencil className="h-4 w-4" />
@@ -238,8 +241,9 @@ export function EntryDetailSheet({
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
+              disabled={isArchived}
               aria-label={t("entryDetail.deleteEntryAria")}
-              className="rounded-xl border-2 border-red-200 dark:border-red-800 px-6 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20"
+              className="rounded-xl border-2 border-red-200 dark:border-red-800 px-6 py-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Trash2 className="h-4 w-4" />
             </button>

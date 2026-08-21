@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { motion } from "framer-motion";
 import { useServices } from "@/lib/services/service-provider";
 import { queryKeys } from "@/lib/constants/query-keys";
 import { Sparkles, TrendingUp, Wallet, Calendar, Tag, Users, ArrowLeft, ArrowRight, RotateCw } from "lucide-react";
 import type { WrappedSummary } from "@/lib/types";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
-import { formatCurrencySymbol } from "@/lib/utils/currency";
+import { formatCurrencySymbol, getCurrencySymbol } from "@/lib/utils/currency";
+import { AnimatedNumber } from "@/components/animated-number";
+import { Confetti } from "@/components/confetti";
+import { staggerContainer, staggerItem } from "@/lib/utils/animations";
 
 const PERSONALITY_KEY_MAP: Record<string, string> = {
   "The Generous One": "generous",
@@ -29,11 +33,21 @@ export default function WrappedPage() {
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [fireConfetti, setFireConfetti] = useState(false);
+  const prevLoadingRef = useRef(true);
 
   const { data: summary, isLoading } = useQuery({
     queryKey: queryKeys.wrappedSummary(year),
     queryFn: () => wrapped.getWrappedSummary(year),
   });
+
+  // Fire confetti when data first loads
+  useEffect(() => {
+    if (prevLoadingRef.current && !isLoading && summary) {
+      setFireConfetti(true);
+    }
+    prevLoadingRef.current = isLoading;
+  }, [isLoading, summary]);
 
   const generateMutation = useMutation({
     mutationFn: () => wrapped.generateWrappedSummary(year),
@@ -69,6 +83,7 @@ export default function WrappedPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-6">
+      <Confetti fire={fireConfetti} onComplete={() => setFireConfetti(false)} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -129,38 +144,54 @@ export default function WrappedPage() {
           </div>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            <motion.div variants={staggerItem}>
             <StatCard
               icon={<Wallet className="h-5 w-5" />}
               label={t("totalSpent")}
-              value={formatAmount(summary.totalSpent, summary.currency || userCurrency)}
+              value={Math.round(summary.totalSpent)}
+              prefix={getCurrencySymbol(summary.currency || userCurrency)}
             />
+            </motion.div>
+            <motion.div variants={staggerItem}>
             <StatCard
               icon={<Calendar className="h-5 w-5" />}
               label={t("expensesLogged")}
-              value={String(summary.expenseCount)}
+              value={summary.expenseCount}
             />
+            </motion.div>
+            <motion.div variants={staggerItem}>
             <StatCard
               icon={<Users className="h-5 w-5" />}
               label={t("groupsActive")}
-              value={String(summary.groupCount)}
+              value={summary.groupCount}
             />
+            </motion.div>
+            <motion.div variants={staggerItem}>
             <StatCard
               icon={<TrendingUp className="h-5 w-5" />}
               label={t("totalPaid")}
-              value={formatAmount(summary.totalPaid, summary.currency || userCurrency)}
+              value={Math.round(summary.totalPaid)}
+              prefix={getCurrencySymbol(summary.currency || userCurrency)}
             />
+            </motion.div>
+            <motion.div variants={staggerItem}>
             <StatCard
               icon={<Sparkles className="h-5 w-5" />}
               label={t("totalFronted")}
-              value={formatAmount(totalFronted, summary.currency || userCurrency)}
+              value={Math.round(totalFronted)}
+              prefix={getCurrencySymbol(summary.currency || userCurrency)}
             />
+            </motion.div>
+            <motion.div variants={staggerItem}>
             <StatCard
               icon={<Tag className="h-5 w-5" />}
               label={t("avgExpense")}
-              value={formatAmount(summary.avgExpense, summary.currency || userCurrency)}
+              value={Math.round(summary.avgExpense)}
+              prefix={getCurrencySymbol(summary.currency || userCurrency)}
             />
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Top highlights */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 md:p-6">
@@ -177,16 +208,17 @@ export default function WrappedPage() {
           {monthlyEntries.length > 0 && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 md:p-6">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("breakdownByMonth")}</h3>
-              <div className="space-y-3">
+              <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-3">
                 {monthlyEntries.map((entry) => (
-                  <BreakdownBar
-                    key={entry.month}
-                    label={t(`months.${entry.month}`)}
-                    amount={entry.amount}
-                    maxAmount={maxMonthAmount}
-                  />
+                  <motion.div key={entry.month} variants={staggerItem}>
+                    <BreakdownBar
+                      label={t(`months.${entry.month}`)}
+                      amount={entry.amount}
+                      maxAmount={maxMonthAmount}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -194,16 +226,17 @@ export default function WrappedPage() {
           {categoryEntries.length > 0 && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 md:p-6">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("breakdownByCategory")}</h3>
-              <div className="space-y-3">
+              <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-3">
                 {categoryEntries.map((entry) => (
-                  <BreakdownBar
-                    key={entry.category}
-                    label={entry.category}
-                    amount={entry.amount}
-                    maxAmount={maxCategoryAmount}
-                  />
+                  <motion.div key={entry.category} variants={staggerItem}>
+                    <BreakdownBar
+                      label={entry.category}
+                      amount={entry.amount}
+                      maxAmount={maxCategoryAmount}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -211,16 +244,17 @@ export default function WrappedPage() {
           {groupEntries.length > 0 && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 md:p-6">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("breakdownByGroup")}</h3>
-              <div className="space-y-3">
+              <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-3">
                 {groupEntries.map((entry) => (
-                  <BreakdownBar
-                    key={entry.group}
-                    label={entry.group}
-                    amount={entry.amount}
-                    maxAmount={maxGroupAmount}
-                  />
+                  <motion.div key={entry.group} variants={staggerItem}>
+                    <BreakdownBar
+                      label={entry.group}
+                      amount={entry.amount}
+                      maxAmount={maxGroupAmount}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -241,7 +275,7 @@ export default function WrappedPage() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatCard({ icon, label, value, prefix }: { icon: React.ReactNode; label: string; value: number; prefix?: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
       <div className="flex items-center gap-2 mb-2">
@@ -250,7 +284,9 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
         </div>
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
       </div>
-      <p className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
+      <p className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100">
+        <AnimatedNumber value={value} prefix={prefix} />
+      </p>
     </div>
   );
 }

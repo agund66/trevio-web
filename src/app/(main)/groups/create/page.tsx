@@ -9,6 +9,7 @@ import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { getCurrencySymbol } from "@/lib/utils/currency";
 import { Plane, Dumbbell, Coffee, Home, Search, UserPlus, X, User, Plus, Wallet } from "lucide-react";
 import { Avatar } from "@/components/avatar";
+import { SuccessCheckmark } from "@/components/success-checkmark";
 import { useTranslations } from "next-intl";
 import type { GroupTemplate, UserSearchResult } from "@/lib/types";
 
@@ -31,6 +32,8 @@ export default function CreateGroupPage() {
   const [offlineName, setOfflineName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
   const [monthlyBudget, setMonthlyBudget] = useState("");
 
   useEffect(() => {
@@ -99,7 +102,8 @@ export default function CreateGroupPage() {
         await group.addOfflineMember(result.groupId, offlineName);
       }
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      router.push("/dashboard");
+      setCreatedGroupId(result.groupId);
+      setShowSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("create.failedToCreate"));
       setCreating(false);
@@ -112,6 +116,23 @@ export default function CreateGroupPage() {
     { id: "casual" as GroupTemplate, label: t("templates.casual"), icon: Coffee, desc: t("templates.casualDesc") },
     { id: "household" as GroupTemplate, label: t("templates.household"), icon: Home, desc: t("templates.householdDesc") },
   ];
+
+  // Navigate after success animation
+  useEffect(() => {
+    if (showSuccess && createdGroupId) {
+      const timer = setTimeout(() => router.push(`/groups/${createdGroupId}`), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess, createdGroupId, router]);
+
+  if (showSuccess) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center">
+        <SuccessCheckmark visible={showSuccess} size={80} />
+        <p className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-100">{t("create.groupCreated")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">

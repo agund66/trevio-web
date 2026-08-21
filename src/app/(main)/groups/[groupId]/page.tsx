@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
@@ -19,6 +20,7 @@ import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 const TripView = dynamic(() => import("@/components/trip-view").then((mod) => mod.TripView));
 import { Avatar } from "@/components/avatar";
 import { LoadMoreButton } from "@/components/load-more-button";
+import { SwipeToDelete } from "@/components/swipe-to-delete";
 import { usePaginatedQuery } from "@/lib/hooks/use-paginated-query";
 import { useGroupInfoSubscription, useGroupBalancesSubscription, useGroupExpensesSubscription } from "@/lib/hooks/use-group-detail-subscription";
 import { DEFAULT_PAGE_SIZE, GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
@@ -564,6 +566,8 @@ export default function GroupDetailPage() {
         ))}
       </div>
 
+      <AnimatePresence mode="wait">
+      <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
       {tab === "today" && isHousehold && (
         <DailyTab
           expenses={convertedExpenses}
@@ -594,6 +598,7 @@ export default function GroupDetailPage() {
           onEditEntry={(entry) => setEditingEntry(entry)}
           onDeleteEntry={(expenseId) => deleteExpenseMutation.mutate(expenseId)}
           isSaving={householdQuickSaving}
+          isArchived={groupInfo?.archived}
         />
       )}
 
@@ -686,6 +691,7 @@ export default function GroupDetailPage() {
             deleteExpenseMutation.mutate(expenseId);
           }}
           onClose={() => setViewingEntry(null)}
+          isArchived={groupInfo?.archived}
         />
       )}
 
@@ -749,14 +755,15 @@ export default function GroupDetailPage() {
               const payerName = payer?.displayName?.split(" ")[0] || t('details.someone');
               const isPayerMe = currentUser?.uid === e.paidBy;
               const myShare = currentUser ? e.splits?.[currentUser.uid]?.amount : undefined;
-              const canEdit = e.createdBy === currentUser?.uid || members?.find((m) => m.uid === currentUser?.uid)?.role === "admin";
+              const canEdit = !groupInfo?.archived && (e.createdBy === currentUser?.uid || members?.find((m) => m.uid === currentUser?.uid)?.role === "admin");
               const cat = categoryConfig[e.category] || categoryConfig.other;
               const CatIcon = cat.icon;
               const hasMyShare = myShare !== undefined && Math.abs(myShare) > 0.01;
               const youLent = isPayerMe && hasMyShare && Math.abs(myShare) < e.amount;
               const youOwe = !isPayerMe && hasMyShare;
               return (
-                <div key={e.expenseId} className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 group">
+                <SwipeToDelete key={e.expenseId} onDelete={() => setDeleteExpenseId(e.expenseId)} enabled={canEdit}>
+                <div className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 md:p-4 md:gap-4 group">
                   <div className={`flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center rounded-xl ${cat.bg}`}>
                     <CatIcon className={`h-5 w-5 ${cat.color}`} />
                   </div>
@@ -830,6 +837,7 @@ export default function GroupDetailPage() {
                     )}
                   </div>
                 </div>
+                </SwipeToDelete>
               );
             })
           ) : expensesData ? (
@@ -1006,7 +1014,8 @@ export default function GroupDetailPage() {
                             {paymentVpa && (
                               <button
                                 onClick={() => handleUpiPay(d.toUpiId, d.toPhoneNumber, d.toCountryCode, d.amount, t('details.upiPaymentNote', { name: groupInfo?.name || t('details.settlement') }))}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white hover:bg-trevio-700"
+                                disabled={groupInfo?.archived}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-4 py-2 text-sm font-semibold text-white hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Smartphone className="h-4 w-4" />
                                 UPI
@@ -1014,8 +1023,8 @@ export default function GroupDetailPage() {
                             )}
                             <button
                               onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
-                              disabled={settleMutation.isPending}
-                              className="rounded-xl border border-red-300 dark:border-red-700 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+                              disabled={settleMutation.isPending || groupInfo?.archived}
+                              className="rounded-xl border border-red-300 dark:border-red-700 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {t('details.paidByYou')}
                             </button>
@@ -1045,8 +1054,8 @@ export default function GroupDetailPage() {
                           </div>
                           <button
                             onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
-                            disabled={settleMutation.isPending}
-                            className="rounded-xl border border-green-300 dark:border-green-700 px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-50"
+                            disabled={settleMutation.isPending || groupInfo?.archived}
+                            className="rounded-xl border border-green-300 dark:border-green-700 px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t('details.receivedFromName', { name: d.fromName.split(" ")[0] || d.fromName })}
                           </button>
@@ -1075,8 +1084,8 @@ export default function GroupDetailPage() {
                           </div>
                           <button
                             onClick={() => settleMutation.mutate({ ...d, method: "cash" })}
-                            disabled={settleMutation.isPending}
-                            className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 whitespace-nowrap"
+                            disabled={settleMutation.isPending || groupInfo?.archived}
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                           >
                             {t('details.paidByName', { name: fromFirst })}
                           </button>
@@ -1253,14 +1262,16 @@ export default function GroupDetailPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setShowAddOffline(!showAddOffline); setShowInvite(false); }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                disabled={groupInfo?.archived}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <User className="h-4 w-4" />
                 Add
               </button>
               <button
                 onClick={() => { setShowInvite(!showInvite); setShowAddOffline(false); }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700"
+                disabled={groupInfo?.archived}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-trevio-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <UserPlus className="h-4 w-4" />
                 Invite
@@ -1407,8 +1418,8 @@ export default function GroupDetailPage() {
           )}
         </div>
       )}
-        </>
-      )}
+      </motion.div>
+      </AnimatePresence>
 
       {groupInfo?.inviteCode && (
         <GroupQrCodeDialog
@@ -1417,6 +1428,8 @@ export default function GroupDetailPage() {
           groupName={groupInfo.name}
           inviteCode={groupInfo.inviteCode}
         />
+      )}
+      </>
       )}
     </div>
   );

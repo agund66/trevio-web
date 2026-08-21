@@ -36,7 +36,8 @@
     "title": "Delete Account?",
     "confirm": "This will permanently delete your account, remove you from all groups, and erase your data. This action cannot be undone.",
     "button": "Delete Account",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "requiresRecentLogin": "For security, please sign out and sign back in, then try deleting your account again."
   },
   "actions": {
     "terms": "Terms",

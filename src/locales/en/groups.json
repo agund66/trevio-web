@@ -20,7 +20,8 @@
     "createButton": "Create Group",
     "creating": "Creating...",
     "failedToCreate": "Failed to create group",
-    "loadingRates": "Loading exchange rates... Please wait a moment and try again."
+    "loadingRates": "Loading exchange rates... Please wait a moment and try again.",
+    "groupCreated": "Group created successfully!"
   },
   "templates": {
     "trip": "Trip",
@@ -64,7 +65,7 @@
     "backToGroup": "Back to group",
     "clearFilters": "Clear filters",
     "qrCode": "QR Code",
-    "total": "total", 
+    "total": "total",
     "deleteExpenseConfirm": "Delete Expense?",
     "removeMemberTitle": "Remove Member",
     "allSettledUp": "All settled up in this group",

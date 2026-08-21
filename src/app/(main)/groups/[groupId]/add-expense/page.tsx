@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { SuccessCheckmark } from "@/components/success-checkmark";
 import { ArrowLeft, Calendar, Plus, Loader2, StickyNote, Repeat, Receipt, TrendingDown, TrendingUp } from "lucide-react";
 import type { SplitType, SplitEntry, Member, RecurringFrequency, ItemizedSplitData, BillItem, TransactionType, Expense } from "@/lib/types";
 import { ItemizedSplitEditor } from "@/components/itemized-split-editor";
@@ -74,6 +75,7 @@ export default function AddExpensePage() {
   const [itemizedData, setItemizedData] = useState<ItemizedSplitData>({ items: [], taxAmount: 0, tipAmount: 0, taxSplitMode: "proportional", tipSplitMode: "proportional" });
   const [transactionType, setTransactionType] = useState<TransactionType>("expense");
   const [error, setError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const { user } = useAuth();
 
   const { data: members } = useQuery({
@@ -251,7 +253,7 @@ export default function AddExpensePage() {
         resetForm();
         setSaveAndAddAnother(false);
       } else {
-        router.push(`/groups/${groupId}`);
+        setShowSuccess(true);
       }
     },
   });
@@ -299,6 +301,23 @@ export default function AddExpensePage() {
       default: return "";
     }
   };
+
+  // Navigate after success animation
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => router.push(`/groups/${groupId}`), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess, router, groupId]);
+
+  if (showSuccess) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center">
+        <SuccessCheckmark visible={showSuccess} size={80} />
+        <p className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-100">{t('add.expenseSaved')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-6">

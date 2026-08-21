@@ -4,17 +4,22 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { motion } from "framer-motion";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
+import { getCurrencySymbol } from "@/lib/utils/currency";
 import { JoinGroupDialog } from "@/components/join-group-dialog";
 import { ListItemSkeleton } from "@/components/skeleton";
+import { AnimatedNumber } from "@/components/animated-number";
 import { Plus, Users, Plane, Dumbbell, Coffee, Home, TrendingUp, TrendingDown, Wallet, ArrowRight, AlertCircle, LogIn } from "lucide-react";
 import { queryKeys } from "@/lib/constants/query-keys";
 import type { GroupTemplate } from "@/lib/types";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Avatar } from "@/components/avatar";
 import { NudgeInsightsCard } from "@/components/nudge-insights-card";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { GROUP_INFO_STALE_TIME } from "@/lib/constants/app";
+import { staggerContainer, staggerItem, fadeInUp } from "@/lib/utils/animations";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
@@ -53,6 +58,7 @@ export default function DashboardPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.groups })}>
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -80,45 +86,45 @@ export default function DashboardPage() {
       </div>
 
       {/* Financial Summary */}
-      <div className="mb-6 md:mb-8">
+      <motion.div variants={staggerContainer(0.08)} initial="hidden" animate="visible" className="mb-6 md:mb-8">
         {/* Net balance hero card */}
-        <div className={`rounded-2xl p-5 md:p-6 mb-3 md:mb-4 ${netBalance >= 0 ? "bg-gradient-to-br from-trevio-500 to-trevio-700" : "bg-gradient-to-br from-red-500 to-red-700"}`}>
+        <motion.div variants={fadeInUp} className={`rounded-2xl p-5 md:p-6 mb-3 md:mb-4 ${netBalance >= 0 ? "bg-gradient-to-br from-trevio-500 to-trevio-700" : "bg-gradient-to-br from-red-500 to-red-700"}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-white/80">{t("stats.netBalance")}</p>
               <p className="mt-1 text-2xl md:text-3xl font-bold text-white">
-                {netBalance >= 0 ? "+" : "-"}{formatOriginal(Math.abs(netBalance), userCurrency)}
+                {netBalance >= 0 ? "+" : "-"}<AnimatedNumber value={Math.abs(netBalance)} prefix={getCurrencySymbol(userCurrency)} />
               </p>
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
               {netBalance >= 0 ? <TrendingUp className="h-6 w-6 text-white" /> : <TrendingDown className="h-6 w-6 text-white" />}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Secondary stats */}
         <div className="grid grid-cols-3 gap-2 md:gap-3">
-          <div className="rounded-xl bg-trevio-50 dark:bg-trevio-900/30 p-3 md:p-4">
+          <motion.div variants={staggerItem} className="rounded-xl bg-trevio-50 dark:bg-trevio-900/30 p-3 md:p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-trevio-600 dark:text-trevio-400" />
               <p className="text-xs font-medium text-trevio-700 dark:text-trevio-300">{t("stats.youllGet")}</p>
             </div>
-            <p className="text-sm md:text-lg font-bold text-trevio-600 dark:text-trevio-400">{formatOriginal(totalOwed, userCurrency)}</p>
-          </div>
-          <div className="rounded-xl bg-red-50 dark:bg-red-900/30 p-3 md:p-4">
+            <p className="text-sm md:text-lg font-bold text-trevio-600 dark:text-trevio-400"><AnimatedNumber value={totalOwed} prefix={getCurrencySymbol(userCurrency)} /></p>
+          </motion.div>
+          <motion.div variants={staggerItem} className="rounded-xl bg-red-50 dark:bg-red-900/30 p-3 md:p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <TrendingDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-red-500 dark:text-red-400" />
               <p className="text-xs font-medium text-red-700 dark:text-red-400">{t("stats.youllPay")}</p>
             </div>
-            <p className="text-sm md:text-lg font-bold text-red-500 dark:text-red-400">{formatOriginal(totalOwing, userCurrency)}</p>
-          </div>
-          <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-3 md:p-4">
+            <p className="text-sm md:text-lg font-bold text-red-500 dark:text-red-400"><AnimatedNumber value={totalOwing} prefix={getCurrencySymbol(userCurrency)} /></p>
+          </motion.div>
+          <motion.div variants={staggerItem} className="rounded-xl bg-slate-100 dark:bg-slate-800 p-3 md:p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <Wallet className="h-3.5 w-3.5 md:h-4 md:w-4 text-slate-600 dark:text-slate-400" />
               <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{t("stats.totalSpent")}</p>
             </div>
-            <p className="text-sm md:text-lg font-bold text-slate-700 dark:text-slate-300">{formatOriginal(totalExpenses, userCurrency)}</p>
-          </div>
+            <p className="text-sm md:text-lg font-bold text-slate-700 dark:text-slate-300"><AnimatedNumber value={totalExpenses} prefix={getCurrencySymbol(userCurrency)} /></p>
+          </motion.div>
         </div>
 
         {/* Active groups count */}
@@ -127,7 +133,7 @@ export default function DashboardPage() {
             {t("stats.acrossGroups", { count: activeGroups })}
           </p>
         )}
-      </div>
+      </motion.div>
 
       {/* Smart Nudges insights */}
       <div className="mb-6 md:mb-8">
@@ -155,7 +161,7 @@ export default function DashboardPage() {
           </button>
         </div>
       ) : groups && groups.length > 0 ? (
-        <div className="space-y-3">
+        <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-3">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("groups.yourGroups")}</h2>
           {groups.map((g) => {
             const Icon = templateIcon(g.template);
@@ -165,8 +171,8 @@ export default function DashboardPage() {
               ? Math.min((g.totalExpenses / g.monthlyBudget) * 100, 100)
               : 0;
             return (
+              <motion.div key={g.groupId} variants={staggerItem}>
               <Link
-                key={g.groupId}
                 href={`/groups/${g.groupId}`}
                 onMouseEnter={() => prefetchGroup(g.groupId)}
                 className={`block rounded-2xl border p-3 md:p-4 transition hover:shadow-sm ${
@@ -237,8 +243,10 @@ export default function DashboardPage() {
                   </div>
                 )}
               </Link>
+              </motion.div>
             );
           })}
+          <motion.div variants={staggerItem}>
           <Link
             href="/groups"
             className="flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -246,7 +254,8 @@ export default function DashboardPage() {
             {t("groups.viewAll")}
             <ArrowRight className="h-4 w-4" />
           </Link>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
@@ -268,5 +277,6 @@ export default function DashboardPage() {
 
       <JoinGroupDialog open={showJoinDialog} onClose={() => setShowJoinDialog(false)} />
     </div>
+    </PullToRefresh>
   );
 }

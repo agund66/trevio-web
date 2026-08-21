@@ -15,7 +15,6 @@ const NETWORK_ERROR_CODES = new Set([
   "unavailable",
   "deadline-exceeded",
   "aborted",
-  "failed-precondition",
   "network-request-failed",
   "internal",
 ]);

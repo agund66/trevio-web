@@ -179,6 +179,8 @@ export class FirebaseGroupService implements GroupService {
     if (!groupDoc.exists()) throw new Error("Group not found");
 
     const groupData = groupDoc.data() as Record<string, unknown>;
+    if (groupData.archived === true) throw new Error("Cannot invite members to an archived group");
+
     const existingMember = await getDoc(doc(groupDoc.ref, "members", toUid));
     if (existingMember.exists()) throw new Error("User is already a member of this group");
 
@@ -725,6 +727,10 @@ export class FirebaseGroupService implements GroupService {
     const groupRef = doc(db, "groups", groupId);
     const groupDoc = await getDoc(groupRef);
     if (!groupDoc.exists()) throw new Error("Group not found");
+
+    if (groupDoc.data()?.archived === true) {
+      throw new Error("Cannot add members to an archived group");
+    }
 
     const callerMemberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!callerMemberDoc.exists() || callerMemberDoc.data()?.status !== "active") {

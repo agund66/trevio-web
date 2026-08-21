@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { useServices } from "@/lib/services/service-provider";
 import { seedHelpArticlesIfEmpty } from "@/lib/support/faq-seed";
 import {
@@ -25,6 +26,7 @@ import {
 import DOMPurify from "dompurify";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { staggerContainer, staggerItem } from "@/lib/utils/animations";
 import type { HelpArticle, SupportCategory } from "@/lib/types";
 
 const CATEGORY_ICONS: Record<
@@ -244,13 +246,13 @@ export default function SupportPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-2">
+        <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-2">
           {filteredArticles.map((article) => {
             const config = CATEGORY_ICONS[article.category] || CATEGORY_ICONS.general;
             const Icon = config.icon;
             return (
+              <motion.div key={article.articleId} variants={staggerItem}>
               <button
-                key={article.articleId}
                 onClick={() => setSelectedArticle(article)}
                 className="flex w-full items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 text-left transition hover:border-trevio-300 dark:hover:border-trevio-600 hover:shadow-sm"
               >
@@ -265,9 +267,10 @@ export default function SupportPage() {
                 </div>
                 <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
               </button>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
     </div>
   );

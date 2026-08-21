@@ -4,13 +4,16 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { motion } from "framer-motion";
 import { useServices } from "@/lib/services/service-provider";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { Plus, Users, Plane, Dumbbell, Coffee, AlertCircle, LogIn } from "lucide-react";
 import type { GroupTemplate } from "@/lib/types";
 import { JoinGroupDialog } from "@/components/join-group-dialog";
 import { ListItemSkeleton } from "@/components/skeleton";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { queryKeys } from "@/lib/constants/query-keys";
+import { staggerContainer, staggerItem } from "@/lib/utils/animations";
 
 export default function GroupsPage() {
   const t = useTranslations("groups");
@@ -34,6 +37,7 @@ export default function GroupsPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.groups })}>
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("list.title")}</h1>
@@ -77,7 +81,7 @@ export default function GroupsPage() {
           </div>
         </div>
       ) : groups && groups.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => {
             const Icon = templateIcon(g.template);
             const balance = g.yourBalance;
@@ -95,10 +99,10 @@ export default function GroupsPage() {
                 : t("list.settledUp");
 
             return (
+              <motion.div key={g.groupId} variants={staggerItem} className="h-full">
               <Link
-                key={g.groupId}
                 href={`/groups/${g.groupId}`}
-                className="group rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 transition hover:border-trevio-300 dark:hover:border-trevio-700 hover:shadow-md"
+                className="group block h-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 transition hover:border-trevio-300 dark:hover:border-trevio-700 hover:shadow-md"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-trevio-50 dark:bg-trevio-900/30 text-trevio-600 dark:text-trevio-400">
@@ -124,9 +128,10 @@ export default function GroupsPage() {
                   {balanceText}
                 </p>
               </Link>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       ) : (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700">
@@ -147,5 +152,6 @@ export default function GroupsPage() {
       )}
       <JoinGroupDialog open={showJoinDialog} onClose={() => setShowJoinDialog(false)} />
     </div>
+    </PullToRefresh>
   );
 }

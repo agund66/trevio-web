@@ -5,6 +5,7 @@ import { X, FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { AnimatedDialog } from "./animated-dialog";
 
 interface TermsDialogProps {
   open: boolean;
@@ -38,8 +39,6 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
     return () => window.removeEventListener("keydown", handleEsc);
   }, [open, onClose, forceAccept]);
 
-  if (!open) return null;
-
   const handleAccept = async () => {
     setAccepting(true);
     setError(null);
@@ -50,17 +49,13 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedToAcceptTerms'));
+    } finally {
       setAccepting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => !forceAccept && onClose()}
-      />
-      <div className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+    <AnimatedDialog open={open} onClose={onClose} disableBackdropClose={forceAccept} maxWidth="max-w-lg">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <FileText className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
@@ -112,8 +107,7 @@ export function TermsDialog({ open, onClose, onAccepted, forceAccept = false }: 
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </AnimatedDialog>
   );
 }
 

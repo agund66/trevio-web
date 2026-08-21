@@ -379,6 +379,14 @@ export class FirebaseExpenseService implements ExpenseService {
     if (!groupId || !expenseId) throw new Error("Group ID and Expense ID are required");
 
     const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+
+    // Reject expense deletion in archived groups
+    if (groupDoc.data()?.archived === true) {
+      throw new Error("Cannot delete expenses in an archived group");
+    }
+
     const expenseRef = doc(groupRef, "expenses", expenseId);
     const expenseDoc = await getDoc(expenseRef);
     if (!expenseDoc.exists()) throw new Error("Expense not found");

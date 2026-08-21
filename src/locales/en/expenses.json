@@ -68,7 +68,8 @@
     "weekly": "Weekly",
     "monthly": "Monthly",
     "totalMustBe100": "Total must be 100% (currently {current}%)",
-    "saveAndAddAnother": "Save & Add Another"
+    "saveAndAddAnother": "Save & Add Another",
+    "expenseSaved": "Expense saved successfully!"
   },
   "delete": {
     "confirm": "Delete this expense?",

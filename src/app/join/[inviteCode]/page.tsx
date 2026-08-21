@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Check, Loader2, AlertCircle, CloudOff } from "lucide-react";
@@ -13,6 +14,7 @@ export default function JoinGroupPage() {
   const router = useRouter();
   const t = useTranslations("common");
   const inviteCode = params.inviteCode as string;
+  const queryClient = useQueryClient();
   const { group, settlement } = useServices();
   const { user, loading } = useAuth();
   const [status, setStatus] = useState<"checking" | "joining" | "joined" | "error" | "claim">("checking");
@@ -47,6 +49,7 @@ export default function JoinGroupPage() {
       try {
         const result = await group.joinGroupViaCode(inviteCode);
         try { sessionStorage.removeItem("pendingInviteCode"); } catch {}
+        queryClient.invalidateQueries({ queryKey: ["groups"] });
         setGroupId(result.groupId);
         try {
           const members = await settlement.getGroupBalances(result.groupId);
@@ -56,11 +59,11 @@ export default function JoinGroupPage() {
             setStatus("claim");
           } else {
             setStatus("joined");
-            setTimeout(() => router.push("/dashboard"), 1500);
+            setTimeout(() => router.push(`/groups/${result.groupId}`), 1500);
           }
         } catch {
           setStatus("joined");
-          setTimeout(() => router.push("/dashboard"), 1500);
+          setTimeout(() => router.push(`/groups/${result.groupId}`), 1500);
         }
       } catch (e) {
         setErrorMsg(e instanceof Error ? e.message : t('failedToJoinGroup'));
@@ -68,7 +71,7 @@ export default function JoinGroupPage() {
       }
     };
     join();
-  }, [user, loading, inviteCode, group, settlement, router, t]);
+  }, [user, loading, inviteCode, group, settlement, router, t, queryClient]);
 
   const handleClaim = async (memberDocId: string) => {
     if (!groupId) return;
@@ -78,7 +81,7 @@ export default function JoinGroupPage() {
       await group.claimOfflineMember(groupId, memberDocId);
       setClaimed(true);
       setClaiming(false);
-      setTimeout(() => router.push("/dashboard"), 1500);
+      setTimeout(() => router.push(`/groups/${groupId}`), 1500);
     } catch (e) {
       setClaimError(e instanceof Error ? e.message : t('failedToClaimProfile'));
       setClaiming(false);
@@ -88,7 +91,7 @@ export default function JoinGroupPage() {
   const skipClaim = () => {
     setClaimableMembers([]);
     setStatus("joined");
-    setTimeout(() => router.push("/dashboard"), 1500);
+    setTimeout(() => router.push(`/groups/${groupId}`), 1500);
   };
 
   return (

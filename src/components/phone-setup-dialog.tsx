@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { getCurrencyForCountry, getTimezoneForCountry, validatePhoneNumber } from "@/lib/utils";
 import { DEFAULT_COUNTRY_CODE } from "@/lib/constants/countries";
 import { CountryPhoneInput } from "@/components/country-phone-input";
+import { AnimatedDialog } from "./animated-dialog";
 
 interface PhoneSetupDialogProps {
   open: boolean;
@@ -33,8 +34,6 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
       setTouched(false);
     }
   }, [open, user]);
-
-  if (!open) return null;
 
   const validation = validatePhoneNumber(phoneNumber, countryCode);
   const isIndiaSelected = countryCode === "IN";
@@ -66,14 +65,13 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
       onComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("failedToSave"));
+    } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+    <AnimatedDialog open={open} onClose={() => {}} disableBackdropClose maxWidth="max-w-md">
         <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 px-6 py-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
             <Phone className="h-5 w-5 text-trevio-600 dark:text-trevio-400" />
@@ -115,7 +113,6 @@ export function PhoneSetupDialog({ open, onComplete }: PhoneSetupDialogProps) {
             {saving ? tc("actions.saving") : tc("actions.continue")}
           </button>
         </div>
-      </div>
-    </div>
+    </AnimatedDialog>
   );
 }

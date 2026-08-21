@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { motion } from "framer-motion";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { TermsDialog } from "@/components/terms-dialog";
 import { Avatar } from "@/components/avatar";
 import { Shield, FileText, LifeBuoy, LogOut, ChevronRight, Sparkles } from "lucide-react";
-import { useState, type ComponentType } from "react";
+import { type ComponentType } from "react";
+import { staggerContainer, staggerItem } from "@/lib/utils/animations";
 
 type MenuItem = {
   icon: ComponentType<{ className?: string }>;
@@ -20,7 +21,6 @@ export default function MorePage() {
   const t = useTranslations("more");
   const tp = useTranslations("profile");
   const tw = useTranslations("wrapped");
-  const [showTerms, setShowTerms] = useState(false);
 
   if (!user) return null;
 
@@ -36,7 +36,7 @@ export default function MorePage() {
     {
       icon: FileText,
       label: tp("actions.terms"),
-      onClick: () => setShowTerms(true),
+      href: "/terms",
     },
     {
       icon: LifeBuoy,
@@ -63,12 +63,13 @@ export default function MorePage() {
       </Link>
 
       {/* Menu items */}
-      <div className="space-y-2">
+      <motion.div variants={staggerContainer(0.06)} initial="hidden" animate="visible" className="space-y-2">
         {menuItems.map((item, index) => {
           const Icon = item.icon;
-          return item.href ? (
+          return (
+            <motion.div key={index} variants={staggerItem}>
+            {item.href ? (
             <Link
-              key={index}
               href={item.href}
               className="flex items-center gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 transition hover:bg-slate-50 dark:hover:bg-slate-700/50"
             >
@@ -80,7 +81,6 @@ export default function MorePage() {
             </Link>
           ) : (
             <button
-              key={index}
               onClick={item.onClick}
               className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 transition hover:bg-slate-50 dark:hover:bg-slate-700/50"
             >
@@ -90,9 +90,11 @@ export default function MorePage() {
               <span className="flex-1 text-left font-medium text-slate-700 dark:text-slate-200">{item.label}</span>
               <ChevronRight className="h-5 w-5 text-slate-400" />
             </button>
+          )}
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Sign out */}
       <button
@@ -104,8 +106,6 @@ export default function MorePage() {
         </div>
         <span className="flex-1 text-left font-medium text-red-600 dark:text-red-400">{t("signOut")}</span>
       </button>
-
-      <TermsDialog open={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   );
 }

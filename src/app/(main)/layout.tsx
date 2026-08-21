@@ -14,6 +14,7 @@ import { useTheme } from "@/lib/hooks/use-theme";
 import { useFcmNotifications } from "@/lib/hooks/use-fcm-notifications";
 import { useUserGroupsSubscription } from "@/lib/hooks/use-user-groups-subscription";
 import { OfflineBanner } from "@/components/offline-banner";
+import { PageTransition } from "@/components/page-transition";
 import { useTranslations } from "next-intl";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -130,7 +131,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto pb-16 md:pb-0 bg-slate-50 dark:bg-slate-950">
         <OfflineBanner />
-        {children}
+        <PageTransition>{children}</PageTransition>
 
         {/* Bottom navigation - mobile */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">

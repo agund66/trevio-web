@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices } from "@/lib/services/service-provider";
 import { QrScannerDialog } from "@/components/qr-scanner-dialog";
+import { AnimatedDialog } from "./animated-dialog";
 import { X, Loader2, AlertCircle, LogIn, QrCode, CloudOff, Check } from "lucide-react";
 import type { Member } from "@/lib/types";
 
@@ -102,12 +103,7 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => !joining && onClose()}
-      />
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+    <AnimatedDialog open={open} onClose={() => !joining && onClose()} maxWidth="max-w-md">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-trevio-50 dark:bg-trevio-900/30">
@@ -241,13 +237,11 @@ export function JoinGroupDialog({ open, onClose }: JoinGroupDialogProps) {
             </button>
           </div>
         )}
-      </div>
-
       <QrScannerDialog
         open={showScanner}
         onClose={() => setShowScanner(false)}
         onScan={handleScan}
       />
-    </div>
+    </AnimatedDialog>
   );
 }
