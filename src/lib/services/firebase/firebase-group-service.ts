@@ -603,6 +603,10 @@ export class FirebaseGroupService implements GroupService {
     if (!name || name.trim().length === 0) throw new Error("Group name is required");
 
     const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+    if (groupDoc.data()?.archived === true) throw new Error("Cannot edit settings of an archived group");
+
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
     if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can update group settings");
@@ -620,6 +624,10 @@ export class FirebaseGroupService implements GroupService {
     if (!groupId) throw new Error("Group ID is required");
 
     const groupRef = doc(db, "groups", groupId);
+    const groupDoc = await getDoc(groupRef);
+    if (!groupDoc.exists()) throw new Error("Group not found");
+    if (groupDoc.data()?.archived === true) throw new Error("Cannot edit settings of an archived group");
+
     const memberDoc = await getDoc(doc(groupRef, "members", uid));
     if (!memberDoc.exists()) throw new Error("You are not a member of this group");
     if (memberDoc.data()?.role !== "admin") throw new Error("Only group admin can update budget settings");
@@ -892,6 +900,10 @@ export class FirebaseGroupService implements GroupService {
     const groupRef = doc(db, "groups", groupId);
     const groupDoc = await getDoc(groupRef);
     if (!groupDoc.exists()) throw new Error("Group not found");
+
+    if (groupDoc.data()?.archived === true) {
+      throw new Error("Cannot remove members from an archived group");
+    }
 
     const callerDoc = await getDoc(doc(groupRef, "members", callerUid));
     if (!callerDoc.exists() || callerDoc.data()?.role !== "admin") {

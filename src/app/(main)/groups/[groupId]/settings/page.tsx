@@ -67,6 +67,7 @@ export default function GroupSettingsPage() {
   }
 
   const isHousehold = groupInfo?.template === "household";
+  const isArchived = groupInfo?.archived === true;
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -228,7 +229,8 @@ export default function GroupSettingsPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none"
+              disabled={isArchived}
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -238,8 +240,9 @@ export default function GroupSettingsPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
+              disabled={isArchived}
               placeholder={t('details.descriptionPlaceholder')}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:border-trevio-500 focus:outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -263,8 +266,9 @@ export default function GroupSettingsPage() {
                     step="1"
                     value={budget}
                     onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
+                    disabled={isArchived}
                     placeholder={t('create.monthlyBudgetPlaceholder')}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pl-8 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
                 {groupInfo?.monthlyBudget != null && groupInfo.monthlyBudget > 0 && (
@@ -279,8 +283,8 @@ export default function GroupSettingsPage() {
           {/* Single Save button for all fields */}
           <button
             onClick={() => updateMutation.mutate()}
-            disabled={!name.trim() || updateMutation.isPending}
-            className="rounded-xl bg-trevio-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50"
+            disabled={!name.trim() || updateMutation.isPending || isArchived}
+            className="rounded-xl bg-trevio-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-trevio-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {updateMutation.isPending ? t('settings.saving') : t('settings.saveChanges')}
           </button>
@@ -317,7 +321,7 @@ export default function GroupSettingsPage() {
                         roleMutation.mutate({ memberUid: m.uid, role: newRole });
                       }
                     }}
-                    disabled={roleMutation.isPending}
+                    disabled={roleMutation.isPending || isArchived}
                     className={`rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${
                       isMemberAdmin
                         ? "border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"

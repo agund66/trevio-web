@@ -1397,7 +1397,7 @@ export default function GroupDetailPage() {
                           )}
                         </>
                       )}
-                      {isAdmin && m.uid !== currentUser?.uid && m.role !== "admin" && (
+                      {isAdmin && m.uid !== currentUser?.uid && m.role !== "admin" && !groupInfo?.archived && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();
