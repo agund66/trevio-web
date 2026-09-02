@@ -10,11 +10,12 @@ import { useServices } from "@/lib/services/service-provider";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useCurrencyDisplay } from "@/lib/hooks/use-currency-display";
 import { buildUpiVpa } from "@/lib/utils";
-import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, UserX, CloudOff, BarChart3, Plane, Home, CalendarDays, TrendingUp } from "lucide-react";
+import { Plus, ArrowLeft, Wallet, Receipt, Check, Users, Search, UserPlus, Copy, Clock, Share2, Activity as ActivityIcon, Smartphone, Archive, ArchiveRestore, AlertCircle, QrCode, Settings, Download, Pencil, Trash2, StickyNote, Repeat, Utensils, Car, ShoppingBag, Trophy, BedDouble, Calendar, SplitSquareHorizontal, User, UserX, CloudOff, BarChart3, Plane, Home, CalendarDays, TrendingUp, BarChart2 } from "lucide-react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import type { UserSearchResult, Activity, Settlement, SimplifiedDebt, SplitType, Expense, TransactionType } from "@/lib/types";
 import { GroupQrCodeDialog } from "@/components/group-qr-code-dialog";
+import { GroupSummaryDialog } from "@/components/group-summary-dialog";
 import { CardSkeleton } from "@/components/skeleton";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 const TripView = dynamic(() => import("@/components/trip-view").then((mod) => mod.TripView));
@@ -75,6 +76,7 @@ export default function GroupDetailPage() {
   const [shared, setShared] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
   const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>("all");
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export default function GroupDetailPage() {
   const expensesData = { expenses: expensesPagination.items };
   const expensesLoading = expensesPagination.isLoading;
 
-  const { data: members } = useQuery({
+  const { data: members, error: balancesError } = useQuery({
     queryKey: ["balances", groupId],
     queryFn: () => settlement.getGroupBalances(groupId),
   });
@@ -127,6 +129,27 @@ export default function GroupDetailPage() {
     queryKey: ["debts", groupId],
     queryFn: () => settlement.getSimplifiedDebts(groupId),
   });
+
+  // Non-member gate: if the balances read fails with permission-denied,
+  // OR the current user is not in the member list, the user is not a
+  // member of this group (members/expenses are member-only per
+  // firestore.rules; the group doc itself is publicly readable for the
+  // join flow). Show a friendly "not a member" screen instead of group content.
+  const isNotMember = useMemo(() => {
+    if (balancesError) {
+      const code = (balancesError as { code?: string }).code ?? "";
+      const msg = balancesError.message ?? "";
+      if (code.includes("permission-denied") || msg.includes("permission-denied")) return true;
+    }
+    if (members && currentUser && members.length > 0) {
+      // Defensive: loaded members but current user is absent from the active
+      // member list (e.g. pending invitee who hasn't accepted yet).
+      const me = members.find((m) => m.uid === currentUser.uid);
+      if (!me) return true;
+      if (me.status && me.status !== "active") return true;
+    }
+    return false;
+  }, [balancesError, members, currentUser]);
 
   const settleMutation = useMutation({
     mutationFn: (debt: { fromUid: string; toUid: string; amount: number; method: "upi" | "cash" }) =>
@@ -348,6 +371,31 @@ export default function GroupDetailPage() {
     }
   }, [groupInfo?.inviteCode, groupInfo?.name, t]);
 
+  // For Household summary card: paginate through ALL expenses to compute
+  // member contributions. Trip/Turf/Casual don't need this — they use
+  // getSimplifiedDebts directly.
+  const fetchAllExpenses = useCallback(async (): Promise<Expense[]> => {
+    const all: Expense[] = [];
+    let lastId: string | undefined = undefined;
+    // Safety cap to avoid an infinite loop on a misbehaving backend.
+    for (let i = 0; i < 200; i++) {
+      const res = await expense.getGroupExpenses(groupId, 100, lastId);
+      all.push(...res.expenses);
+      if (!res.hasMore || !res.lastExpenseId) break;
+      lastId = res.lastExpenseId;
+    }
+    return all;
+  }, [expense, groupId]);
+
+  const summaryLinkUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/groups/${groupId}`;
+  const summaryDateLabel = useMemo(() => {
+    try {
+      return new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    } catch {
+      return new Date().toISOString().slice(0, 10);
+    }
+  }, []);
+
   const buildUpiLink = (upiId: string, phoneNumber: string, countryCode: string, amount: number, note: string) => {
     const vpa = buildUpiVpa(upiId, phoneNumber, countryCode);
     if (!vpa) return null;
@@ -448,6 +496,22 @@ export default function GroupDetailPage() {
             </button>
           </div>
         </div>
+      ) : isNotMember ? (
+        <div className="flex min-h-[50vh] items-center justify-center text-center">
+          <div className="max-w-md">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+              <AlertCircle className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-100">{t('details.notMemberTitle')}</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('details.notMemberBody')}</p>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-trevio-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-trevio-700"
+            >
+              {t('details.goToDashboard')}
+            </button>
+          </div>
+        </div>
       ) : (
         <>
         {actionError && (
@@ -533,6 +597,14 @@ export default function GroupDetailPage() {
             </button>
           </>
         )}
+        <button
+          onClick={() => setShowSummaryDialog(true)}
+          disabled={!members}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <BarChart2 className="h-3 w-3" />
+          {t('details.shareSummary')}
+        </button>
       </div>
 
       <div className="flex gap-2 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
@@ -1427,6 +1499,19 @@ export default function GroupDetailPage() {
           onClose={() => setShowQrDialog(false)}
           groupName={groupInfo.name}
           inviteCode={groupInfo.inviteCode}
+        />
+      )}
+      {groupInfo && members && (
+        <GroupSummaryDialog
+          open={showSummaryDialog}
+          onClose={() => setShowSummaryDialog(false)}
+          groupInfo={groupInfo}
+          members={members}
+          debts={debts ?? []}
+          formatAmount={formatGroupAmount}
+          dateLabel={summaryDateLabel}
+          linkUrl={summaryLinkUrl}
+          fetchAllExpenses={isHousehold ? fetchAllExpenses : undefined}
         />
       )}
       </>
